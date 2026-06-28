@@ -144,10 +144,12 @@ class TestPostgresExactDuplicates:
         )
         assert pg_client.get(f"/api/companies/jobs/{second['id']}/duplicate-risk", headers=pg_auth).json()["level"] == "RED"
 
-    def test_same_source_external_id_red(self, pg_client, pg_auth):
+    def test_same_source_external_id_ingest_dedupes(self, pg_client, pg_auth):
         ext = f"ext-{uuid.uuid4().hex[:6]}"
         first = _ingest(pg_client, pg_auth, source="greenhouse_public_get", external_id=ext)
-        assert _generate(pg_client, pg_auth, first["id"]).status_code == 200
+        gen = _generate(pg_client, pg_auth, first["id"])
+        assert gen.status_code == 200
+        app_id = gen.json()["id"]
 
         second = _ingest(
             pg_client,
@@ -157,7 +159,10 @@ class TestPostgresExactDuplicates:
             company="Different Name Same Source ID",
             url=f"https://example.com/pg/source-{ext}",
         )
-        assert pg_client.get(f"/api/companies/jobs/{second['id']}/duplicate-risk", headers=pg_auth).json()["level"] == "RED"
+        assert second["id"] == first["id"]
+        gen_again = _generate(pg_client, pg_auth, second["id"])
+        assert gen_again.status_code == 200
+        assert gen_again.json()["id"] == app_id
 
     def test_unrelated_ledger_does_not_affect_exact_url(self, pg_client, pg_auth):
         noise = _ingest(pg_client, pg_auth, company="Unrelated Noise Co")
@@ -186,7 +191,7 @@ class TestPostgresExactDuplicates:
         desc = f"Unique PostgreSQL fingerprint test description {uuid.uuid4().hex[:8]}"
         co = f"FP Co {uuid.uuid4().hex[:4]}"
         title = "Director of Quality Engineering"
-        first = _ingest(pg_client, pg_auth, company=co, title=title, description_text=desc)
+        first = _ingest(pg_client, pg_auth, company=co, title=title, description_text=desc, location="Remote, US")
         gen = _generate(pg_client, pg_auth, first["id"])
         assert gen.status_code == 200
         pg_client.post(
@@ -201,6 +206,8 @@ class TestPostgresExactDuplicates:
             company=co,
             title=title,
             description_text=desc,
+            location="Hybrid, Boston",
+            external_id=f"fp-b-{uuid.uuid4().hex[:6]}",
             url=f"https://example.com/pg/fp-{uuid.uuid4().hex[:6]}",
         )
         risk = pg_client.get(f"/api/companies/jobs/{second['id']}/duplicate-risk", headers=pg_auth)
