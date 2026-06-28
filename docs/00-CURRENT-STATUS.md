@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-28  
 Branch: `main`  
-Latest tag: `r2.4.0` (pending push)
+Latest tag: `r2.4.0` (`f06a5a9`)
 - **R2.4:** document quality validation, ATS diagnostics, answer sheets, baseline resume hash  
 Baseline checkpoint: `aed228d583e0b6a7760eb6091c82883cda5e5426`  
 Active program: **R2** (see `docs/program/R2-PROGRAM-BOARD.md`)
