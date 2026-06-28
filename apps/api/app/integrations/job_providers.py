@@ -14,6 +14,9 @@ import httpx
 from app.config import settings
 from app.services.config_loader import source_policy
 
+LEVER_DEMO_SLUG = "leverdemo"
+LEVER_API_BASE = "https://api.lever.co/v0/postings"
+
 
 class ConnectorState(str, Enum):
     READY = "READY"
@@ -204,10 +207,25 @@ class LeverProvider(JobProvider):
         slug = params.get("company_slug")
         if not slug:
             raise ValueError("company_slug required")
-        url = f"https://api.lever.co/v0/postings/{slug}"
-        payload = _http_get(url, params={"mode": "json"})
-        if not isinstance(payload, list):
-            raise ValueError(f"Lever API returned unexpected payload for slug '{slug}'")
+        if params.get("demo") or slug == LEVER_DEMO_SLUG:
+            return FetchResult(
+                jobs=self.fixture_jobs(),
+                provenance={"company_slug": slug, "provider": self.provider_id, "demo": True},
+            )
+        base = getattr(settings, "lever_api_base", None) or LEVER_API_BASE
+        url = f"{base.rstrip('/')}/{slug}"
+        try:
+            payload = _http_get(url, params={"mode": "json"})
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise ValueError(f"NO_ACTIVE_BOARD: Lever board '{slug}' was not found.") from exc
+            raise ValueError(f"Lever API error ({exc.response.status_code}) for board '{slug}'.") from exc
+        except Exception as exc:
+            if "unexpected payload" in str(exc).lower():
+                raise
+            raise ValueError(f"Lever fetch failed for board '{slug}': {exc}") from exc
+        if isinstance(payload, str) or not isinstance(payload, list):
+            raise ValueError(f"NO_ACTIVE_BOARD: Lever board '{slug}' returned a non-list response.")
         jobs = []
         for item in payload:
             jobs.append(

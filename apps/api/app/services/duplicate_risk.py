@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Application, ApplicationLedger, DuplicateOverride, Job, WorkflowState
 
-POLICY_VERSION = "r2.1.0"
+POLICY_VERSION = "r2.5.0"
 DEFAULT_CAUTION_DAYS = 180
 DEFAULT_SPACING_DAYS = 14
 MAX_ACTIVE_PER_COMPANY = 2
@@ -123,6 +123,110 @@ def link_job_to_company(db: Session, job: Job) -> None:
     db.add(job)
 
 
+def normalize_application_url(url: str) -> str:
+    return url.rstrip("/").lower()
+
+
+def _canonical_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    return normalize_application_url(url)
+
+
+def _check_global_exact_duplicates(db: Session, job: Job) -> DuplicateRiskResult | None:
+    """Exact-match checks across all ledger rows (not scoped to company only)."""
+    matched: list[int] = []
+    job_url = _canonical_url(job.url)
+
+    if job_url:
+        url_rows = (
+            db.query(ApplicationLedger)
+            .filter(
+                ApplicationLedger.job_id != job.id,
+                ApplicationLedger.application_url.isnot(None),
+            )
+            .all()
+        )
+        for row in url_rows:
+            if _canonical_url(row.application_url) == job_url:
+                matched.append(row.id)
+                return DuplicateRiskResult(
+                    level=RiskLevel.RED,
+                    indicator="Exact duplicate — blocked",
+                    summary="Same application URL was already used.",
+                    reasons=[row.application_url or job.url],
+                    matched_ledger_ids=matched,
+                    can_override=True,
+                )
+
+    if job.ats_job_id:
+        ats_row = (
+            db.query(ApplicationLedger)
+            .filter(
+                ApplicationLedger.ats_job_id == job.ats_job_id,
+                ApplicationLedger.job_id != job.id,
+            )
+            .first()
+        )
+        if ats_row:
+            return DuplicateRiskResult(
+                level=RiskLevel.RED,
+                indicator="Exact duplicate — blocked",
+                summary="Same ATS job ID was already submitted.",
+                reasons=[f"ATS job {job.ats_job_id}"],
+                matched_ledger_ids=[ats_row.id],
+                can_override=True,
+            )
+
+    if job.source and job.external_id:
+        from app.models import Job as JobModel
+
+        source_row = (
+            db.query(ApplicationLedger)
+            .join(JobModel, ApplicationLedger.job_id == JobModel.id)
+            .filter(
+                JobModel.source == job.source,
+                JobModel.external_id == job.external_id,
+                JobModel.id != job.id,
+            )
+            .first()
+        )
+        if source_row:
+            return DuplicateRiskResult(
+                level=RiskLevel.RED,
+                indicator="Exact duplicate — blocked",
+                summary="Same source and external job ID was already used.",
+                reasons=[f"{job.source}:{job.external_id}"],
+                matched_ledger_ids=[source_row.id],
+                can_override=True,
+            )
+
+    if job.requisition_id and job.company_id:
+        req_row = (
+            db.query(ApplicationLedger)
+            .filter(
+                ApplicationLedger.company_id == job.company_id,
+                ApplicationLedger.requisition_id == job.requisition_id,
+                ApplicationLedger.job_id != job.id,
+            )
+            .first()
+        )
+        if req_row:
+            return DuplicateRiskResult(
+                level=RiskLevel.RED,
+                indicator="Exact duplicate — blocked",
+                summary="Same employer requisition ID was already submitted.",
+                reasons=[
+                    f"Requisition {job.requisition_id} submitted "
+                    f"{req_row.submitted_at or req_row.created_at}"
+                ],
+                matched_ledger_ids=[req_row.id],
+                can_override=True,
+            )
+
+    return None
+
+
 def evaluate_duplicate_risk(
     db: Session,
     job: Job,
@@ -152,6 +256,10 @@ def evaluate_duplicate_risk(
             can_override=False,
         )
 
+    global_match = _check_global_exact_duplicates(db, job)
+    if global_match:
+        return global_match
+
     ledger_rows = (
         db.query(ApplicationLedger)
         .filter(
@@ -165,6 +273,7 @@ def evaluate_duplicate_risk(
     now = datetime.utcnow()
     reasons: list[str] = []
     matched: list[int] = []
+    job_url = _canonical_url(job.url)
 
     for row in ledger_rows:
         matched.append(row.id)
@@ -186,7 +295,7 @@ def evaluate_duplicate_risk(
                 matched_ledger_ids=matched,
                 can_override=True,
             )
-        if job.url and row.application_url and row.application_url.rstrip("/") == job.url.rstrip("/"):
+        if job_url and row.application_url and _canonical_url(row.application_url) == job_url:
             return DuplicateRiskResult(
                 level=RiskLevel.RED,
                 indicator="Exact duplicate — blocked",
@@ -282,6 +391,8 @@ def record_ledger_from_application(
             application_url=job.url,
             normalized_title=normalize_title(job.title),
             description_fingerprint=job.description_fingerprint,
+            source=job.source,
+            external_id=job.external_id,
             status=status or application.state,
             submitted_at=application.submitted_at,
             created_at=datetime.utcnow(),

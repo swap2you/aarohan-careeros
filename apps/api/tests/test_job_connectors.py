@@ -89,3 +89,68 @@ def test_unknown_connector_404(client: TestClient, auth_headers):
         json={"use_fixture": True},
     )
     assert response.status_code == 404
+
+
+def test_lever_demo_mode_fixture(client: TestClient, auth_headers):
+    response = client.post(
+        "/api/connectors/lever/run",
+        headers=auth_headers,
+        json={"use_fixture": False, "params": {"company_slug": "leverdemo", "demo": True}},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ingested"] >= 1
+    assert body["provenance"].get("demo") is True
+
+
+def test_lever_invalid_slug_structured_error(client: TestClient, auth_headers):
+    import httpx
+
+    mock_response = httpx.Response(404, request=httpx.Request("GET", "https://api.lever.co/v0/postings/figma"))
+    with patch(
+        "app.integrations.job_providers._http_get",
+        side_effect=httpx.HTTPStatusError("404", request=mock_response.request, response=mock_response),
+    ):
+        response = client.post(
+            "/api/connectors/lever/run",
+            headers=auth_headers,
+            json={"use_fixture": False, "params": {"company_slug": "figma"}},
+        )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ingested"] == 0
+    assert "NO_ACTIVE_BOARD" in body["message"]
+
+
+def test_lever_non_list_response_structured_error(client: TestClient, auth_headers):
+    with patch("app.integrations.job_providers._http_get", return_value={"error": "html page"}):
+        response = client.post(
+            "/api/connectors/lever/run",
+            headers=auth_headers,
+            json={"use_fixture": False, "params": {"company_slug": "some-board"}},
+        )
+    assert response.status_code == 200
+    assert response.json()["ingested"] == 0
+    assert "NO_ACTIVE_BOARD" in response.json()["message"]
+
+
+def test_lever_one_failed_board_does_not_break_fixture(client: TestClient, auth_headers):
+    import httpx
+
+    mock_response = httpx.Response(404, request=httpx.Request("GET", "https://api.lever.co/v0/postings/bad"))
+    with patch(
+        "app.integrations.job_providers._http_get",
+        side_effect=httpx.HTTPStatusError("404", request=mock_response.request, response=mock_response),
+    ):
+        bad = client.post(
+            "/api/connectors/lever/run",
+            headers=auth_headers,
+            json={"use_fixture": False, "params": {"company_slug": "bad-board"}},
+        )
+    assert bad.json()["ingested"] == 0
+    good = client.post(
+        "/api/connectors/lever/run",
+        headers=auth_headers,
+        json={"use_fixture": True},
+    )
+    assert good.json()["ingested"] >= 1

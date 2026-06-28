@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     usajobs_user_email: str = ""
     rss_feed_urls: str = ""
     connector_fixture_mode: bool = False
+    lever_api_base: str = "https://api.lever.co/v0/postings"
 
     @model_validator(mode="after")
     def resolve_runtime_paths(self) -> "Settings":

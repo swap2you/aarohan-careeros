@@ -22,6 +22,7 @@ from app.routers import (
     jobs,
     matching,
     ops,
+    representations,
     validation,
     workflows,
 )
@@ -70,6 +71,7 @@ app.include_router(documents.router, prefix="/api")
 app.include_router(ops.router, prefix="/api")
 app.include_router(integrations.router, prefix="/api")
 app.include_router(workflows.router, prefix="/api")
+app.include_router(representations.router, prefix="/api")
 app.include_router(validation.router, prefix="/api")
 
 

@@ -154,10 +154,23 @@ class Application(Base):
     packet_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     drive_folder_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    submitted_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("application_document_versions.id"), nullable=True
+    )
+    latest_version_number: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     job: Mapped[Job] = relationship(back_populates="application")
     approvals: Mapped[list["ApprovalAction"]] = relationship(back_populates="application")
+    document_versions: Mapped[list["ApplicationDocumentVersion"]] = relationship(
+        back_populates="application",
+        foreign_keys="ApplicationDocumentVersion.application_id",
+    )
+    submitted_version: Mapped["ApplicationDocumentVersion | None"] = relationship(
+        foreign_keys=[submitted_version_id],
+        post_update=True,
+    )
+    timeline_events: Mapped[list["ApplicationTimelineEvent"]] = relationship(back_populates="application")
 
 
 class ApprovalAction(Base):
@@ -339,6 +352,8 @@ class ApplicationLedger(Base):
     normalized_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
     description_fingerprint: Mapped[str | None] = mapped_column(String(128), nullable=True)
     vendor_channel: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(64))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -374,3 +389,81 @@ class DuplicateOverride(Base):
     policy_version: Mapped[str] = mapped_column(String(32))
     matched_records: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ApplicationDocumentVersion(Base):
+    __tablename__ = "application_document_versions"
+    __table_args__ = (UniqueConstraint("application_id", "version_number", name="uq_app_doc_version"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    application_id: Mapped[int] = mapped_column(ForeignKey("applications.id"), index=True)
+    version_number: Mapped[int] = mapped_column(Integer)
+    docx_path: Mapped[str] = mapped_column(String(1024))
+    pdf_path: Mapped[str] = mapped_column(String(1024))
+    checksum_sha256: Mapped[str] = mapped_column(String(64))
+    drive_docx_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    drive_pdf_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    job_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    template_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    model_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    factual_core_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approval_details: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    is_submitted_immutable: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    application: Mapped[Application] = relationship(
+        back_populates="document_versions",
+        foreign_keys=[application_id],
+    )
+
+
+class RepresentationRecord(Base):
+    __tablename__ = "representation_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    vendor_name: Mapped[str] = mapped_column(String(255), index=True)
+    client_company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id"), nullable=True, index=True)
+    client_name: Mapped[str] = mapped_column(String(255))
+    normalized_client: Mapped[str] = mapped_column(String(255), index=True)
+    requisition_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    role_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    submission_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    representation_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    representation_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    recruiter_contact: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    no_agreement_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class RepresentationOverride(Base):
+    __tablename__ = "representation_overrides"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), index=True)
+    representation_id: Mapped[int | None] = mapped_column(ForeignKey("representation_records.id"), nullable=True)
+    reason: Mapped[str] = mapped_column(Text)
+    actor_email: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ApplicationTimelineEvent(Base):
+    __tablename__ = "application_timeline_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    application_id: Mapped[int] = mapped_column(ForeignKey("applications.id"), index=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actor_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    event_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    application: Mapped[Application] = relationship(back_populates="timeline_events")

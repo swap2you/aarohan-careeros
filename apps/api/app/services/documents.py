@@ -10,9 +10,16 @@ from app.services.ai_budget import enforce_budget, record_usage
 from app.services.audit import write_audit
 from app.services.career_vault import public_evidence_statements
 from app.services.document_quality import run_document_quality_report, template_config
+from app.services.document_versions import (
+    allocate_version_number,
+    register_document_version,
+    version_output_dir,
+)
 from app.services.duplicate_risk import RiskLevel, evaluate_duplicate_risk, record_ledger_from_application
 from app.services.factual_core import validate_factual_core
+from app.services.representation import evaluate_representation_risk
 from app.services.resume_builder import build_ats_docx, extract_keywords, load_resume_profile, map_keywords_to_evidence
+from app.services.workflow_timeline import record_timeline_event
 
 
 def _output_dir() -> Path:
@@ -52,6 +59,14 @@ def generate_application_packet(
     if risk.level == RiskLevel.RED and not skip_duplicate_block:
         raise ValueError(f"{risk.indicator}: {risk.summary}")
 
+    rep_risk = evaluate_representation_risk(db, job)
+    if rep_risk.level == RiskLevel.RED and not skip_duplicate_block:
+        raise ValueError(f"{rep_risk.indicator}: {rep_risk.summary}")
+
+    application = job.application or Application(job_id=job.id, latest_version_number=0)
+    db.add(application)
+    db.flush()
+
     job.state = WorkflowState.PACKET_GENERATING.value
     db.add(job)
     db.commit()
@@ -66,13 +81,13 @@ def generate_application_packet(
     keyword_mapping = map_keywords_to_evidence(keywords, evidence)
     missing_warnings = _missing_evidence_warnings(db)
 
+    version_number = allocate_version_number(db, application)
+    output_dir = version_output_dir(_output_dir(), job.id, version_number)
     date_stamp = datetime.utcnow().strftime("%Y%m%d")
     safe_company = "".join(ch if ch.isalnum() else "_" for ch in job.company)[:40]
     safe_role = "".join(ch if ch.isalnum() else "_" for ch in job.title)[:40]
-    output_dir = _output_dir() / f"job_{job.id}"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    docx_path = output_dir / f"{safe_company}_{safe_role}_{resume_profile}_{date_stamp}.docx"
-    pdf_path = output_dir / f"{safe_company}_{safe_role}_{resume_profile}_{date_stamp}.pdf"
+    docx_path = output_dir / f"{safe_company}_{safe_role}_{resume_profile}_v{version_number:02d}_{date_stamp}.docx"
+    pdf_path = output_dir / f"{safe_company}_{safe_role}_{resume_profile}_v{version_number:02d}_{date_stamp}.pdf"
 
     formatting_checks = build_ats_docx(
         output_path=docx_path,
@@ -147,7 +162,21 @@ def generate_application_packet(
         detail = "; ".join(issues) or comparison_msg or "quality validation failed"
         raise ValueError(f"Document quality check failed: {detail}")
 
-    application = job.application or Application(job_id=job.id)
+    cfg = template_config()
+    doc_version = register_document_version(
+        db,
+        application=application,
+        job=job,
+        version_number=version_number,
+        docx_path=docx_path,
+        pdf_path=pdf_path,
+        actor=actor,
+        template_version=cfg.get("template_version"),
+        prompt_version=cfg.get("prompt_version"),
+        model_version=cfg.get("model_version"),
+        factual_core_hash=factual.to_dict().get("hash"),
+        metadata={"change_report": change_report},
+    )
     application.cover_letter = cover_letter
     application.recruiter_note = recruiter_note
     application.fit_analysis = fit_analysis
@@ -160,9 +189,15 @@ def generate_application_packet(
         "keyword_mapping": keyword_mapping,
         "preview_text": fit_analysis + "\n\n" + cover_letter[:1000],
         "duplicate_risk": risk.to_dict(),
+        "representation_risk": rep_risk.to_dict(),
         "factual_core": factual.to_dict(),
         "document_quality": quality,
         "answer_sheet": quality.get("answer_sheet"),
+        "document_version": {
+            "id": doc_version.id,
+            "version_number": doc_version.version_number,
+            "checksum_sha256": doc_version.checksum_sha256,
+        },
     }
     application.state = WorkflowState.PACKET_READY.value
     application.updated_at = datetime.utcnow()
@@ -206,6 +241,25 @@ def generate_application_packet(
 
     record_usage(db, operation="packet_generation", cost_usd=0.5, job_id=job.id)
     record_ledger_from_application(db, application, actor=actor, status=application.state)
+    record_timeline_event(
+        db,
+        application_id=application.id,
+        job_id=job.id,
+        event_type="packet_generated",
+        title="Application packet generated",
+        description=f"Version v{doc_version.version_number:02d} created for {job.title} at {job.company}.",
+        actor_email=actor,
+        metadata={"version_number": doc_version.version_number},
+    )
+    record_timeline_event(
+        db,
+        application_id=application.id,
+        job_id=job.id,
+        event_type="validation_completed",
+        title="Document validation completed",
+        description="ATS diagnostics and factual-core validation passed.",
+        actor_email=actor,
+    )
     write_audit(
         db,
         event_type="packet.generated",
