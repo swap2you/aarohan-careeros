@@ -24,17 +24,14 @@ async function authHeaders(request: import("@playwright/test").APIRequestContext
 
 async function login(page: import("@playwright/test").Page) {
   await page.goto(WEB);
-  const setupHeading = page.getByRole("heading", { name: /First-run administrator setup/ });
-  if (await setupHeading.isVisible().catch(() => false)) {
-    await page.getByLabel(/email/i).fill("e2e@test.local");
-    await page.getByLabel(/password/i).fill("E2eTestPass123!");
-    await page.getByRole("button", { name: /Create administrator|Sign in/i }).click();
-  } else {
-    await page.getByLabel(/email/i).fill("e2e@test.local");
-    await page.getByLabel(/password/i).fill("E2eTestPass123!");
-    await page.getByRole("button", { name: /Sign in/i }).click();
-  }
-  await expect(page.getByRole("navigation")).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("heading", { name: /Sign in|First-run administrator setup/ })).toBeVisible({
+    timeout: 20000,
+  });
+  await page.getByLabel("Email").fill("e2e@test.local");
+  await page.locator('input[type="password"]').fill("E2eTestPass123!");
+  const isSetup = await page.getByRole("heading", { name: /First-run administrator setup/ }).isVisible();
+  await page.getByRole("button", { name: isSetup ? /Create administrator/ : /Login/ }).click();
+  await expect(page.getByRole("heading", { name: /Executive Overview/ })).toBeVisible({ timeout: 20000 });
 }
 
 test.describe("R2.5 manual workflow", () => {
@@ -45,7 +42,7 @@ test.describe("R2.5 manual workflow", () => {
   test("login → jobs list loads", async ({ page }) => {
     await login(page);
     await page.goto(`${WEB}/jobs`);
-    await expect(page.getByRole("heading", { name: /Jobs/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Fresh Jobs|Jobs/i })).toBeVisible();
   });
 
   test("login → applications page loads", async ({ page }) => {

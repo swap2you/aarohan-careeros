@@ -97,6 +97,8 @@ jobs:
         run: npm ci
       - name: Build web
         working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_BASE: http://127.0.0.1:8000
         run: npm run build
       - name: Start API (fixture mode)
         working-directory: apps/api
@@ -108,11 +110,14 @@ jobs:
           GENERATED_ROOT: ${{ github.workspace }}/apps/api/generated
           CONFIG_ROOT: ${{ github.workspace }}/config
           CAREER_VAULT_ROOT: ${{ github.workspace }}/career_vault
+          CORS_ORIGINS: http://127.0.0.1:3000
         run: |
           uvicorn app.main:app --host 127.0.0.1 --port 8000 &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/health && break; sleep 2; done
       - name: Start web
         working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_BASE: http://127.0.0.1:8000
         run: |
           npm run start &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000 && break; sleep 2; done
