@@ -142,11 +142,10 @@ def generate_application_packet(
         keyword_mapping=keyword_mapping,
     )
     if not quality["passed"]:
-        raise ValueError(
-            "Document quality check failed: "
-            + "; ".join(quality["ats_diagnostics"].get("issues", [])[:3])
-            or quality["docx_pdf_comparison"].get("message", "quality validation failed")
-        )
+        issues = quality["ats_diagnostics"].get("issues", [])[:3]
+        comparison_msg = quality.get("docx_pdf_comparison", {}).get("message", "")
+        detail = "; ".join(issues) or comparison_msg or "quality validation failed"
+        raise ValueError(f"Document quality check failed: {detail}")
 
     application = job.application or Application(job_id=job.id)
     application.cover_letter = cover_letter

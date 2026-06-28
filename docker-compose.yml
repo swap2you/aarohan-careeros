@@ -42,8 +42,15 @@ services:
       CAREER_GMAIL_ADDRESS: ${CAREER_GMAIL_ADDRESS:-swapnilpatil.tech@gmail.com}
       ENABLE_EXTERNAL_EMAIL_SEND: ${ENABLE_EXTERNAL_EMAIL_SEND:-false}
       TEST_EMAIL_ALLOWLIST: ${TEST_EMAIL_ALLOWLIST:-}
-      AI_API_KEY: ${AI_API_KEY:-}
+      AI_API_KEY: ${AI_API_KEY:-${OPENAI_API_KEY:-}}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-}
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      JOOBLE_API_KEY: ${JOOBLE_API_KEY:-}
+      USAJOBS_API_KEY: ${USAJOBS_API_KEY:-}
+      USAJOBS_USER_EMAIL: ${USAJOBS_USER_EMAIL:-${USAJOBS_USER_AGENT:-}}
+      RSS_FEED_URLS: ${RSS_FEED_URLS:-}
+      CONNECTOR_FIXTURE_MODE: ${CONNECTOR_FIXTURE_MODE:-false}
     volumes:
       - ./config:/app/config:ro
       - ./career_vault:/app/career_vault:ro

@@ -206,6 +206,8 @@ class LeverProvider(JobProvider):
             raise ValueError("company_slug required")
         url = f"https://api.lever.co/v0/postings/{slug}"
         payload = _http_get(url, params={"mode": "json"})
+        if not isinstance(payload, list):
+            raise ValueError(f"Lever API returned unexpected payload for slug '{slug}'")
         jobs = []
         for item in payload:
             jobs.append(

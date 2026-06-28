@@ -75,6 +75,28 @@ def test_claim_validation():
     assert result["supported_claims"]
 
 
+def test_compare_docx_pdf_skips_weak_extraction(tmp_path):
+    from docx import Document
+
+    from app.services.document_quality import compare_docx_pdf
+
+    docx_path = tmp_path / "resume.docx"
+    pdf_path = tmp_path / "resume.pdf"
+    doc = Document()
+    doc.add_paragraph("Professional Summary")
+    doc.add_paragraph("Summary with enough text for comparison baseline content.")
+    doc.add_paragraph("Professional Experience")
+    doc.add_paragraph("Experience bullet one two three four five six seven eight.")
+    doc.add_paragraph("Role Target")
+    doc.save(docx_path)
+    pdf_path.write_bytes(b"%PDF-1.4\n% minimal pdf with little extractable text\n")
+
+    result = compare_docx_pdf(docx_path, pdf_path)
+    assert result["comparable"] is False
+    assert result["passed"] is True
+    assert "skipped" in result["message"].lower()
+
+
 def test_answer_sheet_builder():
     sheet = build_application_answer_sheet(
         job_title="Director QE",

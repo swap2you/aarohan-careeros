@@ -53,7 +53,15 @@ def run_connector(
                 "ingested": 0,
                 "message": status.message,
             }
-        result = provider.fetch_jobs(**(params or {}))
+        try:
+            result = provider.fetch_jobs(**(params or {}))
+        except ValueError as exc:
+            return {
+                "provider_id": provider_id,
+                "state": status.state.value,
+                "ingested": 0,
+                "message": str(exc),
+            }
 
     ingested = []
     for item in result.jobs:

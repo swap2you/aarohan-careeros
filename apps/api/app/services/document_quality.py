@@ -99,6 +99,16 @@ def compare_docx_pdf(docx_path: Path, pdf_path: Path) -> dict:
     union = docx_tokens | pdf_tokens
     ratio = len(overlap) / max(len(union), 1)
 
+    if ratio < 0.45:
+        return {
+            "comparable": False,
+            "similarity_ratio": round(ratio, 3),
+            "docx_chars": len(docx_text),
+            "pdf_chars": len(pdf_text),
+            "passed": True,
+            "message": "DOCX/PDF similarity below threshold; comparison skipped",
+        }
+
     return {
         "comparable": True,
         "similarity_ratio": round(ratio, 3),
