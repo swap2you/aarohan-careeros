@@ -1,0 +1,15 @@
+{
+  "name": "Aarohan CareerOS",
+  "version": "3.0-build-kit",
+  "status": "mvp_implemented_local_validation_passed",
+  "target_base_salary_usd": 200000,
+  "remote_first": true,
+  "primary_builder": "Cursor",
+  "validators": [
+    "Codex",
+    "Claude Code",
+    "Cowork",
+    "ChatGPT"
+  ],
+  "hermes_required": false
+}

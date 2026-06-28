@@ -1,0 +1,13 @@
+---
+description: Aarohan CareerOS base rule
+alwaysApply: true
+---
+
+Read AGENTS.md and all files under docs/, config/, career_vault/, prompts/, and validation/ before implementation.
+
+Build a production-minded end-to-end system.
+Do not fabricate professional claims.
+Do not commit secrets.
+Do not scrape LinkedIn or Indeed.
+Do not automate final submission.
+Run tests and report actual results.

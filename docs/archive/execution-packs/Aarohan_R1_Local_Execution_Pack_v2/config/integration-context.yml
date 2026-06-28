@@ -1,0 +1,35 @@
+google:
+  project_name: Aarohan CareerOS
+  project_id: aarohan-careeros-500722
+  project_number: "558756512850"
+  dedicated_gmail: swapnilpatil.tech@gmail.com
+  drive_root_folder_id: 1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI
+  oauth_client_json_path: C:\AarohanSecrets\google-oauth-client.json
+  oauth_redirect_uris:
+    - http://localhost:8000/api/integrations/google/callback
+    - http://127.0.0.1:8000/api/integrations/google/callback
+  javascript_origins:
+    - http://localhost:3000
+    - http://127.0.0.1:3000
+  default_scopes:
+    - openid
+    - https://www.googleapis.com/auth/userinfo.email
+    - https://www.googleapis.com/auth/userinfo.profile
+    - https://www.googleapis.com/auth/drive.file
+    - https://www.googleapis.com/auth/gmail.readonly
+  optional_test_email_scope:
+    - https://www.googleapis.com/auth/gmail.send
+
+drive_structure:
+  - 01_Career_Vault
+  - 02_Application_Packets
+  - 03_Interview_Preparation
+  - 04_Consulting
+  - 05_Reports
+  - 99_Archive
+
+test_email_allowlist:
+  - swap2you@gmail.com
+  - patilsaci@gmail.com
+  - sriswapnilpatil@gmail.com
+  - patilswapnilqa@gmail.com

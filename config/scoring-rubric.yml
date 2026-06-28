@@ -1,0 +1,35 @@
+weights:
+  compensation_and_benefits: 25
+  remote_and_location: 20
+  core_technical_fit: 20
+  leadership_scope: 10
+  ai_enabled_qe_alignment: 10
+  stability_and_company_quality: 10
+  evidence_strength: 5
+
+thresholds:
+  reject_below: 65
+  secondary_review_min: 65
+  shortlist_min: 75
+  high_priority_min: 85
+
+salary_policy:
+  target_base_usd: 200000
+  secondary_base_min_usd: 180000
+  reject_if_published_max_below_usd: 170000
+  keep_unknown_salary_if_scope_supports_target: true
+
+location_policy:
+  fully_remote_us: highest
+  remote_with_limited_travel: high
+  harrisburg_area_hybrid: consider
+  northeast_monthly_travel: consider
+  regular_far_hybrid: low
+  mandatory_relocation: reject
+
+risk_policy:
+  penalize_unstable_company: true
+  penalize_title_without_scope: true
+  penalize_evidence_gap: true
+  reward_ai_enhanced_role: true
+  reject_if_fabrication_required: true

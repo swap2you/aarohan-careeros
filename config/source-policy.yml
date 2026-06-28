@@ -1,0 +1,26 @@
+allowed_automated:
+  - greenhouse_public_get
+  - lever_public_get
+  - approved_remote_feeds
+  - company_public_apis
+  - linkedin_saved_alert_emails
+  - indeed_alert_emails
+  - dedicated_recruiter_mailbox
+  - user_forwarded_links
+  - approved_consulting_marketplace_feeds
+
+manual_only:
+  - linkedin_application
+  - indeed_application_without_native_review_mode
+  - google_job_results
+  - company_sites_without_public_api
+  - external_recruiter_messages
+
+prohibited:
+  - linkedin_scraping
+  - indeed_scraping
+  - cookie_reuse
+  - captcha_bypass
+  - mass_auto_apply
+  - unattended_final_submission
+  - automatic_external_messages

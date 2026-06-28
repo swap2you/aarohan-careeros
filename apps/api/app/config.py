@@ -1,0 +1,80 @@
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=(".env.local", ".env"),
+        extra="ignore",
+    )
+
+    app_env: str = "development"
+    app_secret: str = ""
+    database_url: str = ""
+    token_encryption_key: str = ""
+    admin_email: str = ""
+    admin_password: str = ""
+    scheduling_enabled: bool = False
+    enable_scheduled_workflows: bool = False
+    enable_final_application_submission: bool = False
+    enable_external_email_send: bool = False
+
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_drive_folder_id: str = ""
+    google_oauth_redirect_uri: str = "http://localhost:8000/api/integrations/google/callback"
+    google_oauth_client_json_path: str = ""
+    google_cloud_project_id: str = ""
+    google_cloud_project_number: str = ""
+
+    gmail_client_id: str = ""
+    gmail_client_secret: str = ""
+    career_gmail_address: str = ""
+    test_email_allowlist: str = ""
+
+    ai_provider: str = "openrouter"
+    ai_api_key: str = ""
+    ai_monthly_soft_cap_usd: float = 75.0
+    ai_monthly_hard_cap_usd: float = 150.0
+    ai_per_job_packet_cap_usd: float = 3.0
+    ai_per_interview_pack_cap_usd: float = 8.0
+
+    config_root: str = "/app/config"
+    career_vault_root: str = "/app/career_vault"
+    generated_root: str = "/app/generated"
+
+    cors_origins: str = "http://localhost:3000"
+    oauth_fixture_mode: bool = False
+
+    @model_validator(mode="after")
+    def load_google_oauth_from_json(self) -> "Settings":
+        if self.google_client_id and self.google_client_secret:
+            return self
+        json_path = self.google_oauth_client_json_path
+        if not json_path:
+            return self
+        from pathlib import Path
+        import json
+
+        path = Path(json_path)
+        if not path.exists():
+            return self
+        data = json.loads(path.read_text(encoding="utf-8"))
+        web = data.get("web") or data.get("installed") or {}
+        if not self.google_client_id:
+            self.google_client_id = web.get("client_id", "")
+        if not self.google_client_secret:
+            self.google_client_secret = web.get("client_secret", "")
+        redirect_uris = web.get("redirect_uris") or []
+        if redirect_uris and self.google_oauth_redirect_uri == (
+            "http://localhost:8000/api/integrations/google/callback"
+        ):
+            preferred = next(
+                (uri for uri in redirect_uris if "localhost:8000" in uri),
+                redirect_uris[0],
+            )
+            self.google_oauth_redirect_uri = preferred
+        return self
+
+
+settings = Settings()

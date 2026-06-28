@@ -1,0 +1,17 @@
+{
+  "name": "Daily Job Ingestion",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "http://api:8000/api/jobs/ingest/fixture",
+        "method": "POST",
+        "authentication": "genericCredentialType"
+      },
+      "name": "Ingest Fixture Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [400, 300]
+    }
+  ],
+  "connections": {}
+}

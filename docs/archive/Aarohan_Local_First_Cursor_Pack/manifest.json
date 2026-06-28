@@ -1,0 +1,7 @@
+{
+  "name": "Aarohan CareerOS Local-First Cursor Pack",
+  "version": "1.0",
+  "purpose": "Complete local implementation, manual dashboard workflows, secret management, Cursor first review, and second-review handoff",
+  "deployment_enabled": false,
+  "scheduling_enabled_by_default": false
+}

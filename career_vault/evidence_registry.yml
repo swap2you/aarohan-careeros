@@ -1,0 +1,65 @@
+evidence:
+  - id: EDU_BE_ETC
+    category: education
+    statement: Bachelor's degree in Electronics and Telecommunication Engineering with distinction.
+    status: TODO_VERIFY
+    public_use: false
+    verification_needed:
+      - exact institution name
+      - graduation year
+      - official degree wording
+
+  - id: EDU_MS_EE
+    category: education
+    statement: Master of Science in Electrical Engineering, University of Bridgeport, completed in 2011, GPA approximately 3.75.
+    status: PARTIALLY_VERIFIED
+    public_use: true
+    verification_needed:
+      - exact GPA from transcript
+      - graduation month
+
+  - id: PENNDOT_START
+    category: employment
+    statement: Started supporting PennDOT enterprise applications in March 2011 as a .NET developer.
+    status: TODO_VERIFY
+    public_use: false
+    verification_needed:
+      - official employer name
+      - exact start date
+      - approved client wording
+
+  - id: PENNDOT_STACK
+    category: technical
+    statement: Enterprise development experience across .NET, Java, Spring REST APIs, Oracle, DB2, COBOL batch processing, Vue.js, TypeScript, integrations, and data-heavy systems.
+    status: USER_CONFIRMED
+    public_use: true
+
+  - id: ASCENSUS_SDET
+    category: employment
+    statement: Ascensus Sr Principal SDET – Automation Framework Architect (2022 – 2025).
+    status: USER_CONFIRMED
+    public_use: true
+
+  - id: PERSISTENT_PROJECT_LEAD
+    category: employment
+    statement: Persistent Systems Project Lead – QE Platform Architect for Ascensus client (2025 – Present).
+    status: USER_CONFIRMED
+    public_use: true
+
+  - id: TEAM_LEADERSHIP
+    category: leadership
+    statement: Leads four direct team members and provides automation guidance to a broader offshore organization of approximately 20+ engineers.
+    status: USER_CONFIRMED
+    public_use: true
+
+  - id: MULTI_ROLE_DELIVERY
+    category: leadership
+    statement: Performs project leadership, Scrum facilitation, requirements clarification, prioritization, client communication, and delivery coordination in a lean team without dedicated Scrum Master, BA, or PO support.
+    status: USER_CONFIRMED
+    public_use: true
+
+  - id: EXEC_VISIBILITY
+    category: leadership
+    statement: Has strong leadership and executive visibility based on delivered automation and quality outcomes.
+    status: NEEDS_EVIDENCE
+    public_use: false

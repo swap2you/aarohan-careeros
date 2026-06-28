@@ -1,0 +1,32 @@
+project: Aarohan CareerOS
+candidate:
+  target_base_salary_usd: 200000
+  benefits_required: true
+  secondary_compensation_rule:
+    minimum_base_usd: 180000
+    require_total_compensation_above_usd: 200000
+    require_strong_stability: true
+  remote_first: true
+  home_base: Harrisburg, Pennsylvania
+  relocation_now: false
+  limited_travel_or_office: acceptable
+  freshness_preferred_hours: 24
+  freshness_fallback_hours: 72
+  work_authorization_public_statement: TODO_VERIFY
+positioning:
+  primary:
+    - Director of Quality Engineering
+    - Senior Manager of Quality Engineering
+    - Head of Quality Engineering
+    - Quality Engineering Architect
+    - Principal Quality Engineer
+    - Test Platform Architect
+    - QE Transformation Lead
+    - GenAI / LLM Quality Engineering Lead
+    - Agentic AI Quality and Evaluation Lead
+    - Solution Architect — Quality, DevOps, and AI Enablement
+    - Performance Engineering / Reliability Test Lead
+  secondary:
+    - Engineering Manager — Developer Productivity / Quality Platform
+    - AI Workflow Automation Consultant
+    - Fractional Quality Engineering Leader

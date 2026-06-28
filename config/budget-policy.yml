@@ -1,0 +1,19 @@
+runtime_ai:
+  monthly_soft_cap_usd: 75
+  monthly_hard_cap_usd: 150
+  per_job_full_packet_cap_usd: 3
+  per_interview_pack_cap_usd: 8
+  stop_on_hard_cap: true
+  alerts_at_percent: [50, 75, 90, 100]
+
+development:
+  use_existing_subscriptions_first: true
+  premium_model_use:
+    - architecture
+    - security
+    - final resume review
+    - interview pack review
+  low_cost_model_use:
+    - extraction
+    - classification
+    - normalization support
