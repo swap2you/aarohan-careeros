@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Application, ApprovalAction, WorkflowState
 from app.services.audit import write_audit
+from app.services.duplicate_risk import RiskLevel, evaluate_duplicate_risk, record_ledger_from_application
 
 ALLOWED_ACTIONS = {
     "approve": WorkflowState.APPROVED_FOR_SUBMISSION,
@@ -25,6 +26,11 @@ def apply_approval_action(
     if action not in ALLOWED_ACTIONS:
         raise ValueError(f"Unsupported approval action: {action}")
 
+    if action in {"approve", "mark_submitted"}:
+        risk = evaluate_duplicate_risk(db, application.job)
+        if risk.level == RiskLevel.RED:
+            raise ValueError(f"{risk.indicator}: {risk.summary}")
+
     new_state = ALLOWED_ACTIONS[action]
     application.state = new_state.value
     application.updated_at = datetime.utcnow()
@@ -44,6 +50,13 @@ def apply_approval_action(
     db.add(application)
     db.commit()
     db.refresh(application)
+
+    record_ledger_from_application(
+        db,
+        application,
+        actor=actor_email,
+        status=application.state,
+    )
 
     write_audit(
         db,

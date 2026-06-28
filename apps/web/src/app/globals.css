@@ -101,6 +101,10 @@ td {
 .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
 .status { margin-top: 0.75rem; color: #1d4ed8; }
 .error { color: #b91c1c; }
+.risk-green { border-left: 4px solid #16a34a; }
+.risk-amber { border-left: 4px solid #d97706; background: #fffbeb; }
+.risk-red { border-left: 4px solid #dc2626; background: #fef2f2; }
+.mode-disabled { opacity: 0.6; }
 .warn { background: #fff7ed; padding: 0.75rem; border-radius: 0.5rem; }
 .queue-item { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb; }
 

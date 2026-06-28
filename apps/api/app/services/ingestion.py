@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Job, WorkflowState
 from app.services.audit import write_audit
+from app.services.duplicate_risk import description_fingerprint, link_job_to_company
 from app.services.normalization import build_dedupe_key, parse_salary_range
 from app.services.sanitize import html_to_text
 from app.services.sanitize import sanitize_html
@@ -74,8 +75,13 @@ def ingest_job(db: Session, payload: dict, *, actor: str = "system") -> Job:
         dedupe_key=dedupe_key,
         state=WorkflowState.NORMALIZED.value,
         raw_payload=payload,
+        requisition_id=payload.get("requisition_id"),
+        ats_job_id=payload.get("ats_job_id"),
+        description_fingerprint=description_fingerprint(description_text),
     )
     db.add(job)
+    db.flush()
+    link_job_to_company(db, job)
     db.commit()
     db.refresh(job)
 

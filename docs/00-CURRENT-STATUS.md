@@ -2,6 +2,7 @@
 
 Last updated: 2026-06-28  
 Branch: `main`  
+Latest tag: `r2.1.0` (pending push)  
 Baseline checkpoint: `aed228d583e0b6a7760eb6091c82883cda5e5426`  
 Active program: **R2** (see `docs/program/R2-PROGRAM-BOARD.md`)
 
@@ -14,8 +15,10 @@ Local-first CareerOS is operational:
 - Google OAuth: connected with `drive.file` + `gmail.readonly`
 - Drive: app-created root `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`
 - Job ingest (fixture, Greenhouse, Lever), scoring, packet generation
+- **R2.1:** company registry, application ledger, duplicate-risk engine, factual-core validation
 - Approval queue, interviews, consulting, audit log
-- Schedules disabled; external email send disabled; autonomous apply locked (R2)
+- Application modes: Manual and Assisted enabled; Autonomous locked (UI + API)
+- Schedules disabled; external email send disabled
 
 ## Local URLs
 

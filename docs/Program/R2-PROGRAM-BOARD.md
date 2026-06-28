@@ -4,8 +4,8 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED_EXTERNAL`, `BLOCKED_TECHNI
 
 | Release | Status | Commit | Tag | Tests | External blockers | Notes |
 |---|---|---|---|---|---|---|
-| R2.0 Baseline/Governance | DONE | (pending push) | r2.0.0 | gate PASS | | |
-| R2.1 Duplicate Protection | NOT_STARTED | | | | | |
+| R2.0 Baseline/Governance | DONE | 98dae5921668e8b2fed5a8aa84835c61d28943c8 | r2.0.0 | gate PASS | | |
+| R2.1 Duplicate Protection | DONE | (this release) | r2.1.0 | 37 passed, 1 skipped | | ledger + duplicate engine |
 | R2.2 Job Connectors | NOT_STARTED | | | | | |
 | R2.3 Trust/Matching | NOT_STARTED | | | | | |
 | R2.4 Document Quality | NOT_STARTED | | | | | |

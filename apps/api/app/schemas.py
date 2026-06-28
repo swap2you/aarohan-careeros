@@ -27,6 +27,8 @@ class JobIngestRequest(BaseModel):
     description_html: str = ""
     description_text: str | None = None
     posted_at: datetime | str | None = None
+    requisition_id: str | None = None
+    ats_job_id: str | None = None
 
 
 class JobScoreOut(BaseModel):
@@ -72,6 +74,7 @@ class ApplicationOut(BaseModel):
     recruiter_note: str | None
     resume_docx_path: str | None
     resume_pdf_path: str | None
+    packet_metadata: dict | None = None
     submitted_at: datetime | None
 
     model_config = {"from_attributes": True}

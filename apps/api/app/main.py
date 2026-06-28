@@ -13,6 +13,7 @@ from app.routers import (
     applications,
     auth,
     career_vault,
+    companies,
     consulting,
     integrations,
     interviews,
@@ -55,6 +56,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
+app.include_router(companies.router, prefix="/api")
 app.include_router(applications.router, prefix="/api")
 app.include_router(interviews.router, prefix="/api")
 app.include_router(consulting.router, prefix="/api")

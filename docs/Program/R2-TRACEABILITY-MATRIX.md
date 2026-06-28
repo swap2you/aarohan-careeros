@@ -3,8 +3,10 @@
 | Requirement | Release | Implementation | Tests |
 |-------------|---------|----------------|-------|
 | Baseline governance | R2.0 | Program docs, verify gate script | secret_scan, prohibited_scan, pytest, build |
-| Application ledger | R2.1 | companies, ledger, events | unit + API |
-| Duplicate protection | R2.1 | duplicate_risk engine | scenario tests |
+| Application ledger | R2.1 | companies, ledger, events | `test_duplicate_risk.py` |
+| Duplicate protection | R2.1 | duplicate_risk engine | `test_duplicate_risk.py` |
+| Resume factual core | R2.1 | factual_core validator | `test_duplicate_risk.py` |
+| Autonomous mode lock | R2.1 | backend reject + Settings UI | `test_duplicate_risk.py` |
 | Job connectors | R2.2 | provider interface + adapters | contract/fixture tests |
 | Trust/fit scoring | R2.3 | trust + explainability | unit tests |
 | Document quality | R2.4 | vault, templates, validation | extraction tests |

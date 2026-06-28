@@ -9,6 +9,7 @@ const links = [
   ["Shortlist", "/shortlist"],
   ["Approval Queue", "/approvals"],
   ["Applications", "/applications"],
+  ["Company Ledger", "/companies"],
   ["Recruiter Signals", "/recruiter-signals"],
   ["Interviews", "/interviews"],
   ["Consulting", "/consulting"],

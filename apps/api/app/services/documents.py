@@ -9,6 +9,8 @@ from app.models import Application, EvidenceItem, Job, WorkflowState
 from app.services.ai_budget import enforce_budget, record_usage
 from app.services.audit import write_audit
 from app.services.career_vault import public_evidence_statements
+from app.services.duplicate_risk import RiskLevel, evaluate_duplicate_risk, record_ledger_from_application
+from app.services.factual_core import validate_factual_core
 from app.services.resume_builder import build_ats_docx, extract_keywords, load_resume_profile, map_keywords_to_evidence
 
 
@@ -42,8 +44,13 @@ def generate_application_packet(
     *,
     actor: str,
     resume_profile: str = "qe_leadership",
+    skip_duplicate_block: bool = False,
 ) -> Application:
     enforce_budget(db, estimated_cost=0.5, operation="packet_generation")
+    risk = evaluate_duplicate_risk(db, job)
+    if risk.level == RiskLevel.RED and not skip_duplicate_block:
+        raise ValueError(f"{risk.indicator}: {risk.summary}")
+
     job.state = WorkflowState.PACKET_GENERATING.value
     db.add(job)
     db.commit()
@@ -97,6 +104,10 @@ def generate_application_packet(
         "keywords_mapped": list(keyword_mapping.keys())[:20],
         "formatting_checks": formatting_checks,
     }
+    resume_preview = fit_analysis + "\n\n" + "\n".join(evidence)
+    factual = validate_factual_core(db, resume_text=resume_preview)
+    if not factual.consistent:
+        raise ValueError(f"{factual.indicator}: {'; '.join(factual.contradictions)}")
 
     try:
         from weasyprint import HTML
@@ -128,6 +139,8 @@ def generate_application_packet(
         "missing_evidence_warnings": missing_warnings,
         "keyword_mapping": keyword_mapping,
         "preview_text": fit_analysis + "\n\n" + cover_letter[:1000],
+        "duplicate_risk": risk.to_dict(),
+        "factual_core": factual.to_dict(),
     }
     application.state = WorkflowState.PACKET_READY.value
     application.updated_at = datetime.utcnow()
@@ -170,6 +183,7 @@ def generate_application_packet(
             db.refresh(application)
 
     record_usage(db, operation="packet_generation", cost_usd=0.5, job_id=job.id)
+    record_ledger_from_application(db, application, actor=actor, status=application.state)
     write_audit(
         db,
         event_type="packet.generated",

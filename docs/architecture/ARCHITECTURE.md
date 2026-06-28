@@ -41,6 +41,7 @@ Routers under `/api`:
 
 - `auth` — login, session, admin bootstrap
 - `jobs` — ingestion, normalization, deduplication, scoring
+- `companies` — company registry, application ledger, duplicate-risk, application modes
 - `applications` — packets, approval queue, tracking
 - `interviews` — Interview Grilling Machine
 - `consulting` — lead intake and proposals
@@ -57,11 +58,12 @@ Health: `GET /health`, `GET /ready` (DB connectivity).
 ### Job pipeline
 
 1. **Ingest** — Greenhouse/Lever feeds, manual URL, Gmail labels, or fixtures.
-2. **Normalize** — Pydantic validation, HTML sanitization, deduplication keys.
+2. **Normalize** — Pydantic validation, HTML sanitization, deduplication keys, company linkage.
 3. **Score** — Deterministic rules (salary, remote, freshness, role fit); AI only for ambiguous analysis within budget caps.
-4. **Generate** — Resume/cover letter from Career Vault evidence only.
-5. **Approve** — User edits, holds, rejects, or approves in dashboard.
-6. **Track** — State transitions logged to audit; external submit never automatic.
+4. **Duplicate check** — Evaluate RED/AMBER/GREEN risk against application ledger (requisition, URL, ATS ID, cadence).
+5. **Generate** — Resume/cover letter from Career Vault evidence only; factual-core hash validated.
+6. **Approve** — User edits, holds, rejects, or approves in dashboard; duplicate recheck on approve/submit.
+7. **Track** — Ledger and audit events; external submit never automatic.
 
 ### Google integration
 

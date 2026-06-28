@@ -95,9 +95,15 @@ class Job(Base):
     dedupe_key: Mapped[str] = mapped_column(String(512), index=True)
     state: Mapped[str] = mapped_column(String(64), default=WorkflowState.INGESTED.value, index=True)
     raw_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id"), nullable=True, index=True)
+    requisition_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    ats_job_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description_fingerprint: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    normalized_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     score: Mapped["JobScore | None"] = relationship(back_populates="job", uselist=False)
     application: Mapped["Application | None"] = relationship(back_populates="job", uselist=False)
+    company_ref: Mapped["Company | None"] = relationship(back_populates="jobs")
 
 
 class JobScore(Base):
@@ -260,3 +266,100 @@ class ProcessedGmailMessage(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     message_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     processed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Company(Base):
+    __tablename__ = "companies"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    canonical_name: Mapped[str] = mapped_column(String(255))
+    normalized_name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    parent_company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id"), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    aliases: Mapped[list["CompanyAlias"]] = relationship(back_populates="company")
+    domains: Mapped[list["CompanyDomain"]] = relationship(back_populates="company")
+    jobs: Mapped[list["Job"]] = relationship(back_populates="company_ref")
+    ledger_entries: Mapped[list["ApplicationLedger"]] = relationship(back_populates="company")
+
+
+class CompanyAlias(Base):
+    __tablename__ = "company_aliases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    alias: Mapped[str] = mapped_column(String(255))
+    normalized_alias: Mapped[str] = mapped_column(String(255), index=True)
+
+    company: Mapped[Company] = relationship(back_populates="aliases")
+
+
+class CompanyDomain(Base):
+    __tablename__ = "company_domains"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    domain: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+
+    company: Mapped[Company] = relationship(back_populates="domains")
+
+
+class CompanyAtsIdentity(Base):
+    __tablename__ = "company_ats_identities"
+    __table_args__ = (UniqueConstraint("ats_type", "board_token", name="uq_ats_type_board"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    ats_type: Mapped[str] = mapped_column(String(64))
+    board_token: Mapped[str] = mapped_column(String(255))
+
+
+class ApplicationLedger(Base):
+    __tablename__ = "application_ledger"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True)
+    application_id: Mapped[int | None] = mapped_column(ForeignKey("applications.id"), nullable=True)
+    requisition_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    ats_job_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    application_url: Mapped[str | None] = mapped_column(String(1024), nullable=True, index=True)
+    normalized_title: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    description_fingerprint: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    vendor_channel: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(64))
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    company: Mapped[Company] = relationship(back_populates="ledger_entries")
+    events: Mapped[list["ApplicationEvent"]] = relationship(back_populates="ledger")
+
+
+class ApplicationEvent(Base):
+    __tablename__ = "application_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    ledger_id: Mapped[int] = mapped_column(ForeignKey("application_ledger.id"), index=True)
+    event_type: Mapped[str] = mapped_column(String(64))
+    actor_email: Mapped[str] = mapped_column(String(255))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    event_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    ledger: Mapped[ApplicationLedger] = relationship(back_populates="events")
+
+
+class DuplicateOverride(Base):
+    __tablename__ = "duplicate_overrides"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), index=True)
+    ledger_id: Mapped[int | None] = mapped_column(ForeignKey("application_ledger.id"), nullable=True)
+    risk_level: Mapped[str] = mapped_column(String(16))
+    reason: Mapped[str] = mapped_column(Text)
+    actor_email: Mapped[str] = mapped_column(String(255))
+    policy_version: Mapped[str] = mapped_column(String(32))
+    matched_records: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

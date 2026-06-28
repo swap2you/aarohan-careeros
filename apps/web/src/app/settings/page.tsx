@@ -25,9 +25,17 @@ type IntegrationStatus = {
   fixture_mode?: boolean;
 };
 
+type ApplicationMode = {
+  id: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+};
+
 export default function SettingsPage() {
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [validation, setValidation] = useState<Record<string, unknown> | null>(null);
+  const [applicationModes, setApplicationModes] = useState<ApplicationMode[]>([]);
   const [message, setMessage] = useState("");
 
   function token() {
@@ -46,6 +54,11 @@ export default function SettingsPage() {
     fetch(`${API_BASE}/api/validation/latest`, { headers: { Authorization: `Bearer ${token()}` } })
       .then((res) => res.json())
       .then(setValidation);
+    fetch(`${API_BASE}/api/companies/application-modes`, {
+      headers: { Authorization: `Bearer ${token()}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setApplicationModes(data.modes || []));
   }, [loadStatus]);
 
   async function connect(service: string) {
@@ -129,6 +142,17 @@ export default function SettingsPage() {
   return (
     <div>
       <h1>Settings & Integrations</h1>
+      <div className="card">
+        <h3>Application Modes</h3>
+        {applicationModes.map((mode) => (
+          <div key={mode.id} className={mode.enabled ? "" : "mode-disabled"}>
+            <p>
+              <strong>{mode.label}</strong> {mode.enabled ? "(enabled)" : "(locked)"}
+            </p>
+            <p>{mode.description}</p>
+          </div>
+        ))}
+      </div>
       <div className="card">
         <h3>Google Integration</h3>
         <p><strong>Connected account:</strong> {status?.connected_account || "—"}</p>

@@ -7,6 +7,7 @@ from app.models import Application, Job, User, WorkflowState
 from app.schemas import ApplicationOut, ApprovalRequest
 from app.services.approval import apply_approval_action
 from app.services.documents import generate_application_packet
+from app.services.duplicate_risk import reject_autonomous_submission
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -47,7 +48,34 @@ def generate_packet(
             db, job, actor=current_user.email, resume_profile=resume_profile
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/submit")
+def submit_application(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    mode = payload.get("mode", "MANUAL")
+    try:
+        reject_autonomous_submission(mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    application_id = payload.get("application_id")
+    if not application_id:
+        raise HTTPException(status_code=400, detail="application_id required")
+    application = db.query(Application).filter(Application.id == application_id).one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return {
+        "status": "manual_required",
+        "mode": mode,
+        "message": "Open the official application URL and submit manually after review.",
+        "application_id": application.id,
+        "url": application.job.url if application.job else None,
+        "actor": current_user.email,
+    }
 
 
 @router.post("/{application_id}/actions", response_model=ApplicationOut)
