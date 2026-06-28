@@ -52,10 +52,15 @@ export default function HomePage() {
     return (
       <div className="login card">
         <h1>{isSetup ? "First-run administrator setup" : "Sign in"}</h1>
-        <label>Email</label>
-        <input value={email} onChange={(e) => setEmail(e.target.value)} />
-        <label>Password (min 12 characters)</label>
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <label htmlFor="careeros-email">Email</label>
+        <input id="careeros-email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <label htmlFor="careeros-password">Password (min 12 characters)</label>
+        <input
+          id="careeros-password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
         {error && <p className="error">{error}</p>}
         <button onClick={() => submitAuth(isSetup ? "/api/auth/setup" : "/api/auth/login")}>
           {isSetup ? "Create administrator" : "Login"}
