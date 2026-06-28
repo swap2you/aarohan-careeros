@@ -16,6 +16,7 @@ from app.routers import (
     companies,
     connectors,
     consulting,
+    documents,
     integrations,
     interviews,
     jobs,
@@ -65,6 +66,7 @@ app.include_router(applications.router, prefix="/api")
 app.include_router(interviews.router, prefix="/api")
 app.include_router(consulting.router, prefix="/api")
 app.include_router(career_vault.router, prefix="/api")
+app.include_router(documents.router, prefix="/api")
 app.include_router(ops.router, prefix="/api")
 app.include_router(integrations.router, prefix="/api")
 app.include_router(workflows.router, prefix="/api")

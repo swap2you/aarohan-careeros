@@ -9,7 +9,7 @@
 | Autonomous mode lock | R2.1 | backend reject + Settings UI | `test_duplicate_risk.py` |
 | Job connectors | R2.2 | provider interface + adapters | `test_job_connectors.py` |
 | Trust/fit scoring | R2.3 | trust_matching + hard filters | `test_trust_matching.py` |
-| Document quality | R2.4 | vault, templates, validation | extraction tests |
+| Document quality | R2.4 | document_quality, templates, answer sheet | `test_document_quality.py` |
 | Manual apply workflow | R2.5 | packet review, apply link | E2E |
 | Assisted apply | R2.6 | ATS detect, prefill, stop-before-submit | integration |
 | Gmail lifecycle | R2.7 | alert parse, classify, dedup | fixture + live optional |

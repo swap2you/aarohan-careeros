@@ -1,0 +1,19 @@
+template_version: r2.4.0
+prompt_version: deterministic-v1
+model_version: none
+generation_mode: deterministic_fallback
+
+templates:
+  resume:
+    id: ats_calibri_v1
+    font: Calibri
+    font_size_pt: 11
+    required_sections:
+      - Professional Summary
+      - Professional Experience
+      - Role Target
+    max_recommended_lines: 120
+  cover_letter:
+    id: plain_text_v1
+  answer_sheet:
+    id: evidence_grounded_v1

@@ -9,6 +9,7 @@ from app.models import Application, EvidenceItem, Job, WorkflowState
 from app.services.ai_budget import enforce_budget, record_usage
 from app.services.audit import write_audit
 from app.services.career_vault import public_evidence_statements
+from app.services.document_quality import run_document_quality_report, template_config
 from app.services.duplicate_risk import RiskLevel, evaluate_duplicate_risk, record_ledger_from_application
 from app.services.factual_core import validate_factual_core
 from app.services.resume_builder import build_ats_docx, extract_keywords, load_resume_profile, map_keywords_to_evidence
@@ -103,6 +104,9 @@ def generate_application_packet(
         "evidence_count": len(evidence),
         "keywords_mapped": list(keyword_mapping.keys())[:20],
         "formatting_checks": formatting_checks,
+        "template_version": template_config().get("template_version"),
+        "prompt_version": template_config().get("prompt_version"),
+        "model_version": template_config().get("model_version"),
     }
     resume_preview = fit_analysis + "\n\n" + "\n".join(evidence)
     factual = validate_factual_core(db, resume_text=resume_preview)
@@ -127,6 +131,23 @@ def generate_application_packet(
     except Exception:
         pdf_path.write_text("\n".join(evidence), encoding="utf-8")
 
+    quality = run_document_quality_report(
+        db,
+        docx_path=docx_path,
+        pdf_path=pdf_path,
+        resume_text=resume_preview,
+        job_title=job.title,
+        company=job.company,
+        profile_name=profile.get("name", resume_profile),
+        keyword_mapping=keyword_mapping,
+    )
+    if not quality["passed"]:
+        raise ValueError(
+            "Document quality check failed: "
+            + "; ".join(quality["ats_diagnostics"].get("issues", [])[:3])
+            or quality["docx_pdf_comparison"].get("message", "quality validation failed")
+        )
+
     application = job.application or Application(job_id=job.id)
     application.cover_letter = cover_letter
     application.recruiter_note = recruiter_note
@@ -141,6 +162,8 @@ def generate_application_packet(
         "preview_text": fit_analysis + "\n\n" + cover_letter[:1000],
         "duplicate_risk": risk.to_dict(),
         "factual_core": factual.to_dict(),
+        "document_quality": quality,
+        "answer_sheet": quality.get("answer_sheet"),
     }
     application.state = WorkflowState.PACKET_READY.value
     application.updated_at = datetime.utcnow()
