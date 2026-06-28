@@ -26,6 +26,7 @@ from app.services.google_api import (
     verify_dedicated_account,
 )
 from app.services.integrations import get_gmail_client, sync_drive_folders
+from app.services.drive_settings import create_app_drive_root, try_sync_drive_after_oauth
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 _oauth_states: dict[str, dict[str, str | bool]] = {}
@@ -76,13 +77,23 @@ def google_callback(
             scopes.append(OPTIONAL_GMAIL_SEND_SCOPE)
         save_unified_google_token(db, token_data, email, scopes)
         write_audit(db, event_type="oauth.connected", actor=email, resource_type="oauth", resource_id="google")
-        folders = sync_drive_folders(db)
+        drive_result = try_sync_drive_after_oauth(db)
+        folders = drive_result.get("folders") or {}
+        warning = drive_result.get("warning")
+        warning_html = ""
+        if warning:
+            warning_html = (
+                f"<p style='color:#b45309;background:#fffbeb;padding:12px;border-radius:6px'>"
+                f"<strong>Drive note:</strong> {warning}</p>"
+            )
         body = (
             "<html><body style='font-family:Arial;padding:24px'>"
             "<h2>Google connected</h2>"
             f"<p>Account: {email}</p>"
-            f"<p>Drive folders ready: {len(folders)}</p>"
-            "<p>You may close this tab and return to Settings.</p>"
+            f"<p>Drive subfolders ready: {len(folders)}</p>"
+            f"{warning_html}"
+            "<p>Return to Settings to review Drive root status or create an app-owned root folder.</p>"
+            "<p>You may close this tab.</p>"
             "</body></html>"
         )
         return HTMLResponse(content=body)
@@ -129,8 +140,30 @@ def google_refresh(
 @router.get("/google/drive/folders")
 def drive_folders(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> dict:
     try:
-        folders = sync_drive_folders(db)
+        from app.services.drive_settings import sync_drive_subfolders
+
+        folders = sync_drive_subfolders(db)
         return {"folders": folders}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/google/drive/create-root")
+def drive_create_root(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    try:
+        result = create_app_drive_root(db)
+        write_audit(
+            db,
+            event_type="drive.root_created",
+            actor=current_user.email,
+            resource_type="drive",
+            resource_id=result.get("root_folder_id", "unknown"),
+            details={"source": result.get("source")},
+        )
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -142,6 +175,7 @@ def sync_gmail(
 ) -> dict:
     from app.services.auth import process_recruiter_signal
 
+    client = get_gmail_client(db)
     messages = client.fetch_recent_messages()
     created = []
     for msg in messages:

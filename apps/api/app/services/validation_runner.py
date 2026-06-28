@@ -7,7 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.models import ValidationRun
 
-ROOT = Path(__file__).resolve().parents[4]
+def _repo_root() -> Path:
+    path = Path(__file__).resolve()
+    if len(path.parents) > 4 and (path.parents[4] / "scripts").exists():
+        return path.parents[4]
+    return path.parents[2]
+
+
+ROOT = _repo_root()
 
 
 def run_local_validation(db: Session, *, actor: str) -> ValidationRun:

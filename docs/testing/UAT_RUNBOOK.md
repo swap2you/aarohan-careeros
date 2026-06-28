@@ -13,12 +13,43 @@ Manual user acceptance testing for Aarohan CareerOS. Primary scenario list: `val
 ## Pre-flight
 
 1. Bootstrap and secrets initialized.
-2. Stack running: `pwsh .\scripts\local\Start-Aarohan.ps1 -Detached`
-3. Validation green: `pwsh .\scripts\local\Test-Aarohan.ps1`
-4. Sign in at http://localhost:3000 with admin credentials.
-5. For live Google journeys: `OAUTH_FIXTURE_MODE=false`, OAuth connected as `swapnilpatil.tech@gmail.com`. For offline UAT, keep fixture mode and use `/gmail/sync-fixture`.
+2. Stack running: `powershell -File .\scripts\local\Start-Aarohan.ps1 -Detached`
+3. Validation green: `powershell -File .\scripts\local\Test-Aarohan.ps1`
+4. Sign in at http://localhost:3000:
+   - Email: `swapnilpatil.tech@gmail.com`
+   - Password: `TempLocal123!` (local only; reset via `scripts/local/Reset-LocalAdmin.ps1`)
+5. Open http://localhost:3000/settings — connect Google as `swapnilpatil.tech@gmail.com` if not already connected.
+6. For offline UAT without Google, set `OAUTH_FIXTURE_MODE=true` and use `/gmail/sync-fixture`.
 
 Document environment (fixture vs live) in UAT evidence.
+
+## R1 checkpoint snapshot (2026-06-28)
+
+| Gate | Status |
+|------|--------|
+| Docker stack | PASS |
+| Migrations | PASS (`0003_fk_not_null`) |
+| pytest | 29 passed, 1 skipped |
+| Secret / prohibited scans | PASS |
+| Live OAuth | PASS |
+| Drive app-root + subfolders | PASS |
+| Packet + Drive upload | PASS |
+| Playwright smoke | PASS |
+| GitHub Actions | **NOT VERIFIED** |
+
+Active Drive root: `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` (app-created; manual root inaccessible with `drive.file`).
+
+## Known gaps (before production signoff)
+
+- Document quality needs improvement
+- ATS templates need validation
+- Real Gmail content still needs more test data
+- GitHub Actions needs verification
+- Playwright coverage needs expansion
+- Backup/restore n8n schema noise
+- UI polish pending
+
+See `validation/CURSOR_TEST_EVIDENCE.md` before Cowork UAT.
 
 ## User journeys
 

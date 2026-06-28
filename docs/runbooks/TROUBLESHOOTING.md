@@ -38,9 +38,14 @@ Common local development issues and fixes. Check logs with `docker compose logs 
 
 **Fix:**
 
-1. Confirm `ADMIN_EMAIL` / `ADMIN_PASSWORD` in SecretStore match what you enter.
-2. Clear browser cookies for localhost:3000.
-3. If DB was reset, admin is re-bootstrapped on API start from env secrets.
+1. Use local checkpoint credentials: `swapnilpatil.tech@gmail.com` / `TempLocal123!` at http://localhost:3000
+2. Reset admin: `powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force` (password via prompt or `RESET_LOCAL_ADMIN_PASSWORD` env — not stored in repo)
+3. Clear `localStorage` key `careeros_token` or sign in from home page (not Settings first)
+4. If DB was volume-reset, re-run `Reset-LocalAdmin.ps1` or bootstrap from SecretStore
+
+### Settings shows "Not authenticated"
+
+**Fix:** JWT is set on home-page login only. Open http://localhost:3000, sign in, then http://localhost:3000/settings.
 
 ### CORS errors in browser
 
@@ -63,6 +68,14 @@ Common local development issues and fixes. Check logs with `docker compose logs 
 ### Wrong account connected
 
 **Fix:** Disconnect in Settings; reconnect as `swapnilpatil.tech@gmail.com`.
+
+### Drive root inaccessible after OAuth
+
+**Symptom:** Callback or Settings warns that configured root `1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI` is inaccessible.
+
+**Cause:** `drive.file` scope cannot access manually created folders by ID.
+
+**Fix:** Settings → **Create Aarohan Drive Root** → **Sync Drive Subfolders**. Active proven root: `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`.
 
 ### Fixture vs live confusion
 
@@ -118,6 +131,12 @@ Check Node 20+ and TypeScript errors in output.
 ### Volume / stale data
 
 **Fix:** `Reset-Aarohan.ps1 -Volumes` wipes postgres and n8n volumes. Back up first — see [BACKUP_RESTORE.md](BACKUP_RESTORE.md).
+
+### Backup/restore duplicate-object errors
+
+**Symptom:** Restore logs many "already exists" errors for `n8n` schema.
+
+**Fix:** Expected when restoring full-database dump over running DB. Career OS rows restore correctly; use career-only dump for clean restore (known gap).
 
 ## Database backup/restore
 

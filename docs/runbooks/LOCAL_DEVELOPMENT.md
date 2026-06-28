@@ -15,6 +15,20 @@ Windows-first workflow using PowerShell scripts in `scripts/local/`.
 
 Optional: place Google OAuth client JSON at `C:\AarohanSecrets\google-oauth-client.json` (outside repo).
 
+Non-secret local config belongs in `.env.local` only (never secrets):
+
+```env
+CAREER_GMAIL_ADDRESS=swapnilpatil.tech@gmail.com
+GOOGLE_CLOUD_PROJECT_ID=aarohan-careeros-500722
+GOOGLE_CLOUD_PROJECT_NUMBER=558756512850
+GOOGLE_DRIVE_ROOT_FOLDER_ID=1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI
+GOOGLE_OAUTH_CLIENT_JSON_PATH=C:\AarohanSecrets\google-oauth-client.json
+OAUTH_FIXTURE_MODE=false
+ENABLE_EXTERNAL_EMAIL_SEND=false
+```
+
+Secrets (`APP_SECRET`, `POSTGRES_PASSWORD`, `TOKEN_ENCRYPTION_KEY`, etc.) stay in **AarohanLocal** SecretStore via `Initialize-AarohanSecrets.ps1`.
+
 ## One-time bootstrap
 
 ```powershell
@@ -91,13 +105,41 @@ Services from `docker-compose.yml`:
 **URLs:**
 
 - Dashboard: http://localhost:3000
+- Settings: http://localhost:3000/settings
 - API: http://localhost:8000
+- API health: http://localhost:8000/health
 - API docs: http://localhost:8000/docs
 - n8n: http://localhost:5678
 
-First dashboard visit uses admin credentials from SecretStore (or creates admin on first login per bootstrap rules).
+## Local login (R1 checkpoint)
 
-**Live Google OAuth:** set `OAUTH_FIXTURE_MODE=false` in environment before start (fixture mode defaults to `true` in compose). Store `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in SecretStore — the Windows JSON path is not visible inside the Linux API container.
+| Item | Value |
+|------|-------|
+| URL | http://localhost:3000 |
+| Email | `swapnilpatil.tech@gmail.com` |
+| Password | `TempLocal123!` (local dev only) |
+| Reset admin | `powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force` |
+
+Sign in at the dashboard home page first (stores JWT in browser). Then open Settings for Google integration.
+
+## Restart / status commands
+
+```powershell
+docker compose ps
+docker compose up -d
+docker compose down
+powershell -File scripts/local/Start-Aarohan.ps1 -Detached
+powershell -File scripts/local/Test-Aarohan.ps1
+```
+
+First dashboard visit may use SecretStore admin if DB was reset; use `Reset-LocalAdmin.ps1` to align login with dedicated Gmail email above.
+
+**Live Google OAuth:** set `OAUTH_FIXTURE_MODE=false` before start. The API container reads OAuth JSON from a read-only bind mount:
+
+- Host: `C:\AarohanSecrets\google-oauth-client.json` (via `GOOGLE_OAUTH_SECRETS_DIR`, default `C:/AarohanSecrets`)
+- Container: `/run/secrets/google-oauth-client.json`
+
+`Start-Aarohan.ps1` sets the container path automatically. You can also store `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in SecretStore as a fallback.
 
 ## Direct-dev mode (no full Docker)
 
@@ -126,13 +168,43 @@ For direct-dev, `GOOGLE_OAUTH_CLIENT_JSON_PATH=C:\AarohanSecrets\google-oauth-cl
 
 ## Playwright E2E (optional)
 
-Requires running stack:
+Requires running stack. Screenshots/traces go to `artifacts/playwright/` (gitignored).
 
 ```powershell
 cd apps\web
-npx playwright install   # first time only
+npx playwright install chromium   # first time only
 npm run test:e2e
 ```
+
+R1 validation (2026-06-28): 1 smoke test passed against http://localhost:3000.
+
+## R1 local validation checklist
+
+After stack is healthy:
+
+```powershell
+python scripts/validation/secret_scan.py
+python scripts/validation/prohibited_source_scan.py
+docker compose exec api alembic current
+docker compose exec api alembic check
+docker compose exec api pytest -q
+python scripts/validation/r1_local_demo.py
+powershell -File scripts/local/Backup-Aarohan.ps1
+```
+
+For live Google: set `OAUTH_FIXTURE_MODE=false` and `GOOGLE_DRIVE_ROOT_FOLDER_ID=1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI`, connect at http://localhost:3000/settings, then re-run `r1_local_demo.py`.
+
+Evidence: `validation/CURSOR_TEST_EVIDENCE.md`
+
+## Known gaps (next session)
+
+- Document quality needs improvement
+- ATS templates need validation
+- Real Gmail content still needs more test data
+- GitHub Actions needs verification
+- Playwright coverage needs expansion
+- Backup/restore n8n schema noise
+- UI polish pending
 
 ## Related docs
 

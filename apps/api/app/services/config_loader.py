@@ -6,7 +6,10 @@ from app.config import settings
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+    path = Path(__file__).resolve()
+    if len(path.parents) > 4 and (path.parents[4] / "scripts").exists():
+        return path.parents[4]
+    return Path(settings.config_root).parent
 
 
 def load_yaml(relative_path: str) -> dict:

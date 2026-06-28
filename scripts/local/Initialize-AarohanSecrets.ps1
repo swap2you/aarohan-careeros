@@ -23,8 +23,8 @@ function Ensure-SecretModule {
     Import-Module Microsoft.PowerShell.SecretManagement
     Import-Module Microsoft.PowerShell.SecretStore
     if (-not (Get-SecretVault -Name AarohanLocal -ErrorAction SilentlyContinue)) {
-        Register-SecretVault -Name AarohanLocal -ModuleName SecretStore -DefaultVault
-        Set-SecretStoreConfiguration -Authentication Password -PasswordTimeout 900 -Interaction Timeout 900
+        Register-SecretVault -Name AarohanLocal -ModuleName Microsoft.PowerShell.SecretStore -DefaultVault
+        Set-SecretStoreConfiguration -Authentication Password -PasswordTimeout 900 -Interaction Prompt 900
     }
     Set-SecretVault -Name AarohanLocal -AsDefaultVault
 }

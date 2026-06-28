@@ -43,6 +43,8 @@ DRIVE_SUBFOLDERS = [
     "99_Archive",
 ]
 
+APP_DRIVE_ROOT_FOLDER_NAME = "aarohan-careeros"
+
 OAUTH_REMEDIATION: dict[str, str] = {
     "invalid_client": "OAuth client secret or client ID is invalid. Verify C:\\AarohanSecrets\\google-oauth-client.json.",
     "redirect_uri_mismatch": (
@@ -78,17 +80,39 @@ def integration_status(db: Session) -> dict:
     rows = db.query(OAuthToken).filter(OAuthToken.is_active.is_(True)).all()
     by_service = {row.service: {"connected": True, "account_email": row.account_email} for row in rows}
     google_connected = bool(by_service.get("google") or (by_service.get("gmail") and by_service.get("drive")))
+    connected_account = None
+    for svc in ("google", "gmail", "drive"):
+        if by_service.get(svc, {}).get("account_email"):
+            connected_account = by_service[svc]["account_email"]
+            break
+
+    drive_root: dict = {
+        "configured_folder_id": settings.google_drive_folder_id or None,
+        "active_folder_id": None,
+        "source": None,
+        "accessible": False,
+        "warning": None,
+        "subfolders": None,
+        "app_root_folder_name": APP_DRIVE_ROOT_FOLDER_NAME,
+    }
+    if google_connected and not settings.oauth_fixture_mode:
+        from app.services.drive_settings import get_drive_root_status
+
+        drive_root = get_drive_root_status(db)
+
     return {
         "google": by_service.get("google", by_service.get("gmail", {"connected": False})),
         "gmail": by_service.get("gmail", by_service.get("google", {"connected": False})),
         "drive": by_service.get("drive", by_service.get("google", {"connected": False})),
         "google_connected": google_connected,
+        "connected_account": connected_account,
         "fixture_mode": settings.oauth_fixture_mode,
         "oauth_configured": bool(settings.google_client_id and settings.google_client_secret),
         "scheduling_enabled": settings.scheduling_enabled,
         "external_email_send_enabled": settings.enable_external_email_send,
         "dedicated_gmail": settings.career_gmail_address or "swapnilpatil.tech@gmail.com",
-        "drive_root_folder_id": settings.google_drive_folder_id,
+        "drive_root_folder_id": drive_root.get("active_folder_id") or settings.google_drive_folder_id,
+        "drive_root": drive_root,
     }
 
 
@@ -428,9 +452,13 @@ def ensure_drive_folder_tree(db: Session, root_folder_id: str | None = None) -> 
     if token_data.get("fixture"):
         return {name: f"fixture-{name}" for name in DRIVE_SUBFOLDERS}
 
-    root_id = root_folder_id or settings.google_drive_folder_id
+    root_id = root_folder_id
     if not root_id:
-        raise ValueError(OAUTH_REMEDIATION["folder_not_found"])
+        from app.services.drive_settings import resolve_active_drive_root
+
+        root_id, _, accessible = resolve_active_drive_root(db)
+        if not root_id or not accessible:
+            raise ValueError(OAUTH_REMEDIATION["folder_not_found"])
 
     folder_map: dict[str, str] = {"root": root_id}
     with httpx.Client(timeout=30.0) as client:
@@ -487,7 +515,12 @@ def upload_file_to_drive(
             "web_view_link": f"fixture-drive://{folder_id or settings.google_drive_folder_id}/{filename}",
         }
 
-    target_folder = folder_id or settings.google_drive_folder_id
+    target_folder = folder_id
+    if not target_folder:
+        from app.services.drive_settings import resolve_active_drive_root
+
+        active_id, _, accessible = resolve_active_drive_root(db)
+        target_folder = active_id if accessible else settings.google_drive_folder_id
     path = Path(local_path)
     metadata = {"name": filename, "parents": [target_folder]} if target_folder else {"name": filename}
     with httpx.Client(timeout=60.0) as client:

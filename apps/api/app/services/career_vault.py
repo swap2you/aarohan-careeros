@@ -3,11 +3,24 @@ from pathlib import Path
 import yaml
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models import EvidenceItem
 
 
+def _vault_root(vault_root: Path | None = None) -> Path:
+    if vault_root:
+        return vault_root
+    configured = Path(settings.career_vault_root)
+    if configured.exists():
+        return configured
+    path = Path(__file__).resolve()
+    if len(path.parents) > 4:
+        return path.parents[4] / "career_vault"
+    return configured
+
+
 def sync_evidence_registry(db: Session, vault_root: Path | None = None) -> int:
-    root = vault_root or Path(__file__).resolve().parents[4] / "career_vault"
+    root = _vault_root(vault_root)
     registry_path = root / "evidence_registry.yml"
     if not registry_path.exists():
         return 0

@@ -30,7 +30,13 @@ $env:ADMIN_EMAIL = Get-SecretValue -Name ADMIN_EMAIL
 $env:ADMIN_PASSWORD = Get-SecretValue -Name ADMIN_PASSWORD
 $env:GOOGLE_CLIENT_ID = Get-SecretValue -Name GOOGLE_CLIENT_ID
 $env:GOOGLE_CLIENT_SECRET = Get-SecretValue -Name GOOGLE_CLIENT_SECRET
-$env:GOOGLE_OAUTH_CLIENT_JSON_PATH = Get-SecretValue -Name GOOGLE_OAUTH_CLIENT_JSON_PATH "C:\AarohanSecrets\google-oauth-client.json"
+$hostOAuthJson = Get-SecretValue -Name GOOGLE_OAUTH_CLIENT_JSON_PATH "C:\AarohanSecrets\google-oauth-client.json"
+$env:GOOGLE_OAUTH_SECRETS_DIR = (Split-Path -Parent $hostOAuthJson) -replace '\\', '/'
+if (-not (Test-Path $hostOAuthJson)) {
+    Write-Warning "OAuth JSON not found at $hostOAuthJson. Live Google OAuth will fail until the file exists."
+}
+# Container path (Linux) — host file is bind-mounted to /run/secrets/
+$env:GOOGLE_OAUTH_CLIENT_JSON_PATH = "/run/secrets/google-oauth-client.json"
 $env:GOOGLE_DRIVE_ROOT_FOLDER_ID = Get-SecretValue -Name GOOGLE_DRIVE_ROOT_FOLDER_ID "1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI"
 $env:GOOGLE_DRIVE_FOLDER_ID = $env:GOOGLE_DRIVE_ROOT_FOLDER_ID
 $env:GOOGLE_OAUTH_REDIRECT_URI = Get-SecretValue -Name GOOGLE_OAUTH_REDIRECT_URI "http://localhost:8000/api/integrations/google/callback"

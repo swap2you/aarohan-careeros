@@ -138,20 +138,36 @@ def generate_application_packet(
     db.commit()
     db.refresh(application)
 
-    try:
-        from app.services.integrations import get_drive_client
+    from app.services.drive_settings import resolve_active_drive_root
 
-        drive = get_drive_client(db)
-        docx_uri = drive.upload_file(str(docx_path), docx_path.name)
-        pdf_uri = drive.upload_file(str(pdf_path), pdf_path.name)
-        metadata = application.packet_metadata or {}
-        metadata["drive_links"] = {"docx": docx_uri, "pdf": pdf_uri}
+    _, _, drive_accessible = resolve_active_drive_root(db)
+    metadata = application.packet_metadata or {}
+    if not drive_accessible:
+        metadata["drive_upload_skipped"] = (
+            "No accessible Drive root with drive.file scope. Create an app-owned root in Settings."
+        )
         application.packet_metadata = metadata
         db.add(application)
         db.commit()
         db.refresh(application)
-    except Exception:
-        pass
+    else:
+        try:
+            from app.services.integrations import get_drive_client
+
+            drive = get_drive_client(db)
+            docx_uri = drive.upload_file(str(docx_path), docx_path.name)
+            pdf_uri = drive.upload_file(str(pdf_path), pdf_path.name)
+            metadata["drive_links"] = {"docx": docx_uri, "pdf": pdf_uri}
+            application.packet_metadata = metadata
+            db.add(application)
+            db.commit()
+            db.refresh(application)
+        except Exception as exc:
+            metadata["drive_upload_error"] = str(exc)[:240]
+            application.packet_metadata = metadata
+            db.add(application)
+            db.commit()
+            db.refresh(application)
 
     record_usage(db, operation="packet_generation", cost_usd=0.5, job_id=job.id)
     write_audit(

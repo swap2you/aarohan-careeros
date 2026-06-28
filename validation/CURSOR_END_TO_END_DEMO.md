@@ -1,38 +1,63 @@
-# Cursor End-to-End Demo — R1 Local v2
+# Cursor End-to-End Demo — R1 Local Checkpoint
 
-Date: 2026-06-27
+Date: 2026-06-28
 
-## Demo path (fixture mode — no live Google required)
+## Login
 
-1. **Auth**: Admin login via `/api/auth/login` (test: `admin@test.local`)
-2. **Ingest**: `POST /api/jobs/ingest/fixture` → 1 job, score ≥ 75
-3. **Score**: Transparent scoring components persisted on `JobScore`
-4. **Packet**: `POST /api/applications/jobs/{id}/generate?resume_profile=qe_leadership` → DOCX/PDF under `generated/`
-5. **Approval**: `POST /api/applications/{id}/actions` with `approve` → `APPROVED_FOR_SUBMISSION` (no external submit route)
-6. **Interview**: `POST /api/interviews/jobs/{id}/generate` → questions, system design
-7. **Consulting**: `POST /api/consulting/leads` → lead score + service recommendation
-8. **Gmail fixture**: `POST /api/integrations/gmail/sync-fixture` → recruiter signal
-9. **Validation**: `POST /api/validation/run` → secret scan + prohibited scan + pytest
-10. **AI budget**: `GET /api/ai/budget` → hard cap active
+| Item | Value |
+|------|-------|
+| Dashboard | http://localhost:3000 |
+| Settings | http://localhost:3000/settings |
+| Email | `swapnilpatil.tech@gmail.com` |
+| Password | `TempLocal123!` |
+| Reset admin | `powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force` |
 
-## Live Google demo (requires user)
+## Restart stack
 
-1. Set `OAUTH_FIXTURE_MODE=false` in environment
-2. Ensure `C:\AarohanSecrets\google-oauth-client.json` exists
-3. Start stack: `pwsh scripts/local/Start-Aarohan.ps1 -Detached`
-4. Open http://localhost:3000/settings → **Connect Google**
-5. Sign in as `swapnilpatil.tech@gmail.com` and approve scopes
-6. Verify `/api/integrations/status` shows connected
-7. `POST /api/integrations/gmail/sync` — ingest labeled messages
-8. `GET /api/integrations/google/drive/folders` — verify subfolder IDs
-9. Generate packet → Drive links in `packet_metadata.drive_links`
+```powershell
+docker compose ps
+docker compose up -d
+docker compose down
+powershell -File scripts/local/Start-Aarohan.ps1 -Detached
+powershell -File scripts/local/Test-Aarohan.ps1
+```
 
-## Sample generated paths (from prior fixture run)
+## Proven demo path (2026-06-28)
 
-- `apps/api/generated/job_1/Example_Health_Tech_Director_of_Quality_Engineering_qe_leadership_20260624.pdf`
+| Step | Result |
+|------|--------|
+| Sign in at dashboard | PASS |
+| Connect Google as `swapnilpatil.tech@gmail.com` | PASS |
+| OAuth tokens stored (encrypted) | PASS |
+| Configured manual root inaccessible | Expected (`drive.file`) |
+| Create Aarohan Drive Root | PASS → `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` |
+| Sync subfolders ×2 | PASS (idempotent) |
+| Fixture ingest + packet + Drive upload | PASS |
+| Gmail sync ×2 | PASS (0 messages; dedup ready) |
 
-## Blockers for full live demo
+## Drive layout (app-created root)
 
-- User OAuth consent click in browser
-- Docker Desktop installed for containerized demo
-- Gmail messages labeled `Aarohan` for ingestion proof
+Root: `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` (`aarohan-careeros`)
+
+Subfolders: `01_Career_Vault`, `02_Application_Packets`, `03_Interview_Preparation`, `04_Consulting`, `05_Reports`, `99_Archive` — IDs in `validation/CURSOR_TEST_EVIDENCE.md`.
+
+## Sample packet paths
+
+- `/app/generated/job_1/Example_Health_Tech_Director_of_Quality_Engineering_qe_leadership_20260628.docx`
+- `/app/generated/job_1/Example_Health_Tech_Director_of_Quality_Engineering_qe_leadership_20260628.pdf`
+
+## Automated script
+
+```powershell
+python scripts/validation/r1_local_demo.py
+```
+
+Results: `artifacts/r1_demo_results.json` (gitignored).
+
+## Known gaps
+
+- Document quality / ATS templates
+- More real Gmail labeled messages for sync proof
+- GitHub Actions verification
+- Expanded Playwright coverage
+- UI polish

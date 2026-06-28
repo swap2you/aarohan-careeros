@@ -1,35 +1,47 @@
-# Cursor First Review — Finalize Main Sync
+# Cursor First Review — R1 Local Docker Validation
 
-Date: 2026-06-27  
-Decision: **CONDITIONAL PASS** — ready for initial `main` push; Docker live proof and OAuth consent remain user actions.
+Date: 2026-06-28  
+Decision: **NOT READY** — implementation and local stack validated; live Google OAuth and CI watch remain user/host actions.
 
-## P0/P1 addressed
+## Gates passed
 
 | Area | Status |
 |------|--------|
-| Repository cleanup | Packs archived; secrets gitignored; repo copy of OAuth JSON removed |
-| Canonical docs | architecture, runbooks, testing, maintenance created |
-| Local scripts | Bootstrap, Reset, Backup, Restore added |
-| n8n service | Added to docker-compose with healthcheck |
-| Gmail labels | `labels.list`, exact Aarohan label IDs, pagination, MIME/HTML sanitize |
-| Drive idempotency | Search-before-create folder tree |
-| Migration tests | `test_migrations.py` for CI Postgres |
-| CI env | TOKEN_ENCRYPTION_KEY and OAUTH_FIXTURE_MODE set |
+| Secret / prohibited scans | PASS |
+| Docker 4-service stack | PASS (all healthy) |
+| Alembic current/check/downgrade/upgrade | PASS (`0003_fk_not_null`) |
+| Backend pytest (container) | PASS (25/25) |
+| Fixture ingest → score → packet → preview | PASS |
+| Playwright smoke E2E | PASS (1/1) |
+| Backup write + restore data verify | PASS (with n8n-schema caveat) |
+| OAuth JSON mount | PASS |
+| Scheduling disabled | PASS (`scheduling_enabled: false`) |
 
-## Open environmental items
+## Gates blocked
 
-- Docker Desktop install (admin UAC)
-- Live Google OAuth consent
-- Playwright E2E with running stack
-- Backup/restore live demo
+| Area | Status |
+|------|--------|
+| Live Google OAuth UI | **BLOCKED** — user must connect `swapnilpatil.tech@gmail.com` |
+| Drive folder idempotency (live IDs) | **BLOCKED** — no OAuth token |
+| Gmail label-ID sync + dedup (live) | **BLOCKED** — no OAuth token |
+| GitHub Actions watch | **BLOCKED** — `gh` not installed on host |
+| Git commit/push | **NOT PERFORMED** — gates incomplete |
+
+## Fixes applied during validation
+
+1. `config_loader._repo_root()` — Docker-safe path (fixture ingest)
+2. `integrations.sync_gmail` — wire `get_gmail_client(db)`
+3. Alembic `0003_fk_not_null` — FK nullability drift
+4. Playwright smoke — accept Sign in or First-run setup heading
+5. Playwright artifacts → `artifacts/playwright/`
 
 ## Reviewer summaries
 
-- **Product:** Full dashboard IA; manual workflows; no auto-submit.
-- **Security:** Secrets excluded from Git; scans pass; minimal OAuth scopes.
-- **Database:** Alembic 0001+0002; migration test in CI.
-- **Backend:** 24 tests pass locally.
-- **Frontend:** Build passes 16 routes.
-- **Google:** Label-aware Gmail; unified OAuth; live proof pending.
-- **DevOps:** Scripts complete; Docker blocked on host permissions.
-- **Career truthfulness:** Evidence-gated packet generation preserved.
+- **Product:** Dashboard IA complete; packet pipeline proven on fixture job.
+- **Security:** Scans pass; OAuth configured; no external send; no schedules.
+- **Database:** Migrations reversible; `alembic check` clean at head.
+- **Backend:** 25 tests pass in container with live OAuth env.
+- **Frontend:** E2E smoke passes against running stack.
+- **Google:** Connect URL generates; live proof pending user consent.
+- **DevOps:** Docker healthy; backup/restore works for Career OS data; restore noisy due to shared DB with n8n.
+- **Career truthfulness:** Evidence-gated generation; missing-evidence warnings surfaced.

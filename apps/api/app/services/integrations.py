@@ -60,4 +60,6 @@ def sync_drive_folders(db: Session) -> dict[str, str]:
         from app.services.google_api import DRIVE_SUBFOLDERS
 
         return {name: f"fixture-{name}" for name in DRIVE_SUBFOLDERS}
-    return ensure_drive_folder_tree(db)
+    from app.services.drive_settings import sync_drive_subfolders
+
+    return sync_drive_subfolders(db)

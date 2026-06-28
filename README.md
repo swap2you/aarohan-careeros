@@ -13,61 +13,92 @@ Supervised career operations system — job ingestion, evidence-based scoring, a
 
 **Stack:** FastAPI + PostgreSQL + Next.js + n8n, orchestrated via Docker Compose on Windows.
 
-## Quick start
+## R1 local checkpoint (2026-06-28)
 
-```powershell
-# One-time setup
-pwsh .\scripts\local\Bootstrap-Aarohan.ps1
-pwsh .\scripts\local\Initialize-AarohanSecrets.ps1
+Proven on local Docker: OAuth connected, app-owned Drive root, idempotent subfolders, fixture packet + Drive upload, 29 pytest / scans pass.
 
-# Start full stack
-pwsh .\scripts\local\Start-Aarohan.ps1 -Detached
+### Sign in
 
-# Validate
-pwsh .\scripts\local\Test-Aarohan.ps1
-```
+| Item | Value |
+|------|-------|
+| Dashboard | http://localhost:3000 |
+| Settings | http://localhost:3000/settings |
+| Login email | `swapnilpatil.tech@gmail.com` |
+| Local password | `TempLocal123!` (local dev only) |
+| Reset admin | `powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force` |
 
-Open http://localhost:3000 and sign in with admin credentials from SecretStore.
-
-**Stop:** `pwsh .\scripts\local\Stop-Aarohan.ps1`
-
-## Local URLs
+### Services
 
 | Service | URL |
 |---------|-----|
 | Dashboard | http://localhost:3000 |
-| API | http://localhost:8000 |
+| API health | http://localhost:8000/health |
 | API docs | http://localhost:8000/docs |
 | n8n | http://localhost:5678 |
-| Health | http://localhost:8000/health |
+
+### Google integration
+
+- **OAuth account:** `swapnilpatil.tech@gmail.com`
+- **Scopes:** `openid`, `userinfo.email`, `userinfo.profile`, `drive.file`, `gmail.readonly`
+- **Configured manual Drive root** (`1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI`): inaccessible with `drive.file` (expected)
+- **Active app-created root:** `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` (folder `aarohan-careeros`)
+
+Use **Create Aarohan Drive Root** in Settings if Drive sync is unavailable after OAuth.
+
+## Quick start
+
+```powershell
+# One-time setup
+powershell -File scripts/local/Bootstrap-Aarohan.ps1
+powershell -File scripts/local/Initialize-AarohanSecrets.ps1
+
+# Start full stack
+powershell -File scripts/local/Start-Aarohan.ps1 -Detached
+
+# Validate
+powershell -File scripts/local/Test-Aarohan.ps1
+```
+
+### Restart / status
+
+```powershell
+docker compose ps
+docker compose up -d
+docker compose down
+powershell -File scripts/local/Start-Aarohan.ps1 -Detached
+powershell -File scripts/local/Test-Aarohan.ps1
+```
+
+**Stop:** `powershell -File scripts/local/Stop-Aarohan.ps1`
+
+## Known gaps (next session)
+
+- Document quality needs improvement
+- ATS templates need validation
+- Real Gmail content still needs more test data
+- GitHub Actions needs verification
+- Playwright coverage needs expansion
+- Backup/restore n8n schema noise
+- UI polish pending
 
 ## Documentation
 
 ### Architecture
 
-- [System architecture](docs/architecture/ARCHITECTURE.md) — components, data flow, API surface
+- [System architecture](docs/architecture/ARCHITECTURE.md)
 
 ### Runbooks
 
-- [Local development](docs/runbooks/LOCAL_DEVELOPMENT.md) — bootstrap, start/stop, Docker and direct-dev modes
-- [Google OAuth](docs/runbooks/GOOGLE_OAUTH.md) — scopes, connect flow, dedicated account, remediation
-- [Troubleshooting](docs/runbooks/TROUBLESHOOTING.md) — common errors and fixes
-- [Backup & restore](docs/runbooks/BACKUP_RESTORE.md) — database backup scripts
+- [Local development](docs/runbooks/LOCAL_DEVELOPMENT.md)
+- [Google OAuth](docs/runbooks/GOOGLE_OAUTH.md)
+- [Troubleshooting](docs/runbooks/TROUBLESHOOTING.md)
+- [Backup & restore](docs/runbooks/BACKUP_RESTORE.md)
 
 ### Testing & release
 
-- [Test strategy](docs/testing/TEST_STRATEGY.md) — pytest, scans, Playwright, CI
-- [UAT runbook](docs/testing/UAT_RUNBOOK.md) — manual acceptance testing
-
-### Operations
-
-- [Maintenance](docs/operations/MAINTENANCE.md) — schedules, secret rotation, updates
-
-### Design references
-
-- [Product scope](docs/01_PRODUCT_SCOPE.md)
-- [Security](docs/07_SECURITY.md)
-- [Release gates](docs/09_RELEASE_GATES.md)
+- [Test strategy](docs/testing/TEST_STRATEGY.md)
+- [UAT runbook](docs/testing/UAT_RUNBOOK.md)
+- [R1 local complete](docs/releases/R1_LOCAL_COMPLETE.md)
 
 ## Security
 
@@ -75,17 +106,17 @@ Open http://localhost:3000 and sign in with admin credentials from SecretStore.
 - OAuth client JSON at `C:\AarohanSecrets\google-oauth-client.json`
 - OAuth tokens encrypted at rest
 - No LinkedIn/Indeed scraping; no automatic submission or messaging
-- Candidate source materials belong in `private/` only
 
 ## Not enabled in local-first mode
 
-- Cloud deployment (by design)
+- Cloud deployment
 - Production schedules (`SCHEDULING_ENABLED=false`)
 - External email send (`ENABLE_EXTERNAL_EMAIL_SEND=false`)
 - Automatic final application submission
 
 ## Validation artifacts
 
-- `validation/COWORK_UAT_PROMPT.md`
 - `validation/CURSOR_TEST_EVIDENCE.md`
+- `validation/CURSOR_END_TO_END_DEMO.md`
 - `validation/SECOND_REVIEW_HANDOFF.md`
+- `validation/COWORK_UAT_PROMPT.md`

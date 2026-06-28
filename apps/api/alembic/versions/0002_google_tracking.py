@@ -7,7 +7,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "0002_google_tracking"
-down_revision = "0001_initial"
+down_revision = "0001"
 branch_labels = None
 depends_on = None
 
@@ -19,9 +19,13 @@ def upgrade() -> None:
         sa.Column("message_id", sa.String(length=128), nullable=False),
         sa.Column("processed_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("message_id"),
     )
-    op.create_index("ix_processed_gmail_messages_message_id", "processed_gmail_messages", ["message_id"])
+    op.create_index(
+        "ix_processed_gmail_messages_message_id",
+        "processed_gmail_messages",
+        ["message_id"],
+        unique=True,
+    )
 
 
 def downgrade() -> None:

@@ -121,9 +121,11 @@ def test_gmail_fixture_sync(client: TestClient, auth_headers):
 
 
 def test_integration_status(client: TestClient, auth_headers):
+    from app.config import settings
+
     response = client.get("/api/integrations/status", headers=auth_headers)
     assert response.status_code == 200
-    assert response.json()["fixture_mode"] is True
+    assert response.json()["fixture_mode"] is settings.oauth_fixture_mode
 
 
 def test_resume_profiles(client: TestClient, auth_headers):

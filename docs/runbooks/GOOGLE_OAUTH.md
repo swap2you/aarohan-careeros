@@ -10,18 +10,29 @@ Dedicated career Gmail integration for Drive sync and labeled Gmail ingestion. C
 | Project metadata | `config/integration-context.yml` |
 | Client ID/secret (Docker) | PowerShell SecretStore (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) |
 | Dedicated account | `swapnilpatil.tech@gmail.com` (`CAREER_GMAIL_ADDRESS`) |
+| Primary phone | `714.307.4266` (Career Vault `contact.yml`) |
 | Redirect URI | `http://localhost:8000/api/integrations/google/callback` |
-| Drive root folder | `GOOGLE_DRIVE_ROOT_FOLDER_ID` in SecretStore |
+| Configured Drive root (manual) | `1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI` |
+| Active app-created root (proven) | `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` (`aarohan-careeros`) |
 
-Google Cloud project: `aarohan-careeros-500722` (see `integration-context.yml`).
+Google Cloud project: `aarohan-careeros-500722` (number `558756512850`).
 
-## Scopes
+## Local login before OAuth
+
+| Item | Value |
+|------|-------|
+| Dashboard | http://localhost:3000 |
+| Settings | http://localhost:3000/settings |
+| Admin email | `swapnilpatil.tech@gmail.com` |
+| Local password | `TempLocal123!` (reset via `scripts/local/Reset-LocalAdmin.ps1`) |
+
+## Scopes (unchanged — minimal)
 
 **Default (always requested):**
 
 - `openid`
 - `userinfo.email`, `userinfo.profile`
-- `drive.file` — app-created Drive files only
+- `drive.file` — app-created Drive files/folders only
 - `gmail.readonly` — read labeled career mail
 
 **Optional (test email only):**
@@ -30,68 +41,63 @@ Google Cloud project: `aarohan-careeros-500722` (see `integration-context.yml`).
 
 Local-first defaults: external send **disabled**; test sends produce `.eml` drafts instead.
 
-## Google Cloud Console checklist
-
-1. OAuth client type: Web application.
-2. Authorized redirect URIs:
-   - `http://localhost:8000/api/integrations/google/callback`
-   - `http://127.0.0.1:8000/api/integrations/google/callback`
-3. Authorized JavaScript origins:
-   - `http://localhost:3000`
-   - `http://127.0.0.1:3000`
-4. Enable Gmail API and Google Drive API.
-5. OAuth consent screen configured for the dedicated account.
-
 ## Connect flow
 
-1. Start stack with live mode: `OAUTH_FIXTURE_MODE=false` and OAuth credentials available.
-2. Sign in to dashboard at http://localhost:3000.
-3. Open Settings → Integrations → **Connect Google**.
-4. API returns auth URL from `GET /api/integrations/google/connect`.
-5. Sign in as **swapnilpatil.tech@gmail.com** and approve all scopes.
-6. Browser redirects to `/api/integrations/google/callback`; success page shows account and Drive folder count.
-7. Verify status: `GET /api/integrations/status` (authenticated).
+1. Start stack with `OAUTH_FIXTURE_MODE=false` and OAuth credentials available.
+2. Sign in at http://localhost:3000 (`swapnilpatil.tech@gmail.com` / local password).
+3. Open http://localhost:3000/settings → **Connect Google**.
+4. Approve scopes as **swapnilpatil.tech@gmail.com**.
+5. Callback saves tokens even if configured manual root is inaccessible.
+6. If Drive warning appears, click **Create Aarohan Drive Root**, then **Sync Drive Subfolders**.
 
-Post-connect: API syncs Drive subfolders (`01_Career_Vault` … `99_Archive`) and writes `oauth.connected` audit event.
+Post-connect: encrypted tokens in `oauth_tokens`; active root ID in `system_settings`; subfolders created idempotently.
+
+## Drive root and `drive.file` scope
+
+The `drive.file` scope **does not** grant access to arbitrary folders by ID. Manually created roots (including `1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI`) are **inaccessible** unless the app created them. Public link sharing does not fix this.
+
+**Proven behavior (2026-06-28):**
+
+1. OAuth callback saves tokens; Drive sync is best-effort (warning, not failure).
+2. Settings shows root accessibility, source (`configured` vs `app-created`), subfolder IDs.
+3. **Create Aarohan Drive Root** provisions `aarohan-careeros` → active ID `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`.
+4. Subfolders under active root:
+
+| Folder | ID |
+|--------|-----|
+| `01_Career_Vault` | `1V0xcP90y2XZPH7cABm4ByOJmvfFXy7B9` |
+| `02_Application_Packets` | `1___eJy4-j8bhDHtPXzHljNkkmbkpyXmj` |
+| `03_Interview_Preparation` | `1cI1GdpOSxAaZqz1uOwLFBMIldaSkVOLm` |
+| `04_Consulting` | `1mcg_J6mhQzyn3u9Og9waPkbNisHjp8oR` |
+| `05_Reports` | `1dp1k0kYhJp8fgHfKznZ5tbK0s58T9PCO` |
+| `99_Archive` | `1WWMbm0yyu2aAN8LU4f2SQ-TATbbWXUsQ` |
 
 ## Dedicated account rule
 
-The callback calls `verify_dedicated_account()`. Connecting any account other than `CAREER_GMAIL_ADDRESS` fails with a remediation message. Disconnect and reconnect with the correct Gmail.
+The callback calls `verify_dedicated_account()`. Connecting any account other than `CAREER_GMAIL_ADDRESS` fails. Disconnect and reconnect with `swapnilpatil.tech@gmail.com`.
 
-## Fixture mode (default in Docker)
+## Fixture mode
 
-`OAUTH_FIXTURE_MODE=true` (compose default) uses in-memory Gmail/Drive fixtures — no live Google calls. Use for CI and offline development.
-
-Switch to live:
-
-```powershell
-$env:OAUTH_FIXTURE_MODE = "false"
-pwsh .\scripts\local\Start-Aarohan.ps1 -Detached
-```
-
-Ensure `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are in SecretStore for Docker deployments.
+`OAUTH_FIXTURE_MODE=true` (compose default) uses fixtures — no live Google calls. For local OAuth proof, set `OAUTH_FIXTURE_MODE=false` before `docker compose up`.
 
 ## Disconnect and refresh
 
-- **Disconnect:** `POST /api/integrations/google/disconnect` (Settings UI or API).
-- **Refresh:** `POST /api/integrations/google/refresh` — validates stored token.
-- **Revoke in Google:** https://myaccount.google.com/permissions — then disconnect locally.
+- **Disconnect:** Settings or `POST /api/integrations/google/disconnect`
+- **Refresh:** `POST /api/integrations/google/refresh`
+- **Revoke in Google:** https://myaccount.google.com/permissions — then disconnect locally
 
 ## Remediation matrix
 
 | Error / symptom | Fix |
 |-----------------|-----|
-| OAuth not configured | Place JSON at `C:\AarohanSecrets\google-oauth-client.json`; store client ID/secret in SecretStore for Docker |
-| redirect_uri_mismatch | Add both localhost and 127.0.0.1 callback URIs in Cloud Console |
-| invalid_client | Verify JSON or SecretStore client ID/secret match Cloud Console |
-| invalid_grant | Disconnect and reconnect; re-consent if refresh token revoked |
-| access_denied | Retry connect; approve all requested scopes |
-| insufficient_scope | Disconnect and reconnect |
+| OAuth not configured | Place JSON at `C:\AarohanSecrets\google-oauth-client.json`; store client ID/secret in SecretStore |
+| redirect_uri_mismatch | Add localhost and 127.0.0.1 callback URIs in Cloud Console |
+| invalid_client | Verify JSON or SecretStore client ID/secret |
+| invalid_grant | Disconnect and reconnect with consent |
 | wrong_account | Use `swapnilpatil.tech@gmail.com` only |
-| folder_not_found | Verify `GOOGLE_DRIVE_ROOT_FOLDER_ID`; ensure account owns or can access folder |
+| Drive root inaccessible | Expected for manual root with `drive.file`; use **Create Aarohan Drive Root** in Settings |
+| Not authenticated in Settings | Sign in at http://localhost:3000 first; or run `Reset-LocalAdmin.ps1` |
 | api_disabled | Enable Gmail and Drive APIs in project `aarohan-careeros-500722` |
-
-Messages are defined in `apps/api/app/services/google_api.py` (`OAUTH_REMEDIATION`).
 
 ## Gmail labels (expected)
 
@@ -108,4 +114,3 @@ Manual sync: `POST /api/integrations/gmail/sync` (live) or `/gmail/sync-fixture`
 - Tokens encrypted at rest with `TOKEN_ENCRYPTION_KEY`.
 - Never commit OAuth JSON or client secrets to Git.
 - Test email recipients must be on `TEST_EMAIL_ALLOWLIST` when send is enabled.
-- No primary personal Gmail — dedicated career account only.
