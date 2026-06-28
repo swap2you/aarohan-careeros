@@ -44,6 +44,12 @@ class JobScoreOut(BaseModel):
     gap_analysis: str | None = None
     stability_analysis: str | None = None
     recommendation: str | None = None
+    trust_score: float | None = None
+    trust_reasons: list[str] | None = None
+    fit_reasons: list[str] | None = None
+    hard_filter_passed: bool | None = None
+    hard_filter_reasons: list[str] | None = None
+    match_card: dict | None = None
 
     model_config = {"from_attributes": True}
 
@@ -61,6 +67,10 @@ class JobOut(BaseModel):
     url: str
     state: str
     discovered_at: datetime
+    role_family: str | None = None
+    is_expired: bool = False
+    source_verified: bool = False
+    match_summary: str | None = None
     score: JobScoreOut | None = None
 
     model_config = {"from_attributes": True}

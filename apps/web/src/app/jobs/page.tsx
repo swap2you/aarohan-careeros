@@ -1,15 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { API_BASE } from "@/lib/api";
+
+type JobScore = {
+  total_score: number;
+  trust_score?: number;
+  hard_filter_passed?: boolean;
+  recommendation?: string;
+  match_card?: { headline?: string; trust_highlights?: string[]; fit_highlights?: string[] };
+};
 
 type Job = {
   id: number;
   title: string;
   company: string;
   state: string;
+  role_family?: string | null;
+  is_expired?: boolean;
+  source_verified?: boolean;
+  match_summary?: string | null;
   selected?: boolean;
-  score?: { total_score: number };
+  score?: JobScore;
 };
 
 type WorkflowResult = { action: string; success: number; failed: number; details: unknown[] };
@@ -90,16 +103,31 @@ export default function JobsPage() {
       <div className="card">
         <table>
           <thead>
-            <tr><th></th><th>Title</th><th>Company</th><th>State</th><th>Score</th></tr>
+            <tr>
+              <th></th>
+              <th>Job</th>
+              <th>Family</th>
+              <th>Fit</th>
+              <th>Trust</th>
+              <th>Filter</th>
+              <th>State</th>
+            </tr>
           </thead>
           <tbody>
             {jobs.map((job) => (
               <tr key={job.id}>
                 <td><input type="checkbox" checked={!!job.selected} onChange={() => toggleSelect(job.id)} /></td>
-                <td>{job.title}</td>
-                <td>{job.company}</td>
-                <td>{job.state}</td>
+                <td>
+                  <Link href={`/jobs/${job.id}`}>{job.title}</Link>
+                  <br />
+                  <small>{job.company}{job.is_expired ? " · expired" : ""}{job.source_verified ? " · verified source" : ""}</small>
+                  {job.match_summary && <p><small>{job.match_summary}</small></p>}
+                </td>
+                <td>{job.role_family ?? "—"}</td>
                 <td>{job.score?.total_score ?? "—"}</td>
+                <td>{job.score?.trust_score ?? "—"}</td>
+                <td>{job.score?.hard_filter_passed === false ? "FAIL" : job.score ? "PASS" : "—"}</td>
+                <td>{job.state}</td>
               </tr>
             ))}
           </tbody>

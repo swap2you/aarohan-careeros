@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-28  
 Branch: `main`  
-Latest tag: `r2.2.0` (pending push)  
+Latest tag: `r2.3.0` (pending push)  
 Baseline checkpoint: `aed228d583e0b6a7760eb6091c82883cda5e5426`  
 Active program: **R2** (see `docs/program/R2-PROGRAM-BOARD.md`)
 
@@ -16,6 +16,7 @@ Local-first CareerOS is operational:
 - Drive: app-created root `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`
 - Job ingest (fixture, Greenhouse, Lever), scoring, packet generation
 - **R2.2:** job connector registry (10 providers), `/connectors` UI, NOT_CONFIGURED for missing API keys
+- **R2.3:** trust/fit scores with reasons, hard filters, role-family classification, job cards on Fresh Jobs
 - Approval queue, interviews, consulting, audit log
 - Application modes: Manual and Assisted enabled; Autonomous locked (UI + API)
 - Schedules disabled; external email send disabled

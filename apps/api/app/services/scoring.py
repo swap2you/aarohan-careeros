@@ -145,6 +145,12 @@ def score_job(db: Session, job: Job) -> JobScore:
     score.recommendation = recommendation
     score.scored_at = datetime.utcnow()
 
+    from app.services.trust_matching import analyze_job, apply_analysis_to_models
+
+    analysis = analyze_job(db, job, score)
+    apply_analysis_to_models(job, score, analysis)
+    score.fit_analysis = analysis.match_summary
+
     db.add(score)
     db.add(job)
     db.commit()

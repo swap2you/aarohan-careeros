@@ -19,6 +19,7 @@ from app.routers import (
     integrations,
     interviews,
     jobs,
+    matching,
     ops,
     validation,
     workflows,
@@ -57,6 +58,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(jobs.router, prefix="/api")
+app.include_router(matching.router, prefix="/api")
 app.include_router(connectors.router, prefix="/api")
 app.include_router(companies.router, prefix="/api")
 app.include_router(applications.router, prefix="/api")
