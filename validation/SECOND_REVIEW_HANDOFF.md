@@ -1,44 +1,39 @@
-# Second Review Handoff — R1 Local v2
+# Second Review Handoff — Post Main Sync
 
 Date: 2026-06-27
 
-## Artifacts for reviewer
+## Repository
 
-- `validation/R1_BASELINE_AUDIT.md`
-- `validation/CURSOR_FIRST_REVIEW.md`
-- `validation/CURSOR_TEST_EVIDENCE.md`
-- `validation/CURSOR_END_TO_END_DEMO.md`
-- `Aarohan_R1_Local_Execution_Pack_v2/validation/SECOND_REVIEW_PROMPT.md`
+- Remote: https://github.com/swap2you/aarohan-careeros.git
+- Branch: `main`
+- Initial commit: `e8eedaf` — "R1 complete local CareerOS baseline"
+- Local HEAD equals `origin/main`
 
 ## Independent second-review command
 
 ```text
-Read Aarohan_R1_Local_Execution_Pack_v2/validation/SECOND_REVIEW_PROMPT.md and all validation/*.md artifacts. Re-run tests independently. Return PASS or STOP with command evidence. Do not deploy or push.
+Read validation/SECOND_REVIEW_HANDOFF.md, validation/R1_REPOSITORY_AUDIT.md, validation/CURSOR_FIRST_REVIEW.md, and validation/CURSOR_TEST_EVIDENCE.md. Clone main, re-run tests independently. Return PASS or STOP. Do not deploy.
 ```
 
-## Pre-review checklist
+## Cowork UAT command
 
-- [x] OAuth JSON at `C:\AarohanSecrets\google-oauth-client.json` (not in repo)
-- [x] `.env.local` created (no client secret)
-- [x] Unified OAuth scopes implemented
-- [x] 19 backend tests pass
-- [x] Frontend build passes
-- [x] Secret + prohibited scans pass
-- [ ] Live Google OAuth connected (user action)
-- [ ] Docker stack running locally (user action)
-- [ ] Playwright E2E executed
-- [ ] Backup/restore demonstrated
+```text
+Read validation/COWORK_UAT_PROMPT.md and execute all 14 user-journey scenarios against a running local stack. Record evidence under artifacts/uat/. Do not deploy or push.
+```
 
-## User actions before signoff
+## User actions to complete local proof
 
-1. Run `pwsh scripts/local/Initialize-AarohanSecrets.ps1` if vault not initialized
-2. Run `pwsh scripts/local/Start-Aarohan.ps1 -Detached`
-3. Open http://localhost:3000/settings → Connect Google → consent as `swapnilpatil.tech@gmail.com`
-4. Sync Gmail and verify Drive folders via Settings or API
-5. Run `pwsh scripts/local/Test-Aarohan.ps1` and `cd apps/web; npm run test:e2e`
+1. Install Docker Desktop (admin UAC): `choco install docker-desktop -y` or winget
+2. Install GitHub CLI: `choco install gh -y` then `gh auth login`
+3. `pwsh scripts/local/Bootstrap-Aarohan.ps1`
+4. `pwsh scripts/local/Start-Aarohan.ps1 -Detached`
+5. Connect Google at http://localhost:3000/settings as `swapnilpatil.tech@gmail.com`
+6. `pwsh scripts/local/Test-Aarohan.ps1` and `cd apps/web; npm run test:e2e`
+7. Verify CI: `gh run watch --repo swap2you/aarohan-careeros --exit-status`
 
-## Known limitations
+## Excluded from Git (intentional)
 
-- External email send disabled by default; test send generates `.eml`
-- PDF generation may fall back to text on Windows host without WeasyPrint libs
-- Docker CLI was not available on the Cursor agent host during R1 execution
+- `docs/Swapnil/` — private personal documents
+- `Aarohan - Keys & secrets.txt`
+- `C:\AarohanSecrets\google-oauth-client.json`
+- `.env.local`, generated output, artifacts
