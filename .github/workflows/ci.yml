@@ -37,6 +37,9 @@ jobs:
           APP_SECRET: ci-test-secret-key-32chars-minimum!
           TOKEN_ENCRYPTION_KEY: ci-test-token-encryption-key-32chars!
           OAUTH_FIXTURE_MODE: "true"
+          GENERATED_ROOT: ${{ github.workspace }}/apps/api/generated
+          CONFIG_ROOT: ${{ github.workspace }}/config
+          CAREER_VAULT_ROOT: ${{ github.workspace }}/career_vault
         run: pytest -q
 
   validation-scans:

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import os
 from unittest.mock import patch
 
@@ -7,10 +9,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+_API_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = _API_ROOT.parents[1]
+
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ.setdefault("APP_SECRET", "test-secret-key-32chars-minimum!")
 os.environ.setdefault("TOKEN_ENCRYPTION_KEY", "test-token-encryption-key-32chars!")
 os.environ.setdefault("OAUTH_FIXTURE_MODE", "true")
+os.environ.setdefault("GENERATED_ROOT", str(_API_ROOT / "generated"))
+os.environ.setdefault("CONFIG_ROOT", str(_REPO_ROOT / "config"))
+os.environ.setdefault("CAREER_VAULT_ROOT", str(_REPO_ROOT / "career_vault"))
 
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402

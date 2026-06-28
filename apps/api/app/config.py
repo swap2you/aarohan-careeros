@@ -55,6 +55,26 @@ class Settings(BaseSettings):
     connector_fixture_mode: bool = False
 
     @model_validator(mode="after")
+    def resolve_runtime_paths(self) -> "Settings":
+        """Use repository-local paths when Docker /app mount paths are unavailable."""
+        from pathlib import Path
+
+        api_root = Path(__file__).resolve().parents[1]
+        repo_root = api_root.parents[1]
+
+        def local_or_keep(value: str, relative: Path) -> str:
+            path = Path(value)
+            if path.is_absolute() and str(path).replace("\\", "/").startswith("/app"):
+                if not path.parent.exists():
+                    return str(relative)
+            return value
+
+        self.config_root = local_or_keep(self.config_root, repo_root / "config")
+        self.career_vault_root = local_or_keep(self.career_vault_root, repo_root / "career_vault")
+        self.generated_root = local_or_keep(self.generated_root, api_root / "generated")
+        return self
+
+    @model_validator(mode="after")
     def load_google_oauth_from_json(self) -> "Settings":
         if self.google_client_id and self.google_client_secret:
             return self
