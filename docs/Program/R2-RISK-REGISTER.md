@@ -9,4 +9,4 @@
 | R-05 | AI hallucination in documents | False claims | Evidence vault + factual-core validator | Cursor | MITIGATED (baseline) |
 | R-06 | Autonomous apply bypass | Policy violation | Backend rejection + locked UI | Cursor | MITIGATED |
 | R-07 | n8n schema in full DB backup | Restore noise | Career-only dump (R2.12) | Cursor | OPEN |
-| R-08 | GitHub Actions not verified locally | CI drift | Verify after each push | Owner | OPEN |
+| R-08 | GitHub Actions not verified locally | CI drift | `gh auth login` then verify after each push | Owner | OPEN (gh installed, auth pending) |

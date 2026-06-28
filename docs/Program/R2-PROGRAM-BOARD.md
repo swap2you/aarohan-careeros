@@ -7,7 +7,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED_EXTERNAL`, `BLOCKED_TECHNI
 | R2.0 Baseline/Governance | DONE | 98dae5921668e8b2fed5a8aa84835c61d28943c8 | r2.0.0 | gate PASS | | |
 | R2.1 Duplicate Protection | DONE | 6a484383929bf6b4f1f5c378341a7d1240baa203 | r2.1.0 | 37 passed, 1 skipped | | ledger + duplicate engine |
 | R2.2 Job Connectors | DONE | 81aef74c73b783dd34117674ff0e0aca15940bf1 | r2.2.0 | 44 passed, 1 skipped | | provider registry + UI |
-| R2.3 Trust/Matching | DONE | (this release) | r2.3.0 | 50 passed, 1 skipped | | trust + hard filters |
+| R2.3 Trust/Matching | DONE | dfcc391 | r2.3.0 | 50 passed, 1 skipped | | trust + hard filters |
 | R2.4 Document Quality | NOT_STARTED | | | | | |
 | R2.5 Manual Workflow | NOT_STARTED | | | | | |
 | R2.6 Assisted Apply | NOT_STARTED | | | | | |

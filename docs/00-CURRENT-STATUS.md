@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-28  
 Branch: `main`  
-Latest tag: `r2.3.0` (pending push)  
+Latest tag: `r2.3.0` (`dfcc391`)  
 Baseline checkpoint: `aed228d583e0b6a7760eb6091c82883cda5e5426`  
 Active program: **R2** (see `docs/program/R2-PROGRAM-BOARD.md`)
 
