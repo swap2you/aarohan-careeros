@@ -1,0 +1,25 @@
+{
+  "pack": "Aarohan CareerOS R2 Execution Pack",
+  "created": "2026-06-28",
+  "repository": "swap2you/aarohan-careeros",
+  "local_path": "C:\\Development\\Workspace\\aarohan-careeros",
+  "baseline_commit": "aed228d583e0b6a7760eb6091c82883cda5e5426",
+  "files": [
+    "00-READ-ME-FIRST.md",
+    "01-MASTER-CURSOR-PROMPT.md",
+    "02-RELEASE-ROADMAP.md",
+    "03-PROGRAM-BOARD-TEMPLATE.md",
+    "04-KEYS-AND-JOB-ALERTS-SETUP.md",
+    "05-DUPLICATE-APPLICATION-AND-RESUME-CONSISTENCY.md",
+    "06-DOCUMENT-NAMING-STORAGE-AND-LINKING.md",
+    "07-APPLICATION-MODES-AND-SAFETY.md",
+    "08-UI-AND-CLOUD-READINESS-SPEC.md",
+    "09-RELEASE-GATE-AND-GIT-POLICY.md",
+    "10-MULTI-AGENT-VALIDATION-AND-UAT.md",
+    "11-CURSOR-EXTERNAL-CONFIG-BLOCK.md",
+    "12-OWNER-CHECKLIST.md",
+    "13-DECISIONS-AND-FUTURE-ROADMAP.md",
+    "14-FAST-VERIFICATION-PLAN.md"
+  ],
+  "secret_values_included": false
+}
