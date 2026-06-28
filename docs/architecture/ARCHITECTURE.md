@@ -41,6 +41,7 @@ Routers under `/api`:
 
 - `auth` — login, session, admin bootstrap
 - `jobs` — ingestion, normalization, deduplication, scoring
+- `connectors` — job discovery providers, health, ad hoc runs
 - `companies` — company registry, application ledger, duplicate-risk, application modes
 - `applications` — packets, approval queue, tracking
 - `interviews` — Interview Grilling Machine

@@ -46,6 +46,14 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000"
     oauth_fixture_mode: bool = False
 
+    adzuna_app_id: str = ""
+    adzuna_app_key: str = ""
+    jooble_api_key: str = ""
+    usajobs_api_key: str = ""
+    usajobs_user_email: str = ""
+    rss_feed_urls: str = ""
+    connector_fixture_mode: bool = False
+
     @model_validator(mode="after")
     def load_google_oauth_from_json(self) -> "Settings":
         if self.google_client_id and self.google_client_secret:

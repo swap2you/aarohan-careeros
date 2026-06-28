@@ -1,6 +1,13 @@
 allowed_automated:
   - greenhouse_public_get
   - lever_public_get
+  - ashby_public_get
+  - remotive_public_get
+  - remote_ok_public_get
+  - approved_rss_feeds
+  - adzuna_api
+  - jooble_api
+  - usajobs_api
   - approved_remote_feeds
   - company_public_apis
   - linkedin_saved_alert_emails
