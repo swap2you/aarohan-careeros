@@ -25,7 +25,9 @@ def pg_client():
     from app.services.setup import mark_setup_complete
 
     engine = create_engine(os.environ["DATABASE_URL"])
-    Base.metadata.drop_all(bind=engine)
+    from tests.postgres_utils import reset_public_schema
+
+    reset_public_schema(engine)
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
     db = Session()

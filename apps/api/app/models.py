@@ -155,7 +155,12 @@ class Application(Base):
     drive_folder_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     submitted_version_id: Mapped[int | None] = mapped_column(
-        ForeignKey("application_document_versions.id"), nullable=True
+        ForeignKey(
+            "application_document_versions.id",
+            name="fk_applications_submitted_version",
+            use_alter=True,
+        ),
+        nullable=True,
     )
     latest_version_number: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
