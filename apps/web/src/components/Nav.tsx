@@ -14,6 +14,7 @@ const links = [
   ["Applications", "/applications"],
   ["Company Ledger", "/companies"],
   ["Recruiter Signals", "/recruiter-signals"],
+  ["Gmail Review", "/gmail-reviews"],
   ["Interviews", "/interviews"],
   ["Consulting (Preview)", "/consulting"],
   ["Reports", "/analytics"],

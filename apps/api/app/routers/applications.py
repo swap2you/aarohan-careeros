@@ -1,38 +1,79 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Application, ApplicationTimelineEvent, Job, User, WorkflowState
 from app.schemas import ApplicationOut, ApprovalRequest
+from app.services.application_summary import serialize_application
 from app.services.approval import apply_approval_action
 from app.services.document_versions import list_versions
 from app.services.documents import generate_application_packet
 from app.services.duplicate_risk import evaluate_duplicate_risk, reject_autonomous_submission
+from app.services.provenance import OWNER_EXCLUDED
 from app.services.representation import evaluate_representation_risk
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 
-@router.get("", response_model=list[ApplicationOut])
+def _owner_applications_query(db: Session):
+    return (
+        db.query(Application)
+        .join(Job)
+        .options(joinedload(Application.job))
+        .filter(~Application.data_provenance.in_(OWNER_EXCLUDED))
+        .filter(~Job.data_provenance.in_(OWNER_EXCLUDED))
+    )
+
+
+@router.get("")
 def list_applications(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    state: str | None = None,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
-) -> list[Application]:
-    return db.query(Application).order_by(Application.updated_at.desc()).limit(100).all()
+) -> dict:
+    query = _owner_applications_query(db).order_by(Application.updated_at.desc())
+    if state:
+        query = query.filter(Application.state == state)
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "items": [serialize_application(row, db=db) for row in rows],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "page_count": max(1, (total + page_size - 1) // page_size),
+    }
 
 
-@router.get("/queue", response_model=list[ApplicationOut])
+@router.get("/queue")
 def approval_queue(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
-) -> list[Application]:
+) -> dict:
     states = [
         WorkflowState.PACKET_READY.value,
         WorkflowState.NEEDS_EDIT.value,
         WorkflowState.APPROVED_FOR_SUBMISSION.value,
     ]
-    return db.query(Application).filter(Application.state.in_(states)).all()
+    query = (
+        _owner_applications_query(db)
+        .filter(Application.state.in_(states))
+        .order_by(Application.updated_at.desc())
+    )
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "items": [serialize_application(row, db=db) for row in rows],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "page_count": max(1, (total + page_size - 1) // page_size),
+    }
 
 
 @router.post("/jobs/{job_id}/generate", response_model=ApplicationOut)
