@@ -208,9 +208,13 @@ def generate_application_packet(
     db.commit()
     db.refresh(application)
 
+    from app.config import settings
     from app.services.drive_settings import resolve_active_drive_root
 
-    _, _, drive_accessible = resolve_active_drive_root(db)
+    if settings.oauth_fixture_mode:
+        drive_accessible = True
+    else:
+        _, _, drive_accessible = resolve_active_drive_root(db)
     metadata = application.packet_metadata or {}
     if not drive_accessible:
         metadata["drive_upload_skipped"] = (
@@ -222,12 +226,29 @@ def generate_application_packet(
         db.refresh(application)
     else:
         try:
+            from app.models import ApplicationDocumentVersion
             from app.services.integrations import get_drive_client
 
             drive = get_drive_client(db)
             docx_uri = drive.upload_file(str(docx_path), docx_path.name)
             pdf_uri = drive.upload_file(str(pdf_path), pdf_path.name)
+            version_row = (
+                db.query(ApplicationDocumentVersion)
+                .filter(
+                    ApplicationDocumentVersion.application_id == application.id,
+                    ApplicationDocumentVersion.version_number == version_number,
+                )
+                .one()
+            )
+            version_row.drive_docx_id = docx_uri
+            version_row.drive_pdf_id = pdf_uri
+            db.add(version_row)
             metadata["drive_links"] = {"docx": docx_uri, "pdf": pdf_uri}
+            metadata["drive_version"] = {
+                "version_number": doc_version.version_number,
+                "docx_id": docx_uri,
+                "pdf_id": pdf_uri,
+            }
             application.packet_metadata = metadata
             db.add(application)
             db.commit()

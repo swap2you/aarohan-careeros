@@ -49,6 +49,7 @@ export default function JobDetailPage() {
   const [dupRisk, setDupRisk] = useState<Risk | null>(null);
   const [repRisk, setRepRisk] = useState<Risk | null>(null);
   const [applyReady, setApplyReady] = useState<{ can_open_apply: boolean; message: string } | null>(null);
+  const [atsInfo, setAtsInfo] = useState<{ provider: string; summary: string; assisted_available: boolean } | null>(null);
   const [message, setMessage] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
 
@@ -75,6 +76,9 @@ export default function JobDetailPage() {
     fetch(`${API_BASE}/api/applications/jobs/${jobId}/apply-readiness`, { headers: hdrs })
       .then((r) => r.json())
       .then(setApplyReady);
+    fetch(`${API_BASE}/api/assisted-apply/jobs/${jobId}/ats-detection`, { headers: hdrs })
+      .then((r) => r.json())
+      .then(setAtsInfo);
   }, [jobId]);
 
   async function generatePacket() {
@@ -187,6 +191,23 @@ export default function JobDetailPage() {
                 ))}
               </ul>
             </>
+          )}
+        </div>
+      )}
+
+      {atsInfo && (
+        <div className="card">
+          <h3>Application mode</h3>
+          <p>
+            ATS: {atsInfo.provider} — {atsInfo.summary}
+          </p>
+          {atsInfo.assisted_available ? (
+            <p>
+              Assisted mode can prepare fields for supported ATS pages and stops before employer Submit. Use the{" "}
+              <Link href="/applications">Applications</Link> page after approving a packet.
+            </p>
+          ) : (
+            <p>Use Manual mode: open the official employer URL only.</p>
           )}
         </div>
       )}

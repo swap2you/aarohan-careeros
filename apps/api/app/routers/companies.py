@@ -122,7 +122,7 @@ def list_application_modes(_: User = Depends(get_current_user)) -> dict:
             {
                 "id": ApplicationMode.ASSISTED.value,
                 "label": "Assisted",
-                "description": "Prefill supported ATS fields and stop before final submit.",
+                "description": "Prepare supported Greenhouse, Lever, and Ashby fields. Stops before employer Submit.",
                 "enabled": True,
             },
             {

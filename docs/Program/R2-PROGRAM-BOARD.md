@@ -9,8 +9,8 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED_EXTERNAL`, `BLOCKED_TECHNI
 | R2.2 Job Connectors | DONE | 81aef74c73b783dd34117674ff0e0aca15940bf1 | r2.2.0 | 44 passed, 1 skipped | | provider registry + UI |
 | R2.3 Trust/Matching | DONE | dfcc391 | r2.3.0 | 50 passed, 1 skipped | | trust + hard filters |
 | R2.4 Document Quality | DONE | f06a5a9 | r2.4.0 | 58 passed, 1 skipped | | ATS diagnostics + answer sheet |
-| R2.5 Manual Workflow | DONE | c9b1143 | r2.5.0 | 76 passed (CI Postgres) | Drive OAuth owner step | manual workflow + CI playwright |
-| R2.6 Assisted Apply | NOT_STARTED | | | | | |
+| R2.5 Manual Workflow | DONE | 7a0a93b | r2.5.0 | 76 passed (CI Postgres) | Drive OAuth owner step | CONDITIONAL GO |
+| R2.6 Assisted Apply | IN_PROGRESS | | | 84 passed, 8 skipped | | assisted API + tests |
 | R2.7 Gmail Lifecycle | NOT_STARTED | | | | | |
 | R2.8 Interview Intelligence | NOT_STARTED | | | | | |
 | R2.9 Ask Aarohan/TTS | NOT_STARTED | | | | | |

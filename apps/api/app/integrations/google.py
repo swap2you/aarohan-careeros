@@ -13,8 +13,13 @@ class StubGoogleDriveClient(GoogleDriveClient):
 
 
 class FixtureGoogleDriveClient(GoogleDriveClient):
+    _counter = 0
+
     def upload_file(self, local_path: str, filename: str, folder_id: str | None = None) -> str:
-        return f"fixture-drive://{folder_id or 'root'}/{filename}"
+        FixtureGoogleDriveClient._counter += 1
+        fid = f"fixture-file-{FixtureGoogleDriveClient._counter}"
+        root = folder_id or "fixture-root"
+        return f"https://drive.fixture.local/{root}/{fid}/{filename}"
 
 
 class GmailClient(ABC):
