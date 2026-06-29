@@ -1,83 +1,57 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
-
-type SetupStatus = { setup_required: boolean; has_admin: boolean };
+import { useAuth } from "@/context/AuthContext";
 
 export default function HomePage() {
-  const [token, setToken] = useState<string | null>(null);
-  const [setup, setSetup] = useState<SetupStatus | null>(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const { apiFetch, status } = useAuth();
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("careeros_token");
-    if (saved) setToken(saved);
-    fetch(`${API_BASE}/api/auth/setup-status`)
-      .then((res) => res.json())
-      .then(setSetup)
-      .catch(() => setSetup({ setup_required: true, has_admin: false }));
-  }, []);
-
-  useEffect(() => {
-    if (!token) return;
-    fetch(`${API_BASE}/api/analytics`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.json())
+    if (status !== "authenticated") return;
+    apiFetch("/api/analytics")
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Failed to load analytics (${res.status})`);
+        return res.json();
+      })
       .then(setAnalytics)
-      .catch(() => setError("Failed to load analytics"));
-  }, [token]);
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load analytics"));
+  }, [apiFetch, status]);
 
-  async function submitAuth(path: "/api/auth/setup" | "/api/auth/login") {
-    setError(null);
-    const response = await fetch(`${API_BASE}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setError(data.detail || "Authentication failed");
-      return;
-    }
-    const data = await response.json();
-    localStorage.setItem("careeros_token", data.access_token);
-    setToken(data.access_token);
-  }
-
-  if (!token) {
-    const isSetup = setup?.setup_required;
-    return (
-      <div className="login card">
-        <h1>{isSetup ? "First-run administrator setup" : "Sign in"}</h1>
-        <label htmlFor="careeros-email">Email</label>
-        <input id="careeros-email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <label htmlFor="careeros-password">Password (min 12 characters)</label>
-        <input
-          id="careeros-password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        {error && <p className="error">{error}</p>}
-        <button onClick={() => submitAuth(isSetup ? "/api/auth/setup" : "/api/auth/login")}>
-          {isSetup ? "Create administrator" : "Login"}
-        </button>
-      </div>
-    );
+  if (status !== "authenticated") {
+    return null;
   }
 
   return (
     <div>
       <h1>Executive Overview</h1>
       <p>Local-first supervised career operations. Schedules disabled by default.</p>
+      {error && (
+        <div className="card risk-amber">
+          <p>{error}</p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Retry
+          </button>
+        </div>
+      )}
       <div className="grid">
-        <div className="card"><strong>Total Jobs</strong><div>{analytics?.total_jobs ?? "—"}</div></div>
-        <div className="card"><strong>Shortlisted</strong><div>{analytics?.shortlisted_jobs ?? "—"}</div></div>
-        <div className="card"><strong>Packets Ready</strong><div>{analytics?.applications_ready ?? "—"}</div></div>
-        <div className="card"><strong>Submitted</strong><div>{analytics?.submitted_applications ?? "—"}</div></div>
+        <div className="card">
+          <strong>Total Jobs</strong>
+          <div>{analytics?.total_jobs ?? "—"}</div>
+        </div>
+        <div className="card">
+          <strong>Shortlisted</strong>
+          <div>{analytics?.shortlisted_jobs ?? "—"}</div>
+        </div>
+        <div className="card">
+          <strong>Packets Ready</strong>
+          <div>{analytics?.applications_ready ?? "—"}</div>
+        </div>
+        <div className="card">
+          <strong>Submitted</strong>
+          <div>{analytics?.submitted_applications ?? "—"}</div>
+        </div>
       </div>
     </div>
   );

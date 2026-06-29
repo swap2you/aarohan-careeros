@@ -1,22 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_optional_user
 from app.models import User
-from app.schemas import LoginRequest, TokenResponse
-from app.services.auth import create_access_token, hash_password, verify_password
+from app.schemas import LoginRequest, SessionResponse, SetupRequest
+from app.services.auth import hash_password, verify_password
 from app.services.career_vault import sync_evidence_registry
+from app.services.session_auth import (
+    clear_session_cookie,
+    create_session,
+    get_session_token,
+    resolve_session,
+    revoke_session,
+    set_session_cookie,
+)
 from app.services.setup import has_admin_user, is_setup_complete, mark_setup_complete
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class SetupRequest(BaseModel):
-    email: str
-    password: str
+def _session_response(user: User, session_row) -> SessionResponse:
+    return SessionResponse(
+        authenticated=True,
+        email=user.email,
+        user_id=user.id,
+        remember_me=session_row.remember_me if session_row else False,
+        expires_at=session_row.expires_at.isoformat() if session_row else None,
+    )
 
 
 @router.get("/setup-status")
@@ -27,8 +40,28 @@ def setup_status(db: Session = Depends(get_db)) -> dict:
     }
 
 
-@router.post("/setup", response_model=TokenResponse)
-def setup_admin(payload: SetupRequest, db: Session = Depends(get_db)) -> TokenResponse:
+@router.get("/session", response_model=SessionResponse)
+def auth_session(
+    request: Request,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+) -> SessionResponse:
+    if not user:
+        return SessionResponse(authenticated=False)
+    raw = get_session_token(request)
+    row = resolve_session(db, raw) if raw else None
+    if raw and not row:
+        return SessionResponse(authenticated=False)
+    return _session_response(user, row)
+
+
+@router.post("/setup", response_model=SessionResponse)
+def setup_admin(
+    payload: SetupRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> SessionResponse:
     if has_admin_user(db):
         raise HTTPException(status_code=400, detail="Administrator already configured")
     if len(payload.password) < 12:
@@ -36,19 +69,38 @@ def setup_admin(payload: SetupRequest, db: Session = Depends(get_db)) -> TokenRe
     user = User(email=payload.email, hashed_password=hash_password(payload.password), is_admin=True)
     db.add(user)
     db.commit()
+    db.refresh(user)
     mark_setup_complete(db)
     sync_evidence_registry(db)
-    return TokenResponse(access_token=create_access_token(user.email))
+    remember = payload.remember_me if payload.remember_me is not None else True
+    raw, row = create_session(db, user, remember_me=remember, user_agent=request.headers.get("user-agent"))
+    set_session_cookie(response, raw, remember_me=remember)
+    return _session_response(user, row)
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+@router.post("/login", response_model=SessionResponse)
+def login(
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> SessionResponse:
     if not has_admin_user(db):
         raise HTTPException(status_code=403, detail="Setup required")
     user = db.query(User).filter(User.email == payload.email).one_or_none()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    return TokenResponse(access_token=create_access_token(user.email))
+    remember = payload.remember_me if payload.remember_me is not None else True
+    raw, row = create_session(db, user, remember_me=remember, user_agent=request.headers.get("user-agent"))
+    set_session_cookie(response, raw, remember_me=remember)
+    return _session_response(user, row)
+
+
+@router.post("/logout")
+def logout(request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
+    revoke_session(db, get_session_token(request))
+    clear_session_cookie(response)
+    return {"logged_out": True}
 
 
 @router.get("/me")

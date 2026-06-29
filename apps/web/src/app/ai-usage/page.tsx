@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 type Usage = {
   id: number;
@@ -12,18 +12,15 @@ type Usage = {
 };
 
 export default function AiUsagePage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [usage, setUsage] = useState<Usage[]>([]);
   const [budget, setBudget] = useState<Record<string, unknown> | null>(null);
 
-  function token() {
-    return localStorage.getItem("careeros_token") || "";
-  }
-
   useEffect(() => {
-    const headers = { Authorization: `Bearer ${token()}` };
-    fetch(`${API_BASE}/api/ai/usage`, { headers }).then((r) => r.json()).then(setUsage);
-    fetch(`${API_BASE}/api/ai/budget`, { headers }).then((r) => r.json()).then(setBudget);
-  }, []);
+    if (authStatus !== "authenticated") return;
+    apiFetch("/api/ai/usage").then((r) => (r.ok ? r.json() : [])).then(setUsage);
+    apiFetch("/api/ai/budget").then((r) => (r.ok ? r.json() : null)).then(setBudget);
+  }, [apiFetch, authStatus]);
 
   return (
     <div>

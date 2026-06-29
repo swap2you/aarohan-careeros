@@ -1,28 +1,15 @@
 import { test, expect } from "@playwright/test";
+import { apiLogin } from "./auth-helpers";
 
 const API = process.env.PLAYWRIGHT_API_BASE || "http://localhost:8000";
 
-async function authHeaders(request: import("@playwright/test").APIRequestContext) {
-  const status = await request.get(`${API}/api/auth/setup-status`);
-  if ((await status.json()).setup_required) {
-    await request.post(`${API}/api/auth/setup`, {
-      data: { email: "e2e@test.local", password: "E2eTestPass123!" },
-    });
-  }
-  const loginRes = await request.post(`${API}/api/auth/login`, {
-    data: { email: "e2e@test.local", password: "E2eTestPass123!" },
-  });
-  return { Authorization: `Bearer ${(await loginRes.json()).access_token}` };
-}
-
 test.describe("R2.6 assisted apply", () => {
   test("greenhouse assisted prepare returns field mapping", async ({ request }) => {
-    const headers = await authHeaders(request);
+    await apiLogin(request);
     const suffix = Date.now();
     const job = (
       await (
         await request.post(`${API}/api/jobs/ingest`, {
-          headers,
           data: {
             source: "greenhouse_public_get",
             external_id: `e2e-gh-${suffix}`,
@@ -36,13 +23,12 @@ test.describe("R2.6 assisted apply", () => {
       ).json()
     );
     const app = await (
-      await request.post(`${API}/api/applications/jobs/${job.id}/generate`, { headers })
+      await request.post(`${API}/api/applications/jobs/${job.id}/generate`)
     ).json();
     await request.post(`${API}/api/applications/${app.id}/actions`, {
-      headers,
       data: { action: "approve" },
     });
-    const prepared = await request.post(`${API}/api/assisted-apply/applications/${app.id}/prepare`, { headers });
+    const prepared = await request.post(`${API}/api/assisted-apply/applications/${app.id}/prepare`);
     const body = await prepared.json();
     expect(body.can_proceed).toBe(true);
     expect(body.ats.provider).toBe("greenhouse");
@@ -50,17 +36,14 @@ test.describe("R2.6 assisted apply", () => {
   });
 
   test("assisted submit attempt returns 403", async ({ request }) => {
-    const headers = await authHeaders(request);
-    const res = await request.post(`${API}/api/assisted-apply/applications/1/attempt-submit`, { headers });
+    await apiLogin(request);
+    const res = await request.post(`${API}/api/assisted-apply/applications/1/attempt-submit`);
     expect(res.status()).toBe(403);
   });
 
   test("linkedin URL is prohibited for assisted", async ({ request }) => {
-    const headers = await authHeaders(request);
-    const detection = await request.get(
-      `${API}/api/assisted-apply/jobs/1/ats-detection`,
-      { headers },
-    );
+    await apiLogin(request);
+    const detection = await request.get(`${API}/api/assisted-apply/jobs/1/ats-detection`);
     expect([200, 404]).toContain(detection.status());
   });
 });

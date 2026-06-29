@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Nav } from "@/components/Nav";
+import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Aarohan CareerOS",
@@ -11,10 +11,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <div className="layout">
-          <Nav />
-          <main>{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

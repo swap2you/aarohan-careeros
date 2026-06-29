@@ -1,31 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function InterviewsPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [jobId, setJobId] = useState("1");
   const [pack, setPack] = useState<Record<string, unknown> | null>(null);
 
   async function generate() {
-    const token = localStorage.getItem("careeros_token");
-    if (!token) return;
-    const response = await fetch(`${API_BASE}/api/interviews/jobs/${jobId}/generate`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setPack(await response.json());
+    const response = await apiFetch(`/api/interviews/jobs/${jobId}/generate`, { method: "POST" });
+    if (response.ok) setPack(await response.json());
   }
 
   useEffect(() => {
-    const token = localStorage.getItem("careeros_token");
-    if (!token) return;
-    fetch(`${API_BASE}/api/interviews/${jobId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    if (authStatus !== "authenticated") return;
+    apiFetch(`/api/interviews/${jobId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then(setPack);
-  }, [jobId]);
+  }, [apiFetch, authStatus, jobId]);
 
   return (
     <div>

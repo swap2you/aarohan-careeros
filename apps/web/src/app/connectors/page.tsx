@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 type Connector = {
   provider_id: string;
@@ -16,6 +16,7 @@ type Connector = {
 };
 
 export default function ConnectorsPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [message, setMessage] = useState("");
   const [params, setParams] = useState<Record<string, string>>({
@@ -24,19 +25,15 @@ export default function ConnectorsPage() {
     job_board_name: "",
   });
 
-  function token() {
-    return localStorage.getItem("careeros_token") || "";
-  }
-
   const load = useCallback(() => {
-    fetch(`${API_BASE}/api/connectors`, { headers: { Authorization: `Bearer ${token()}` } })
-      .then((res) => res.json())
+    apiFetch("/api/connectors")
+      .then((res) => (res.ok ? res.json() : { connectors: [] }))
       .then((data) => setConnectors(data.connectors || []));
-  }, []);
+  }, [apiFetch]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (authStatus === "authenticated") load();
+  }, [authStatus, load]);
 
   async function run(providerId: string, useFixture: boolean) {
     setMessage(`Running ${providerId}...`);
@@ -45,12 +42,8 @@ export default function ConnectorsPage() {
     if (providerId === "lever" && params.company_slug) runParams.company_slug = params.company_slug;
     if (providerId === "ashby" && params.job_board_name) runParams.job_board_name = params.job_board_name;
 
-    const response = await fetch(`${API_BASE}/api/connectors/${providerId}/run`, {
+    const response = await apiFetch(`/api/connectors/${providerId}/run`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token()}`,
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({ use_fixture: useFixture, params: runParams }),
     });
     const data = await response.json();

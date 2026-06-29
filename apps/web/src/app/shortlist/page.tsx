@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 type Job = {
   id: number;
@@ -12,17 +12,17 @@ type Job = {
 };
 
 export default function ShortlistPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
 
-  function token() {
-    return localStorage.getItem("careeros_token") || "";
-  }
-
   useEffect(() => {
-    fetch(`${API_BASE}/api/jobs`, { headers: { Authorization: `Bearer ${token()}` } })
-      .then((res) => res.json())
-      .then((rows: Job[]) => setJobs(rows.filter((j) => j.state === "SHORTLISTED" || (j.score?.total_score ?? 0) >= 75)));
-  }, []);
+    if (authStatus !== "authenticated") return;
+    apiFetch("/api/jobs")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: Job[]) =>
+        setJobs(rows.filter((j) => j.state === "SHORTLISTED" || (j.score?.total_score ?? 0) >= 75)),
+      );
+  }, [apiFetch, authStatus]);
 
   return (
     <div>

@@ -8,9 +8,24 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class SessionResponse(BaseModel):
+    authenticated: bool
+    email: str | None = None
+    user_id: int | None = None
+    remember_me: bool = False
+    expires_at: str | None = None
+
+
 class LoginRequest(BaseModel):
     email: str
     password: str
+    remember_me: bool | None = True
+
+
+class SetupRequest(BaseModel):
+    email: str
+    password: str
+    remember_me: bool | None = True
 
 
 class JobIngestRequest(BaseModel):

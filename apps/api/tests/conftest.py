@@ -10,7 +10,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 _API_ROOT = Path(__file__).resolve().parents[1]
-_REPO_ROOT = _API_ROOT.parents[1]
+if (_API_ROOT / "config").exists():
+    _REPO_ROOT = _API_ROOT
+else:
+    _REPO_ROOT = _API_ROOT.parents[1]
 
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ.setdefault("APP_SECRET", "test-secret-key-32chars-minimum!")
@@ -88,8 +91,8 @@ def client():
 def auth_headers(client: TestClient) -> dict[str, str]:
     response = client.post(
         "/api/auth/login",
-        json={"email": "admin@test.local", "password": "SecurePass123!"},
+        json={"email": "admin@test.local", "password": "SecurePass123!", "remember_me": True},
     )
     assert response.status_code == 200
-    token = response.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    assert response.json()["authenticated"] is True
+    return {}

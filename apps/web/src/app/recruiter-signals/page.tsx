@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 type Signal = {
   id: number;
@@ -13,29 +13,21 @@ type Signal = {
 };
 
 export default function RecruiterSignalsPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [signals, setSignals] = useState<Signal[]>([]);
   const [message, setMessage] = useState("");
 
-  function token() {
-    return localStorage.getItem("careeros_token") || "";
-  }
-
-  async function load() {
-    const response = await fetch(`${API_BASE}/api/recruiter-signals`, {
-      headers: { Authorization: `Bearer ${token()}` },
-    });
-    setSignals(await response.json());
-  }
+  const load = useCallback(async () => {
+    const response = await apiFetch("/api/recruiter-signals");
+    if (response.ok) setSignals(await response.json());
+  }, [apiFetch]);
 
   useEffect(() => {
-    load();
-  }, []);
+    if (authStatus === "authenticated") void load();
+  }, [authStatus, load]);
 
   async function syncGmail() {
-    const response = await fetch(`${API_BASE}/api/integrations/gmail/sync`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token()}` },
-    });
+    const response = await apiFetch("/api/integrations/gmail/sync", { method: "POST" });
     const data = await response.json();
     setMessage(`Synced ${data.processed ?? 0} messages`);
     await load();

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 type Application = {
   id: number;
@@ -13,44 +13,34 @@ type Application = {
 };
 
 export default function ApprovalsPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [items, setItems] = useState<Application[]>([]);
   const [preview, setPreview] = useState<Application | null>(null);
 
-  function token() {
-    return localStorage.getItem("careeros_token") || "";
-  }
-
-  async function load() {
-    const response = await fetch(`${API_BASE}/api/applications/queue`, {
-      headers: { Authorization: `Bearer ${token()}` },
-    });
-    setItems(await response.json());
-  }
+  const load = useCallback(async () => {
+    const response = await apiFetch("/api/applications/queue");
+    if (response.ok) setItems(await response.json());
+  }, [apiFetch]);
 
   useEffect(() => {
-    load();
-  }, []);
+    if (authStatus === "authenticated") void load();
+  }, [authStatus, load]);
 
   async function act(id: number, action: string) {
-    await fetch(`${API_BASE}/api/applications/${id}/actions`, {
+    await apiFetch(`/api/applications/${id}/actions`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
     });
     load();
   }
 
   async function showPreview(id: number) {
-    const response = await fetch(`${API_BASE}/api/validation/applications/${id}/preview`, {
-      headers: { Authorization: `Bearer ${token()}` },
-    });
-    setPreview(await response.json());
+    const response = await apiFetch(`/api/validation/applications/${id}/preview`);
+    if (response.ok) setPreview(await response.json());
   }
 
   async function download(id: number, fileType: "docx" | "pdf") {
-    const response = await fetch(`${API_BASE}/api/validation/applications/${id}/download/${fileType}`, {
-      headers: { Authorization: `Bearer ${token()}` },
-    });
+    const response = await apiFetch(`/api/validation/applications/${id}/download/${fileType}`);
     if (!response.ok) return;
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);

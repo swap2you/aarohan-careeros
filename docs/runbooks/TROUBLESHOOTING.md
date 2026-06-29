@@ -40,7 +40,7 @@ Common local development issues and fixes. Check logs with `docker compose logs 
 
 1. Use local checkpoint credentials: `swapnilpatil.tech@gmail.com` / `TempLocal123!` at http://localhost:3000
 2. Reset admin: `powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force` (password via prompt or `RESET_LOCAL_ADMIN_PASSWORD` env — not stored in repo)
-3. Clear `localStorage` key `careeros_token` or sign in from home page (not Settings first)
+3. Clear browser cookies for `localhost` or use **Log out** from the nav menu, then sign in again at `/login`
 4. If DB was volume-reset, re-run `Reset-LocalAdmin.ps1` or bootstrap from SecretStore
 
 ### Settings shows "Not authenticated"

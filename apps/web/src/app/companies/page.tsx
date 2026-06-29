@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 type LedgerRow = {
   id: number;
@@ -19,22 +19,19 @@ type Company = {
 };
 
 export default function CompaniesPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
 
-  function token() {
-    return localStorage.getItem("careeros_token") || "";
-  }
-
   useEffect(() => {
-    const headers = { Authorization: `Bearer ${token()}` };
-    fetch(`${API_BASE}/api/companies/ledger`, { headers })
-      .then((res) => res.json())
+    if (authStatus !== "authenticated") return;
+    apiFetch("/api/companies/ledger")
+      .then((res) => (res.ok ? res.json() : []))
       .then(setLedger);
-    fetch(`${API_BASE}/api/companies`, { headers })
-      .then((res) => res.json())
+    apiFetch("/api/companies")
+      .then((res) => (res.ok ? res.json() : []))
       .then(setCompanies);
-  }, []);
+  }, [apiFetch, authStatus]);
 
   const companyName = (id: number) =>
     companies.find((c) => c.id === id)?.canonical_name ?? `Company #${id}`;

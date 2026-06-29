@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AuditPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [logs, setLogs] = useState<Array<{ id: number; event_type: string; created_at: string }>>([]);
 
   useEffect(() => {
-    const token = localStorage.getItem("careeros_token");
-    if (!token) return;
-    fetch(`${API_BASE}/api/audit`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.json())
+    if (authStatus !== "authenticated") return;
+    apiFetch("/api/audit")
+      .then((res) => (res.ok ? res.json() : []))
       .then(setLogs);
-  }, []);
+  }, [apiFetch, authStatus]);
 
   return (
     <div>

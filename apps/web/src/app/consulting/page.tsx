@@ -1,35 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ConsultingPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [leads, setLeads] = useState<Array<{ id: number; company: string; recommended_service?: string }>>([]);
   const [company, setCompany] = useState("");
   const [problem, setProblem] = useState("");
 
-  async function load() {
-    const token = localStorage.getItem("careeros_token");
-    if (!token) return;
-    const response = await fetch(`${API_BASE}/api/consulting/leads`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setLeads(await response.json());
-  }
+  const load = useCallback(async () => {
+    const response = await apiFetch("/api/consulting/leads");
+    if (response.ok) setLeads(await response.json());
+  }, [apiFetch]);
 
   useEffect(() => {
-    load();
-  }, []);
+    if (authStatus === "authenticated") void load();
+  }, [authStatus, load]);
 
   async function createLead() {
-    const token = localStorage.getItem("careeros_token");
-    if (!token) return;
-    await fetch(`${API_BASE}/api/consulting/leads`, {
+    await apiFetch("/api/consulting/leads", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({ company, problem_summary: problem }),
     });
     setCompany("");

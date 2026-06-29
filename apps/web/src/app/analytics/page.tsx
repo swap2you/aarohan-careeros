@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function AnalyticsPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [budget, setBudget] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("careeros_token");
-    if (!token) return;
-    fetch(`${API_BASE}/api/analytics`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.json())
+    if (authStatus !== "authenticated") return;
+    apiFetch("/api/analytics")
+      .then((res) => (res.ok ? res.json() : null))
       .then(setData);
-    fetch(`${API_BASE}/api/ai/budget`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => res.json())
+    apiFetch("/api/ai/budget")
+      .then((res) => (res.ok ? res.json() : null))
       .then(setBudget);
-  }, []);
+  }, [apiFetch, authStatus]);
 
   return (
     <div>

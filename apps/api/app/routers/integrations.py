@@ -41,6 +41,7 @@ def status(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -
 def connect_google(
     service: str = Query("google", pattern="^(google|gmail|drive)$"),
     enable_test_email: bool = False,
+    reconnect: bool = False,
     _: User = Depends(get_current_user),
 ) -> dict:
     if not settings.google_client_id or not settings.google_client_secret:
@@ -52,7 +53,7 @@ def connect_google(
     extra = [OPTIONAL_GMAIL_SEND_SCOPE] if enable_test_email and settings.enable_external_email_send else None
     _oauth_states[state] = {"service": service, "enable_test_email": enable_test_email}
     try:
-        auth_url = build_oauth_url(state, extra_scopes=extra)
+        auth_url = build_oauth_url(state, extra_scopes=extra, force_consent=reconnect)
     except ValueError as exc:
         return {"configured": False, "message": str(exc)}
     return {"auth_url": auth_url, "service": service, "scopes": DEFAULT_GOOGLE_SCOPES}

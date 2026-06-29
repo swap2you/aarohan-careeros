@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 type Application = {
   id: number;
@@ -57,6 +57,7 @@ function stateLabel(state: string) {
 }
 
 export default function ApplicationsPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [items, setItems] = useState<Application[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
@@ -65,33 +66,23 @@ export default function ApplicationsPage() {
   const [message, setMessage] = useState("");
   const [confirmSubmit, setConfirmSubmit] = useState(false);
 
-  function token() {
-    return localStorage.getItem("careeros_token") || "";
-  }
-
-  function headers(json = false) {
-    const h: Record<string, string> = { Authorization: `Bearer ${token()}` };
-    if (json) h["Content-Type"] = "application/json";
-    return h;
-  }
-
-  async function loadApplications() {
-    const response = await fetch(`${API_BASE}/api/applications`, { headers: headers() });
-    setItems(await response.json());
-  }
+  const loadApplications = useCallback(async () => {
+    const response = await apiFetch("/api/applications");
+    if (response.ok) setItems(await response.json());
+  }, [apiFetch]);
 
   useEffect(() => {
-    loadApplications();
-  }, []);
+    if (authStatus === "authenticated") void loadApplications();
+  }, [authStatus, loadApplications]);
 
   async function selectApplication(id: number) {
     setSelectedId(id);
     setMessage("");
     setConfirmSubmit(false);
     const [vRes, tRes, qRes] = await Promise.all([
-      fetch(`${API_BASE}/api/applications/${id}/versions`, { headers: headers() }),
-      fetch(`${API_BASE}/api/applications/${id}/timeline`, { headers: headers() }),
-      fetch(`${API_BASE}/api/documents/applications/${id}/quality`, { headers: headers() }),
+      apiFetch(`/api/applications/${id}/versions`),
+      apiFetch(`/api/applications/${id}/timeline`),
+      apiFetch(`/api/documents/applications/${id}/quality`),
     ]);
     setVersions(vRes.ok ? await vRes.json() : []);
     setTimeline(tRes.ok ? await tRes.json() : []);
@@ -100,9 +91,8 @@ export default function ApplicationsPage() {
 
   async function act(action: string, notes?: string) {
     if (!selectedId) return;
-    const response = await fetch(`${API_BASE}/api/applications/${selectedId}/actions`, {
+    const response = await apiFetch(`/api/applications/${selectedId}/actions`, {
       method: "POST",
-      headers: headers(true),
       body: JSON.stringify({ action, notes }),
     });
     const data = await response.json();
@@ -116,9 +106,7 @@ export default function ApplicationsPage() {
   }
 
   async function download(id: number, fileType: "docx" | "pdf") {
-    const response = await fetch(`${API_BASE}/api/validation/applications/${id}/download/${fileType}`, {
-      headers: headers(),
-    });
+    const response = await apiFetch(`/api/validation/applications/${id}/download/${fileType}`);
     if (!response.ok) return;
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);

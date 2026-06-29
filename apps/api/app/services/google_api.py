@@ -76,6 +76,41 @@ def remediation_for_error(error: str, *, default: str = "Google integration erro
     return default
 
 
+def remediation_for_error(error: str, *, default: str = "Google integration error") -> str:
+    lowered = error.lower()
+    for key, message in OAUTH_REMEDIATION.items():
+        if key in lowered:
+            return message
+    if "403" in lowered and "gmail" in lowered:
+        return OAUTH_REMEDIATION["api_disabled"]
+    if "404" in lowered and "folder" in lowered:
+        return OAUTH_REMEDIATION["folder_not_found"]
+    return default
+
+
+def _google_token_row(db: Session) -> OAuthToken | None:
+    return (
+        db.query(OAuthToken)
+        .filter(OAuthToken.provider == "google", OAuthToken.service == "google", OAuthToken.is_active.is_(True))
+        .order_by(OAuthToken.connected_at.desc())
+        .first()
+    )
+
+
+def _google_connection_status(db: Session) -> str:
+    row = _google_token_row(db)
+    if not row:
+        return "disconnected"
+    return row.connection_status or "connected"
+
+
+def _google_last_refresh(db: Session) -> str | None:
+    row = _google_token_row(db)
+    if row and row.last_refresh_at:
+        return row.last_refresh_at.isoformat()
+    return None
+
+
 def integration_status(db: Session) -> dict:
     rows = db.query(OAuthToken).filter(OAuthToken.is_active.is_(True)).all()
     by_service = {row.service: {"connected": True, "account_email": row.account_email} for row in rows}
@@ -101,7 +136,11 @@ def integration_status(db: Session) -> dict:
         drive_root = get_drive_root_status(db)
 
     return {
-        "google": by_service.get("google", by_service.get("gmail", {"connected": False})),
+        "google": {
+            **by_service.get("google", by_service.get("gmail", {"connected": False})),
+            "connection_status": _google_connection_status(db),
+            "last_refresh_at": _google_last_refresh(db),
+        },
         "gmail": by_service.get("gmail", by_service.get("google", {"connected": False})),
         "drive": by_service.get("drive", by_service.get("google", {"connected": False})),
         "google_connected": google_connected,
@@ -137,8 +176,16 @@ def save_token(
         .filter(OAuthToken.provider == "google", OAuthToken.service == service, OAuthToken.is_active.is_(True))
         .all()
     )
+    preserved_refresh: str | None = None
     for row in existing:
+        try:
+            prior = decrypt_payload(row.encrypted_token)
+            preserved_refresh = prior.get("refresh_token") or preserved_refresh
+        except Exception:
+            pass
         row.is_active = False
+    if not token_data.get("refresh_token") and preserved_refresh:
+        token_data = {**token_data, "refresh_token": preserved_refresh}
     if scopes:
         token_data = {**token_data, "scopes": scopes}
     row = OAuthToken(
@@ -149,6 +196,9 @@ def save_token(
         scopes=",".join(token_data.get("scopes", scopes or [])),
         expires_at=_expires_at(token_data),
         is_active=True,
+        connection_status="connected",
+        last_refresh_at=None,
+        last_error=None,
     )
     db.add(row)
     db.commit()
@@ -178,10 +228,13 @@ def _refresh_access_token(db: Session, row: OAuthToken, token_data: dict) -> dic
     if response.status_code != 200:
         raise ValueError(remediation_for_error(response.text))
     refreshed = {**token_data, **response.json()}
-    if "refresh_token" not in refreshed:
+    if "refresh_token" not in refreshed or not refreshed.get("refresh_token"):
         refreshed["refresh_token"] = refresh_token
     row.encrypted_token = encrypt_payload(refreshed)
     row.expires_at = _expires_at(refreshed)
+    row.last_refresh_at = datetime.utcnow()
+    row.connection_status = "connected"
+    row.last_error = None
     db.add(row)
     db.commit()
     return refreshed
@@ -204,7 +257,14 @@ def get_token(db: Session, service: str = "google") -> dict | None:
         if row:
             token_data = decrypt_payload(row.encrypted_token)
             if row.expires_at and row.expires_at <= datetime.utcnow() + timedelta(seconds=60):
-                token_data = _refresh_access_token(db, row, token_data)
+                try:
+                    token_data = _refresh_access_token(db, row, token_data)
+                except ValueError as exc:
+                    row.connection_status = "reconnect_required"
+                    row.last_error = str(exc)[:500]
+                    db.add(row)
+                    db.commit()
+                    return None
             return token_data
     return None
 
@@ -243,7 +303,7 @@ def disconnect_service(db: Session, service: str) -> bool:
     return True
 
 
-def build_oauth_url(state: str, *, extra_scopes: list[str] | None = None) -> str:
+def build_oauth_url(state: str, *, extra_scopes: list[str] | None = None, force_consent: bool = False) -> str:
     if not settings.google_client_id:
         raise ValueError(OAUTH_REMEDIATION["oauth_not_configured"])
     scopes = list(DEFAULT_GOOGLE_SCOPES)
@@ -251,13 +311,14 @@ def build_oauth_url(state: str, *, extra_scopes: list[str] | None = None) -> str
         scopes.extend(extra_scopes)
     scope_param = "+".join(scopes)
     redirect = settings.google_oauth_redirect_uri
+    prompt = "consent" if force_consent else "select_account"
     return (
         "https://accounts.google.com/o/oauth2/v2/auth?"
         f"client_id={settings.google_client_id}&"
         f"redirect_uri={redirect}&"
         "response_type=code&"
         f"scope={scope_param}&"
-        "access_type=offline&prompt=consent&"
+        f"access_type=offline&include_granted_scopes=true&prompt={prompt}&"
         f"state={state}"
     )
 

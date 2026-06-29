@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     rss_feed_urls: str = ""
     connector_fixture_mode: bool = False
     lever_api_base: str = "https://api.lever.co/v0/postings"
+    session_remember_days: int = 30
+    session_default_hours: int = 12
 
     @model_validator(mode="after")
     def resolve_runtime_paths(self) -> "Settings":
@@ -61,7 +63,12 @@ class Settings(BaseSettings):
         from pathlib import Path
 
         api_root = Path(__file__).resolve().parents[1]
-        repo_root = api_root.parents[1]
+        if (api_root / "config").exists():
+            repo_root = api_root
+        elif len(api_root.parents) > 1:
+            repo_root = api_root.parents[1]
+        else:
+            repo_root = api_root.parent
 
         def local_or_keep(value: str, relative: Path) -> str:
             path = Path(value)

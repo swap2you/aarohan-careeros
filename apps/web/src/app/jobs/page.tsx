@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 type JobScore = {
   total_score: number;
@@ -28,34 +28,25 @@ type Job = {
 type WorkflowResult = { action: string; success: number; failed: number; details: unknown[] };
 
 export default function JobsPage() {
+  const { apiFetch, status: authStatus } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [status, setStatus] = useState<string>("");
   const [forwardUrl, setForwardUrl] = useState("");
   const [profile, setProfile] = useState("qe_leadership");
 
-  function token() {
-    return localStorage.getItem("careeros_token") || "";
-  }
-
-  async function load() {
-    const response = await fetch(`${API_BASE}/api/jobs`, {
-      headers: { Authorization: `Bearer ${token()}` },
-    });
-    setJobs(await response.json());
-  }
+  const load = useCallback(async () => {
+    const response = await apiFetch("/api/jobs");
+    if (response.ok) setJobs(await response.json());
+  }, [apiFetch]);
 
   useEffect(() => {
-    load();
-  }, []);
+    if (authStatus === "authenticated") void load();
+  }, [authStatus, load]);
 
   async function runWorkflow(path: string, body?: unknown) {
     setStatus("Running...");
-    const response = await fetch(`${API_BASE}${path}`, {
+    const response = await apiFetch(path, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token()}`,
-        "Content-Type": "application/json",
-      },
       body: body ? JSON.stringify(body) : undefined,
     });
     const data: WorkflowResult = await response.json();
