@@ -71,7 +71,10 @@ if (-not (Test-Path .venv)) {
     python -m venv .venv
     .\.venv\Scripts\pip install -r requirements.txt -q
 }
-Step "pytest" { .\.venv\Scripts\pytest -q --tb=no 2>&1 | Tee-Object -FilePath $reportPath -Append | Out-Null }
+Step "pytest" {
+    .\.venv\Scripts\pytest -q --tb=no 2>&1 | Out-File -FilePath $reportPath -Append
+    if ($LASTEXITCODE -ne 0) { throw "pytest exit $LASTEXITCODE" }
+}
 Pop-Location
 
 Push-Location apps/web
@@ -80,7 +83,10 @@ Step "web_lint_type_build" {
     npm run build 2>&1 | Tee-Object -FilePath $reportPath -Append | Out-Null
 }
 if (-not $SkipPlaywright) {
-    Step "playwright" { npm run test:e2e 2>&1 | Tee-Object -FilePath $reportPath -Append | Out-Null }
+    Step "playwright" {
+        npm run test:e2e 2>&1 | Out-File -FilePath $reportPath -Append
+        if ($LASTEXITCODE -ne 0) { throw "playwright exit $LASTEXITCODE" }
+    }
 }
 Pop-Location
 

@@ -1,33 +1,35 @@
-# July readiness report (R2.13 RC)
+# July readiness report (R2.13 RC) — updated
+
+**Date:** 2026-06-29  
+**Phase:** IN_VALIDATION (not final release)
 
 ## Recommendation
 
 | Audience | Verdict |
 |----------|---------|
-| Owner UAT | **CONDITIONAL GO** — complete Drive OAuth + Cowork UAT |
-| Personal daily usage | **CONDITIONAL GO** — after UAT sign-off and Drive proof |
+| Owner UAT | **CONDITIONAL GO** — complete live Drive/Gmail + sign UAT-RESULTS.md |
+| Personal daily usage | **CONDITIONAL GO** — after UAT sign-off and High defect acknowledgment |
+| Final `r2.13.0` tag | **NO GO** — live validation incomplete |
 
-## Ready
+## Completed
 
-- Auth sessions, Remember Me, logout
-- Job connectors (fixture + configured APIs)
-- Duplicate protection and trust scoring
-- Application packets and immutability
-- Assisted apply with stop-before-submit
-- Gmail lifecycle (fixture + classification)
-- Interview intelligence (evidence-bound)
-- Ask Aarohan (read-only) + TTS fallback
-- Modern UI design tokens and readable dashboards
-- Cloud architecture documentation
-- Full validation script
+- RC baseline verified; CI 28378806376 green
+- Codex and Claude Code independent reviews filed
+- Automated Cowork UAT paths (Playwright 19/19)
+- Defect register and repository audit
+- Rollback plan corrected (revert on main, not detached HEAD)
 
-## Owner actions
+## Remaining before `r2.13.0`
 
-1. Settings → Connect Google → approve scopes
-2. Generate test packet → verify Drive upload + restart persistence
-3. Run Cowork UAT package
-4. Run `Verify-Full-R2.ps1` before sign-off
+1. Live Drive packet v01/v02 proof (R2.5 → FULL GO)
+2. Live Gmail per-source (LinkedIn, Indeed, Dice, USAJOBS minimum)
+3. Owner Cowork UAT sign-off
+4. `Live-RC-Validation.ps1` PASS with SecretStore unlocked
+5. Backup/restore drill (scenario 24)
 
-## Future cloud backlog
+## Startup / shutdown
 
-See `docs/architecture/cloud/` and ADR-001 tenant migration.
+```powershell
+scripts/local/Start-Aarohan.ps1
+scripts/local/Stop-Aarohan.ps1
+```

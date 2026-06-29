@@ -1,52 +1,43 @@
 # Aarohan CareerOS — Current Status
 
-Last updated: 2026-06-28  
+Last updated: 2026-06-29  
 Branch: `main`  
-Latest tag: `r2.4.0` (`f06a5a9`)
-- **R2.4:** document quality validation, ATS diagnostics, answer sheets, baseline resume hash  
-Baseline checkpoint: `aed228d583e0b6a7760eb6091c82883cda5e5426`  
-Active program: **R2** (see `docs/program/R2-PROGRAM-BOARD.md`)
+Latest RC tag: `r2.13.0-rc1` (`edb540d`)  
+Program: **R2 IN_VALIDATION** — feature freeze; validation and UAT phase
 
 ## Product state
 
-Local-first CareerOS is operational:
+Local-first CareerOS RC is code-complete through R2.13:
 
 - Docker stack: postgres, api, web, n8n
-- Auth: local admin login (`swapnilpatil.tech@gmail.com`)
-- Google OAuth: connected with `drive.file` + `gmail.readonly`
-- Drive: app-created root `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`
-- Job ingest (fixture, Greenhouse, Lever), scoring, packet generation
-- **R2.2:** job connector registry (10 providers), `/connectors` UI, NOT_CONFIGURED for missing API keys
-- **R2.3:** trust/fit scores with reasons, hard filters, role-family classification, job cards on Fresh Jobs
-- Approval queue, interviews, consulting, audit log
-- Application modes: Manual and Assisted enabled; Autonomous locked (UI + API)
-- Schedules disabled; external email send disabled
+- Auth: HttpOnly session cookies, Remember Me, logout revocation
+- Google OAuth: live mode when `OAUTH_FIXTURE_MODE=false` (owner Settings)
+- Job connectors, trust/fit, duplicate protection, packets, assisted apply
+- Gmail lifecycle (fixture + classification)
+- Interview intelligence, Ask Aarohan, TTS
+- Modern UI design tokens
 
-## Local URLs
+## Validation status
 
-| Service | URL |
-|---------|-----|
-| Dashboard | http://localhost:3000 |
-| Settings | http://localhost:3000/settings |
-| API health | http://localhost:8000/health |
-| n8n | http://localhost:5678 |
+| Area | Status |
+|------|--------|
+| Automated gate | 112 API + 19 Playwright (local); 8 Postgres in Docker |
+| R2.5 Drive | **CONDITIONAL_GO** — live upload pending |
+| R2.7 Gmail | **CONDITIONAL_GO** — live per-source pending |
+| R2.13 RC | **IN_VALIDATION** — reviews done; owner UAT pending |
+| Final `r2.13.0` tag | **Not created** — criteria not met |
 
-## Verification
+## Commands
 
 ```powershell
-powershell -File scripts/validation/Verify-R2-Release-Gate.ps1
+scripts/local/Start-Aarohan.ps1
+scripts/validation/Verify-Full-R2.ps1
+scripts/validation/Live-RC-Validation.ps1   # after Start-Aarohan
+scripts/local/Stop-Aarohan.ps1
 ```
 
-## R2 progress
+## Canonical docs
 
-See `docs/program/R2-PROGRAM-BOARD.md` for per-release status, commits, and tags.
-
-## Known gaps
-
-- Document quality / ATS template validation
-- Expanded Gmail labeled-message corpus
-- GitHub Actions post-R2 verification
-- Playwright coverage expansion
-- Backup/restore n8n schema noise
-- UI modernization (R2.10)
-- Cloud deploy deferred (R2.11 design only)
+- Program board: `docs/Program/R2-PROGRAM-BOARD.md`
+- Defects: `docs/validation/FINAL-DEFECT-REGISTER.md`
+- UAT results: `docs/validation/uat/UAT-RESULTS.md`
