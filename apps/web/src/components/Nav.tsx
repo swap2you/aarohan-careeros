@@ -17,6 +17,7 @@ const links = [
   ["Interviews", "/interviews"],
   ["Consulting", "/consulting"],
   ["Reports", "/analytics"],
+  ["Ask Aarohan", "/ask"],
   ["AI Usage", "/ai-usage"],
   ["Audit Log", "/audit"],
   ["Validation", "/validation"],

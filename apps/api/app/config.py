@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     connector_fixture_mode: bool = False
     lever_api_base: str = "https://api.lever.co/v0/postings"
 
+    ask_aarohan_sql_mode: str = "read_only"
+    ask_aarohan_allow_mutations: bool = False
+    openai_tts_model: str = "tts-1"
+
     @model_validator(mode="after")
     def resolve_runtime_paths(self) -> "Settings":
         """Use repository-local paths when Docker /app mount paths are unavailable."""

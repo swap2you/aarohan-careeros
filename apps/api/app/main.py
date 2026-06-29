@@ -11,6 +11,7 @@ from app.config import settings
 from app.database import SessionLocal, engine
 from app.routers import (
     applications,
+    ask,
     assisted_apply,
     auth,
     career_vault,
@@ -71,6 +72,7 @@ app.include_router(consulting.router, prefix="/api")
 app.include_router(career_vault.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(ops.router, prefix="/api")
+app.include_router(ask.router, prefix="/api")
 app.include_router(integrations.router, prefix="/api")
 app.include_router(workflows.router, prefix="/api")
 app.include_router(representations.router, prefix="/api")
