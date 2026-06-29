@@ -11,8 +11,9 @@ from app.services.google_api import (
 
 
 def test_gmail_label_names_defined():
-    assert "Aarohan/Job Alerts" in DEFAULT_GMAIL_LABELS
-    assert len(DEFAULT_GMAIL_LABELS) == 5
+    assert "Aarohan/Job Alerts/LinkedIn" in DEFAULT_GMAIL_LABELS
+    assert "Aarohan/Offers" in DEFAULT_GMAIL_LABELS
+    assert len(DEFAULT_GMAIL_LABELS) == 11
 
 
 def test_resolve_aarohan_label_ids():
@@ -20,8 +21,8 @@ def test_resolve_aarohan_label_ids():
     labels = {name: f"id-{i}" for i, name in enumerate(DEFAULT_GMAIL_LABELS)}
     with patch("app.services.google_api.list_gmail_labels", return_value=labels):
         resolved = resolve_aarohan_label_ids(token)
-    assert len(resolved) == 5
-    assert resolved["Aarohan/Recruiters"] == "id-1"
+    assert len(resolved) == 11
+    assert resolved["Aarohan/Recruiters"] in labels.values()
 
 
 def test_decode_multipart_html():

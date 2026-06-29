@@ -40,19 +40,18 @@ def _cookie_secure() -> bool:
 
 
 def _set_session_cookie(response: Response, raw_token: str, *, remember_me: bool) -> None:
+    cookie_kwargs: dict = {
+        "key": SESSION_COOKIE_NAME,
+        "value": raw_token,
+        "httponly": True,
+        "secure": _cookie_secure(),
+        "samesite": "lax",
+        "path": "/",
+    }
     if remember_me:
-        max_age = REMEMBER_ME_DAYS * 24 * 60 * 60
-    else:
-        max_age = SHORT_SESSION_HOURS * 60 * 60
-    response.set_cookie(
-        key=SESSION_COOKIE_NAME,
-        value=raw_token,
-        httponly=True,
-        secure=_cookie_secure(),
-        samesite="lax",
-        max_age=max_age,
-        path="/",
-    )
+        cookie_kwargs["max_age"] = REMEMBER_ME_DAYS * 24 * 60 * 60
+    # remember_me=False → no max_age: browser-session cookie (closes with browser)
+    response.set_cookie(**cookie_kwargs)
 
 
 def _clear_session_cookie(response: Response) -> None:

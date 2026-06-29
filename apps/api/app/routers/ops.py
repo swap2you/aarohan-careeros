@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,6 +17,7 @@ from app.models import (
 from app.schemas import AnalyticsOut, AuditLogOut, RecruiterSignalRequest
 from app.services.ai_budget import budget_status
 from app.services.auth import process_recruiter_signal
+from app.services.gmail_lifecycle import correct_classification, signal_to_public_dict
 
 router = APIRouter(tags=["ops"])
 
@@ -71,17 +72,21 @@ def recruiter_signals(
     _: User = Depends(get_current_user),
 ) -> list[dict]:
     rows = db.query(RecruiterSignal).order_by(RecruiterSignal.received_at.desc()).limit(100).all()
-    return [
-        {
-            "id": row.id,
-            "signal_type": row.signal_type,
-            "sender": row.sender,
-            "subject": row.subject,
-            "job_id": row.job_id,
-            "received_at": row.received_at.isoformat(),
-        }
-        for row in rows
-    ]
+    return [signal_to_public_dict(row) for row in rows]
+
+
+@router.patch("/recruiter-signals/{signal_id}/classification")
+def patch_signal_classification(
+    signal_id: int,
+    classification: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    try:
+        signal = correct_classification(db, signal_id, classification, actor=current_user.email)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return signal_to_public_dict(signal)
 
 
 @router.post("/recruiter-signals")

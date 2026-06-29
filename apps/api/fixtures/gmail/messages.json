@@ -1,0 +1,74 @@
+[
+  {
+    "id": "fixture-linkedin-1",
+    "thread_id": "thread-linkedin-1",
+    "label": "Aarohan/Job Alerts/LinkedIn",
+    "sender": "jobs-noreply@linkedin.com",
+    "subject": "New jobs for you: Director of Quality Engineering",
+    "body_text": "Director of Quality Engineering at Acme Corp in Remote.\nView: https://www.linkedin.com/jobs/view/1234567890\nLocation: Remote"
+  },
+  {
+    "id": "fixture-indeed-1",
+    "thread_id": "thread-indeed-1",
+    "label": "Aarohan/Job Alerts/Indeed",
+    "sender": "alert@indeed.com",
+    "subject": "Indeed Alert: SDET Lead",
+    "body_text": "Company: Beta Systems\nLocation: Philadelphia, PA\nhttps://www.indeed.com/viewjob?jk=abc123indeed"
+  },
+  {
+    "id": "fixture-dice-1",
+    "thread_id": "thread-dice-1",
+    "label": "Aarohan/Job Alerts/Dice",
+    "sender": "jobs@dice.com",
+    "subject": "Platform Architect | Remote",
+    "body_text": "New role with Gamma LLC\nhttps://www.dice.com/job-detail/xyz-dice-999"
+  },
+  {
+    "id": "fixture-glassdoor-1",
+    "thread_id": "thread-gd-1",
+    "label": "Aarohan/Job Alerts/Glassdoor",
+    "sender": "jobs@glassdoor.com",
+    "subject": "Glassdoor alert: QA Manager at Delta Health",
+    "body_text": "QA Manager at Delta Health\nhttps://www.glassdoor.com/job-listing/qa-manager-jv_123"
+  },
+  {
+    "id": "fixture-usajobs-1",
+    "thread_id": "thread-usa-1",
+    "label": "Aarohan/Job Alerts/USAJOBS",
+    "sender": "donotreply@usajobs.gov",
+    "subject": "USAJOBS Alert: IT Specialist",
+    "body_text": "Agency: Department of Example\nhttps://www.usajobs.gov/job/1234567890"
+  },
+  {
+    "id": "fixture-recruiter-1",
+    "thread_id": "thread-rec-1",
+    "label": "Aarohan/Recruiters",
+    "sender": "recruiter@example.com",
+    "subject": "Following up on QE leadership role",
+    "body_text": "Hi Swapnil, following up on the QE leadership opportunity we discussed."
+  },
+  {
+    "id": "fixture-interview-1",
+    "thread_id": "thread-int-1",
+    "label": "Aarohan/Interviews",
+    "sender": "scheduling@example.com",
+    "subject": "Interview availability for Director role",
+    "body_text": "We would like to schedule an interview for job #1 next week."
+  },
+  {
+    "id": "fixture-rejection-1",
+    "thread_id": "thread-rej-1",
+    "label": "Aarohan/Rejections",
+    "sender": "talent@example.com",
+    "subject": "Update on your application",
+    "body_text": "Thank you for your interest. We are not moving forward with your candidacy."
+  },
+  {
+    "id": "fixture-offer-1",
+    "thread_id": "thread-offer-1",
+    "label": "Aarohan/Offers",
+    "sender": "hr@example.com",
+    "subject": "Offer for Senior QE role",
+    "body_text": "We are pleased to extend an offer for the Senior QE position."
+  }
+]

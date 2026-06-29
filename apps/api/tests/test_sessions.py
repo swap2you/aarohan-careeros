@@ -137,6 +137,17 @@ def test_non_remember_session_shorter_ttl(client: TestClient):
     assert delta < timedelta(days=2)
 
 
+def test_non_remember_cookie_is_session_only(client: TestClient):
+    response = client.post(
+        "/api/auth/login",
+        json={"email": "admin@test.local", "password": "SecurePass123!", "remember_me": False},
+    )
+    assert response.status_code == 200
+    set_cookie = response.headers.get("set-cookie", "")
+    assert "careeros_session=" in set_cookie
+    assert "Max-Age" not in set_cookie
+
+
 def test_session_survives_new_request_context(client: TestClient):
     raw = _login(client)
     client.cookies.clear()

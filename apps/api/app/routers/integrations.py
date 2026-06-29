@@ -174,33 +174,23 @@ def sync_gmail(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    from app.services.auth import process_recruiter_signal
+    from app.services.gmail_lifecycle import sync_messages
+    from app.services.google_api import fetch_aarohan_labeled_messages
 
-    client = get_gmail_client(db)
-    messages = client.fetch_recent_messages()
-    created = []
-    for msg in messages:
-        signal = process_recruiter_signal(
-            db,
-            {
-                "source": "gmail",
-                "sender": msg.get("sender"),
-                "subject": msg.get("subject"),
-                "body_text": msg.get("body_text", ""),
-            },
-        )
-        if msg.get("id"):
-            mark_gmail_message_processed(db, msg["id"])
-        created.append({"id": signal.id, "signal_type": signal.signal_type})
+    messages = fetch_aarohan_labeled_messages(db, max_results=50)
+    if not messages:
+        client = get_gmail_client(db)
+        messages = client.fetch_recent_messages()
+    result = sync_messages(db, messages, source="gmail", actor=current_user.email)
     write_audit(
         db,
         event_type="gmail.synced",
         actor=current_user.email,
         resource_type="gmail",
         resource_id="sync",
-        details={"processed": len(created)},
+        details=result,
     )
-    return {"processed": len(created), "signals": created}
+    return result
 
 
 @router.post("/gmail/sync-fixture")
@@ -209,22 +199,11 @@ def sync_fixture_gmail(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     from app.integrations.google import FixtureGmailClient
-    from app.services.auth import process_recruiter_signal
+    from app.services.gmail_lifecycle import sync_messages
 
-    messages = FixtureGmailClient().fetch_recent_messages()
-    created = []
-    for msg in messages:
-        signal = process_recruiter_signal(
-            db,
-            {
-                "source": "gmail_fixture",
-                "sender": msg.get("sender"),
-                "subject": msg.get("subject"),
-                "body_text": msg.get("body_text", ""),
-            },
-        )
-        created.append({"id": signal.id, "signal_type": signal.signal_type})
-    return {"processed": len(created), "signals": created}
+    messages = FixtureGmailClient().fetch_recent_messages(max_results=50)
+    result = sync_messages(db, messages, source="gmail_fixture", actor=current_user.email)
+    return result
 
 
 @router.post("/gmail/test-send")

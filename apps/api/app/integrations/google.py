@@ -1,4 +1,10 @@
+from __future__ import annotations
+
+import json
 from abc import ABC, abstractmethod
+from pathlib import Path
+
+_FIXTURE_PATH = Path(__file__).resolve().parents[2] / "fixtures" / "gmail" / "messages.json"
 
 
 class GoogleDriveClient(ABC):
@@ -35,11 +41,7 @@ class StubGmailClient(GmailClient):
 
 class FixtureGmailClient(GmailClient):
     def fetch_recent_messages(self, query: str = "", max_results: int = 20) -> list[dict]:
-        return [
-            {
-                "id": "fixture-msg-1",
-                "sender": "recruiter@example.com",
-                "subject": "Interview availability for Director of QE",
-                "body_text": "We would like to schedule an interview for the Director role.",
-            }
-        ]
+        if not _FIXTURE_PATH.exists():
+            return []
+        data = json.loads(_FIXTURE_PATH.read_text(encoding="utf-8"))
+        return data[:max_results]

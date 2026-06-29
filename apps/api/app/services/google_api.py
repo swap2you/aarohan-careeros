@@ -27,11 +27,17 @@ DEFAULT_GOOGLE_SCOPES = [
 OPTIONAL_GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
 
 DEFAULT_GMAIL_LABELS = [
-    "Aarohan/Job Alerts",
-    "Aarohan/Recruiters",
-    "Aarohan/Interviews",
+    "Aarohan/Job Alerts/LinkedIn",
+    "Aarohan/Job Alerts/Indeed",
+    "Aarohan/Job Alerts/Dice",
+    "Aarohan/Job Alerts/Glassdoor",
+    "Aarohan/Job Alerts/USAJOBS",
     "Aarohan/Applications",
+    "Aarohan/Interviews",
+    "Aarohan/Recruiters",
     "Aarohan/Rejections",
+    "Aarohan/Offers",
+    "Aarohan/Processing",
 ]
 
 DRIVE_SUBFOLDERS = [
@@ -413,14 +419,13 @@ def fetch_gmail_messages(
             sender = parseaddr(headers.get("from", ""))[1] or headers.get("from", "")
             subject = headers.get("subject", "")
             body_text = _decode_gmail_body(payload.get("payload", {}))
-            label_names = payload.get("labelIds", [])
             messages.append(
                 {
                     "id": message_id,
+                    "thread_id": payload.get("threadId"),
                     "sender": sender,
                     "subject": subject,
                     "body_text": body_text,
-                    "label_ids": label_names,
                 }
             )
             fetched += 1
@@ -445,7 +450,7 @@ def fetch_aarohan_labeled_messages(db: Session, *, max_results: int = 50) -> lis
             if msg["id"] in seen:
                 continue
             seen.add(msg["id"])
-            msg["label_name"] = label_name
+            msg["label"] = label_name
             all_messages.append(msg)
     return all_messages[:max_results]
 
