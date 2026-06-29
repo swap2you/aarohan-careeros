@@ -65,10 +65,25 @@ class AtsDetectionResult:
 def detect_ats(url: str) -> AtsDetectionResult:
     parsed = urlparse(url.strip())
     host = (parsed.netloc or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
     full = f"{host}{parsed.path}".lower()
 
+    def host_matches_domain(pattern: str) -> bool:
+        base = pattern.split("/")[0].replace(r"\.", ".")
+        if "." not in base:
+            return False
+        return host == base or host.endswith("." + base)
+
+    def pattern_domain(pattern: str) -> str:
+        return pattern.split("/")[0].replace(r"\.", ".")
+
     for pattern in PROHIBITED_HOST_PATTERNS:
-        if re.search(pattern, host) or re.search(pattern, full):
+        if "/" in pattern:
+            matched = bool(re.search(pattern, full))
+        else:
+            matched = host_matches_domain(pattern_domain(pattern))
+        if matched:
             return AtsDetectionResult(
                 provider=AtsProvider.PROHIBITED,
                 supported=False,
@@ -81,7 +96,11 @@ def detect_ats(url: str) -> AtsDetectionResult:
 
     for provider, patterns in SUPPORTED_PATTERNS.items():
         for pattern in patterns:
-            if re.search(pattern, host) or re.search(pattern, full):
+            if "/" in pattern:
+                matched = bool(re.search(pattern, full))
+            else:
+                matched = host_matches_domain(pattern_domain(pattern))
+            if matched:
                 label = provider.value.title()
                 return AtsDetectionResult(
                     provider=provider,

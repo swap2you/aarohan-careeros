@@ -7,6 +7,8 @@ from email.utils import parseaddr
 
 from sqlalchemy.orm import Session
 
+from sqlalchemy.exc import IntegrityError
+
 from app.models import Application, CompanyDomain, Job, ProcessedGmailMessage, RecruiterSignal, WorkflowState
 from app.services.audit import write_audit
 from app.services.gmail_alert_parsers import (
@@ -116,6 +118,20 @@ def _mark_processed(db: Session, message_id: str | None) -> None:
     db.commit()
 
 
+def _claim_message(db: Session, message_id: str | None) -> bool:
+    if not message_id:
+        return True
+    if _already_processed(db, message_id):
+        return False
+    try:
+        with db.begin_nested():
+            db.add(ProcessedGmailMessage(message_id=message_id))
+            db.flush()
+        return True
+    except IntegrityError:
+        return False
+
+
 def process_gmail_message(
     db: Session,
     message: dict,
@@ -126,7 +142,7 @@ def process_gmail_message(
 ) -> RecruiterSignal | None:
     message_id = message.get("id")
     thread_id = message.get("thread_id")
-    if _already_processed(db, message_id):
+    if not _claim_message(db, message_id):
         return None
 
     if message_id:

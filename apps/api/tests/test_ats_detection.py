@@ -32,6 +32,12 @@ def test_indeed_prohibited():
     assert result.provider == AtsProvider.PROHIBITED
 
 
+def test_linkedin_substring_host_not_prohibited():
+    """Evil domains containing 'linkedin' as substring must not match prohibited list."""
+    result = detect_ats("https://evil-linkedin.com/jobs/123")
+    assert result.provider != AtsProvider.PROHIBITED
+
+
 def test_unsupported_workday_fallback():
     result = detect_ats("https://acme.wd5.myworkdayjobs.com/en-US/careers/job/123")
     assert result.provider == AtsProvider.UNSUPPORTED

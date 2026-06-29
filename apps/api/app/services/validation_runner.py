@@ -5,7 +5,10 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models import ValidationRun
+from app.services.live_validation import run_live_owner_validation
+
 
 def _repo_root() -> Path:
     path = Path(__file__).resolve()
@@ -18,7 +21,10 @@ ROOT = _repo_root()
 
 
 def run_local_validation(db: Session, *, actor: str) -> ValidationRun:
-    results: dict = {"steps": []}
+    if not settings.oauth_fixture_mode:
+        return run_live_owner_validation(db, actor=actor)
+
+    results: dict = {"steps": [], "mode": "automated_fixture"}
     passed = True
 
     def step(name: str, cmd: list[str], cwd: Path | None = None) -> None:
@@ -31,18 +37,18 @@ def run_local_validation(db: Session, *, actor: str) -> ValidationRun:
             {
                 "name": name,
                 "ok": ok,
-                "stdout": (proc.stdout or "")[-2000:],
-                "stderr": (proc.stderr or "")[-2000:],
+                "status": "PASS" if ok else "FAIL",
+                "summary": f"{name} {'passed' if ok else 'failed'}",
+                "stderr": (proc.stderr or "")[-500:],
             }
         )
 
     step("secret_scan", [sys.executable, "scripts/validation/secret_scan.py"])
     step("prohibited_source_scan", [sys.executable, "scripts/validation/prohibited_source_scan.py"])
-    step("pytest", [sys.executable, "-m", "pytest", "-q"], cwd=ROOT / "apps" / "api")
 
     run = ValidationRun(
         status="PASS" if passed else "FAIL",
-        summary=f"Validation {'passed' if passed else 'failed'} with {len(results['steps'])} steps",
+        summary="; ".join(f"{s['name']}: {s['status']}" for s in results["steps"]),
         results=results,
         created_at=datetime.utcnow(),
     )

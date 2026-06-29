@@ -16,6 +16,7 @@ POLICY_VERSION = "r2.5.0"
 DEFAULT_CAUTION_DAYS = 180
 DEFAULT_SPACING_DAYS = 14
 MAX_ACTIVE_PER_COMPANY = 2
+OVERRIDE_TTL_DAYS = 30
 
 ACTIVE_STATUSES = {
     WorkflowState.SHORTLISTED.value,
@@ -240,9 +241,13 @@ def evaluate_duplicate_risk(
         db.commit()
         db.refresh(job)
 
+    cutoff = datetime.utcnow() - timedelta(days=OVERRIDE_TTL_DAYS)
     override = (
         db.query(DuplicateOverride)
-        .filter(DuplicateOverride.job_id == job.id)
+        .filter(
+            DuplicateOverride.job_id == job.id,
+            DuplicateOverride.created_at >= cutoff,
+        )
         .order_by(DuplicateOverride.created_at.desc())
         .first()
     )

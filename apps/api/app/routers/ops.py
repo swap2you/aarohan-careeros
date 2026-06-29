@@ -95,5 +95,12 @@ def ingest_recruiter_signal(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> dict:
+    from app.config import settings
+
+    if settings.app_env not in {"test", "local"} and not payload.gmail_message_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Manual recruiter signal ingest is disabled. Use Gmail sync.",
+        )
     signal = process_recruiter_signal(db, payload.model_dump())
     return {"id": signal.id, "signal_type": signal.signal_type}

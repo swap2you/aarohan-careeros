@@ -71,8 +71,9 @@ def _issue_session(
         db, user, remember_me=remember_me, user_agent=user_agent
     )
     _set_session_cookie(response, raw_token, remember_me=remember_me)
+    expose = settings.expose_session_token_in_login_response or settings.app_env in {"test", "local"}
     return TokenResponse(
-        access_token=raw_token,
+        access_token=raw_token if expose else "",
         token_type="session",
         expires_at=session.expires_at.isoformat(),
         remember_me=remember_me,

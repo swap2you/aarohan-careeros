@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     ask_aarohan_sql_mode: str = "read_only"
     ask_aarohan_allow_mutations: bool = False
     openai_tts_model: str = "tts-1"
+    allow_legacy_jwt_auth: bool = False
+    expose_session_token_in_login_response: bool = False
 
     @model_validator(mode="after")
     def resolve_runtime_paths(self) -> "Settings":

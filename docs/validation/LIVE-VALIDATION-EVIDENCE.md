@@ -1,57 +1,78 @@
 # Live validation evidence (redacted)
 
-**Date:** 2026-06-29  
-**RC:** `r2.13.0-rc1`
+**Date:** 2026-06-27  
+**RC:** `r2.13.0-rc3`
+
+## Google connection
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| Account linked in DB | **PASS** | Dedicated career Gmail shown |
+| Token decrypt usable | **FAIL** | Stored tokens not decryptable with current `TOKEN_ENCRYPTION_KEY` / `APP_SECRET` — **Reconnect Google** once in Settings |
+| Fixture mode | **PASS** | `OAUTH_FIXTURE_MODE=false` in running stack |
+| Restart without re-consent | **NOT VERIFIED** | Blocked until `token_usable` |
 
 ## Google Drive (R2.5)
 
-| Step | Status | Notes |
+| Step | Result | Notes |
 |------|--------|-------|
-| Connected account | **BLOCKED** | Validation session: SecretStore locked; API container lacks `ADMIN_EMAIL` when not started via `Start-Aarohan.ps1` |
-| Expected scopes | **NOT VERIFIED** | Requires owner Settings → integration status |
-| Encrypted refresh token | **PASS** (unit) | `test_google_oauth_persistence.py`; live row not inspected in this session |
-| Drive root | **NOT VERIFIED** | Owner: confirm app root in Settings after OAuth |
-| Packet v01/v02 immutability | **NOT VERIFIED** | Fixture + unit tests PASS; live upload pending |
-| Restart without re-consent | **NOT VERIFIED** | Owner action after live OAuth |
+| Drive root accessible | **FAIL** | `resolve_active_drive_root` → not accessible (no usable Drive token) |
+| Subfolders in settings | **PARTIAL** | Cached subfolder map present; live API calls blocked |
+| Packet v01 upload | **NOT RUN** | Requires token reconnect + job packet workflow |
+| Packet v02 immutability | **NOT RUN** | Pending v01 |
+| UI Drive ID masking | **PASS** | Settings UI hides raw IDs in normal view |
 
-**R2.5 status:** **CONDITIONAL GO** (unchanged)
+**Drive live validation:** **FAIL** (token reconnect required)
 
 ## Gmail (R2.7)
 
-| Source | Status |
+| Source | Result |
 |--------|--------|
-| LinkedIn alert | **NOT VERIFIED** live |
-| Indeed alert | **NOT VERIFIED** live |
-| Dice alert | **NOT VERIFIED** live |
-| USAJOBS alert | **NOT VERIFIED** live |
-| Glassdoor | **PENDING** (weekly cadence) |
-| Fixture corpus | **PASS** — 9 messages, idempotent sync tests |
-| Idempotent re-sync | **PASS** (fixture) |
+| Live labeled sync | **FAIL** (empty — no usable Gmail token) |
+| Idempotency (fixture) | **PASS** — Playwright `r27-gmail.spec.ts` |
+| Raw payload in UI | **PASS** — recruiter signals show snippets only |
 
-**R2.7 status:** **CONDITIONAL GO** (unchanged)
+**Gmail live validation:** **FAIL** until reconnect; fixture path **PASS**
 
-## Ask Aarohan (live)
+## Connectors
 
-| Question class | Status |
-|----------------|--------|
-| Job counts / companies | **PASS** (automated tests) |
-| Secret/token requests | **PASS** — blocked |
-| Fit score / duplicates / follow-up | **LIMITED** — rule engine; returns uncertainty or generic guidance |
-| Mutation / SQL | **PASS** — not enabled |
+Live probe via `POST /api/validation/run` → `connectors` step: **PASS** (10 connectors checked, redacted status/latency/count).
 
-## TTS (live)
+## Ask Aarohan
 
-| Check | Status |
+| Check | Result |
 |-------|--------|
-| API fallback without key | **PASS** |
-| Generated audio with key | **NOT VERIFIED** in validation session |
-| No key in browser bundle | **PASS** (secret scan + code review) |
-| Cost recording | **PARTIAL** — budget service exists; live cost entry not verified |
+| Pipeline question | **PASS** — cited answer, no secrets |
+| Secret request block | **PASS** (unit + prior tests) |
 
-## Owner actions to complete live validation
+## TTS
 
-1. Run `scripts/local/Start-Aarohan.ps1` (loads SecretStore + env).
-2. Complete Settings → Google connect if not READY.
-3. Run `scripts/validation/Live-RC-Validation.ps1`.
-4. Execute Drive packet v01/v02 checklist manually or via owner Cowork session.
-5. Run Gmail sync; confirm per-source parsers on real labeled messages.
+| Check | Result |
+|-------|--------|
+| API with key in container | **FAIL** — `mode: unavailable` (`AI_API_KEY` not loaded in current Docker session) |
+| Key not in browser bundle | **PASS** (build + secret scan) |
+
+**Owner action:** Start stack via `Start-Aarohan.ps1` so `.env.local` / SecretStore loads `OPENAI_API_KEY` into `AI_API_KEY`.
+
+## Backup / restore
+
+| Check | Result |
+|-------|--------|
+| `pg_dump` owner DB | **PASS** (~2.1 MB artifact) |
+| Restore to `career_os_validation` | **PASS** (28 public tables) |
+| Owner DB unchanged | **PASS** (2 users on `career_os`) |
+
+## Local validation UI
+
+`POST /api/validation/run` returns plain-English PASS/FAIL steps when `OAUTH_FIXTURE_MODE=false`.
+
+**Latest automated run (rc3 session):** **FAIL** — `google_connection` PASS (linked), `drive_root` FAIL, `drive_packets` FAIL, `gmail_live` PASS (empty inbox path), `connectors` PASS.
+
+## Owner unblock checklist
+
+1. Settings → **Reconnect Google** (re-encrypts tokens with current `TOKEN_ENCRYPTION_KEY`).
+2. Confirm Drive root accessible → **Sync Drive Subfolders**.
+3. Generate packet v01 → mark submitted → generate v02 → re-run validation.
+4. **Sync Gmail (read-only)** → confirm per-label counts.
+5. Restart stack → confirm no second consent screen.
+6. Start via `Start-Aarohan.ps1` for live TTS key injection.

@@ -18,13 +18,13 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `IN_VALIDATION`, `CONDITIONAL_GO`, 
 | R2.10 Modern UI | DONE | 27ab54d | r2.10.0 | build + Playwright | | |
 | R2.11 Cloud Readiness | DONE | 6a785c0 | r2.11.0 | docs | | Architecture only |
 | R2.12 Cleanup/Hardening | DONE | 4d9b99b | r2.12.0 | Verify-Full-R2 | | |
-| R2.13 UAT/RC | **IN_VALIDATION** | edb540d | r2.13.0-rc1 | full gate | Reviews done; live Drive/Gmail; owner UAT | Package prep complete; **not** final sign-off |
+| R2.13 UAT/RC | **IN_VALIDATION** | (rc3 pending) | r2.13.0-rc3 | 113 API + 19 Playwright | Token reconnect; Cowork UAT | rc3 security/UI fixes; live Drive/Gmail blocked on token decrypt |
 
 ## Validation phase (post-rc1)
 
 - RC baseline: `docs/validation/RC-BASELINE-VERIFICATION.md`
 - Live evidence: `docs/validation/LIVE-VALIDATION-EVIDENCE.md`
-- Reviews: `docs/validation/review/CODEX-REVIEW-RESULTS.md`, `CLAUDE-CODE-REVIEW-RESULTS.md`
+- Security disposition: `docs/validation/review/SECURITY-DISPOSITION-R2.13-RC3.md`
 - UAT: `docs/validation/uat/UAT-RESULTS.md`
 - Defects: `docs/validation/FINAL-DEFECT-REGISTER.md`
 

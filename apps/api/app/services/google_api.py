@@ -86,6 +86,7 @@ def integration_status(db: Session) -> dict:
     rows = db.query(OAuthToken).filter(OAuthToken.is_active.is_(True)).all()
     by_service = {row.service: {"connected": True, "account_email": row.account_email} for row in rows}
     google_connected = bool(by_service.get("google") or (by_service.get("gmail") and by_service.get("drive")))
+    token_usable = bool(get_token(db, "google")) if google_connected and not settings.oauth_fixture_mode else google_connected
     connected_account = None
     for svc in ("google", "gmail", "drive"):
         if by_service.get(svc, {}).get("account_email"):
@@ -111,6 +112,7 @@ def integration_status(db: Session) -> dict:
         "gmail": by_service.get("gmail", by_service.get("google", {"connected": False})),
         "drive": by_service.get("drive", by_service.get("google", {"connected": False})),
         "google_connected": google_connected,
+        "token_usable": token_usable,
         "connected_account": connected_account,
         "fixture_mode": settings.oauth_fixture_mode,
         "oauth_configured": bool(settings.google_client_id and settings.google_client_secret),
@@ -217,7 +219,10 @@ def get_token(db: Session, service: str = "google") -> dict | None:
             .first()
         )
         if row:
-            token_data = decrypt_payload(row.encrypted_token)
+            try:
+                token_data = decrypt_payload(row.encrypted_token)
+            except Exception:
+                continue
             if row.expires_at and row.expires_at <= datetime.utcnow() + timedelta(seconds=60):
                 token_data = _refresh_access_token(db, row, token_data)
             return token_data

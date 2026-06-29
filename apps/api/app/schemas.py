@@ -120,6 +120,7 @@ class RecruiterSignalRequest(BaseModel):
     subject: str | None = None
     body_text: str
     job_id: int | None = None
+    gmail_message_id: str | None = None
 
 
 class InterviewPackOut(BaseModel):

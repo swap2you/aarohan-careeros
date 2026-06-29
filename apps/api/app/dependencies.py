@@ -20,6 +20,8 @@ def _user_from_bearer(credentials: HTTPAuthorizationCredentials | None, db: Sess
     user = get_user_for_session_token(db, credentials.credentials)
     if user:
         return user
+    if not settings.allow_legacy_jwt_auth:
+        return None
     try:
         payload = jwt.decode(credentials.credentials, settings.app_secret, algorithms=[ALGORITHM])
         email = payload.get("sub")

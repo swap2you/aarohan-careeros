@@ -25,6 +25,48 @@ def last_run(provider_id: str) -> dict | None:
     return _last_runs.get(provider_id)
 
 
+def probe_connector_health(provider_id: str) -> dict:
+    """Safe live health probe — no credentials in response."""
+    import time
+
+    t0 = time.perf_counter()
+    try:
+        provider = get_provider(provider_id)
+        status = provider.base_status()
+        state = status.state.value
+        error = None
+        record_count = 0
+        if status.state == ConnectorState.READY:
+            run = last_run(provider_id)
+            record_count = (run or {}).get("last_job_count", 0)
+            mapped = "READY"
+        elif status.state == ConnectorState.NOT_CONFIGURED:
+            mapped = "DEGRADED"
+            error = "not configured"
+        elif status.state == ConnectorState.DISABLED:
+            mapped = "ERROR"
+            error = status.message or "disabled"
+        else:
+            mapped = "DEGRADED"
+            error = status.message
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        return {
+            "status": mapped,
+            "record_count": record_count,
+            "latency_ms": latency_ms,
+            "error": error,
+        }
+    except KeyError:
+        return {"status": "ERROR", "record_count": 0, "latency_ms": 0, "error": "unknown provider"}
+    except Exception as exc:
+        return {
+            "status": "ERROR",
+            "record_count": 0,
+            "latency_ms": int((time.perf_counter() - t0) * 1000),
+            "error": str(exc)[:120],
+        }
+
+
 def run_connector(
     db: Session,
     provider_id: str,

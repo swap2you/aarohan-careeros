@@ -20,6 +20,8 @@ else:
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ.setdefault("APP_SECRET", "test-secret-key-32chars-minimum!")
 os.environ.setdefault("TOKEN_ENCRYPTION_KEY", "test-token-encryption-key-32chars!")
+os.environ.setdefault("ALLOW_LEGACY_JWT_AUTH", "true")
+os.environ.setdefault("EXPOSE_SESSION_TOKEN_IN_LOGIN_RESPONSE", "true")
 os.environ.setdefault("OAUTH_FIXTURE_MODE", "true")
 os.environ.setdefault("GENERATED_ROOT", str(_API_ROOT / "generated"))
 os.environ.setdefault("CONFIG_ROOT", str(_REPO_ROOT / "config"))

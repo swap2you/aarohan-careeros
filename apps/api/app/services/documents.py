@@ -65,11 +65,10 @@ def generate_application_packet(
 
     application = job.application or Application(job_id=job.id, latest_version_number=0)
     db.add(application)
-    db.flush()
-
+    previous_job_state = job.state
     job.state = WorkflowState.PACKET_GENERATING.value
     db.add(job)
-    db.commit()
+    db.flush()
 
     evidence = public_evidence_statements(db)
     if not evidence:
