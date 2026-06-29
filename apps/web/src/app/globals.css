@@ -1,8 +1,25 @@
 :root {
   color-scheme: light;
-  font-family: "Segoe UI", system-ui, sans-serif;
-  background: #f4f6f8;
-  color: #1f2933;
+  --font-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --color-bg: #f4f6f8;
+  --color-surface: #ffffff;
+  --color-text: #1f2933;
+  --color-muted: #64748b;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-danger: #b91c1c;
+  --color-nav: #0f172a;
+  --radius: 0.75rem;
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 
 * {
@@ -73,13 +90,50 @@ main {
 
 button,
 .button {
-  background: #2563eb;
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 0.5rem;
   padding: 0.6rem 1rem;
   cursor: pointer;
+  font: inherit;
 }
+
+button:hover:not(:disabled) { background: var(--color-primary-hover); }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+label { font-weight: 600; font-size: 0.9rem; display: block; }
+
+h1 { font-size: 1.75rem; margin: 0 0 var(--space-4); }
+h2 { font-size: 1.25rem; margin: var(--space-4) 0 var(--space-2); }
+h3 { font-size: 1.05rem; margin: var(--space-3) 0 var(--space-2); }
+
+.skeleton {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+  border-radius: 0.5rem;
+  min-height: 1rem;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--color-muted);
+}
+.empty-state button { margin-top: var(--space-4); }
+
+.page-header { margin-bottom: var(--space-6); }
+.page-header p { color: var(--color-muted); margin: 0; }
 
 table {
   width: 100%;
