@@ -124,10 +124,11 @@ jobs:
       - name: Seed Playwright e2e user
         working-directory: apps/api
         env:
+          PYTHONPATH: .
           DATABASE_URL: postgresql+psycopg://career_os:testpass@localhost:5432/career_os
           APP_SECRET: ci-test-secret-key-32chars-minimum!
           TOKEN_ENCRYPTION_KEY: ci-test-token-encryption-key-32chars!
-          E2E_TEST_PASSWORD: ci-e2e-playwright-password-32chars!
+          E2E_TEST_PASSWORD: E2eTestPass123!
         run: python scripts/ensure_e2e_user.py
       - name: Install Playwright browsers
         working-directory: apps/web
