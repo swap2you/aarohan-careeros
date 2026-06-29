@@ -79,7 +79,7 @@ def pg_auth(pg_client: TestClient) -> dict[str, str]:
         json={"email": "pg@test.local", "password": "SecurePass123!"},
     )
     assert response.status_code == 200
-    return {}
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
 def _ingest(client: TestClient, headers: dict, **fields) -> dict:

@@ -1,6 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { AppShell } from "@/components/AppShell";
+import { Suspense } from "react";
+
+import { AppProviders } from "@/components/AppProviders";
 
 export const metadata: Metadata = {
   title: "Aarohan CareerOS",
@@ -11,7 +13,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <AppShell>{children}</AppShell>
+        <Suspense fallback={<div className="auth-loading card">Loading…</div>}>
+          <AppProviders>{children}</AppProviders>
+        </Suspense>
       </body>
     </html>
   );

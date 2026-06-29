@@ -93,43 +93,54 @@ td {
   border-bottom: 1px solid #e5e7eb;
 }
 
-.login {
-  max-width: 420px;
-  margin: 4rem auto;
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%);
 }
 
-.auth-main {
+.login-page .login {
+  width: 100%;
   max-width: 420px;
-  margin: 4rem auto;
+  margin: 2rem;
 }
 
-.auth-splash {
+.auth-loading {
+  max-width: 520px;
+  margin: 4rem auto;
   text-align: center;
+}
+
+.nav-user {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #334155;
+  font-size: 0.85rem;
+}
+
+.nav-user span {
+  display: block;
+  margin-bottom: 0.75rem;
+  word-break: break-all;
+}
+
+.nav-user button {
+  width: 100%;
+  background: #334155;
 }
 
 .checkbox-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin: 0.75rem 0;
+  margin: 0.5rem 0 1rem;
 }
 
-.nav-footer {
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid #1e293b;
-}
-
-.nav-user {
-  font-size: 0.85rem;
-  color: #94a3b8;
-  word-break: break-all;
-}
-
-.nav-logout {
-  width: 100%;
-  margin-top: 0.5rem;
-  background: #334155;
+.checkbox-row input {
+  width: auto;
+  margin: 0;
 }
 
 .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/context/AuthContext";
+import { API_BASE, authFetch } from "@/lib/api";
 
 type Risk = {
   level: "GREEN" | "AMBER" | "RED";
@@ -43,7 +43,6 @@ function riskClass(level: string) {
 }
 
 export default function JobDetailPage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const params = useParams();
   const jobId = params?.id as string;
   const [job, setJob] = useState<JobDetail | null>(null);
@@ -54,34 +53,34 @@ export default function JobDetailPage() {
   const [message, setMessage] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
 
-  const loadJobData = useCallback(async () => {
-    if (!jobId) return;
-    const [jobRes, dupRes, repRes, applyRes, atsRes] = await Promise.all([
-      apiFetch(`/api/jobs/${jobId}`),
-      apiFetch(`/api/companies/jobs/${jobId}/duplicate-risk`),
-      apiFetch(`/api/representations/jobs/${jobId}/representation-risk`),
-      apiFetch(`/api/applications/jobs/${jobId}/apply-readiness`),
-      apiFetch(`/api/assisted-apply/jobs/${jobId}/ats-detection`),
-    ]);
-    if (jobRes.ok) setJob(await jobRes.json());
-    if (dupRes.ok) setDupRisk(await dupRes.json());
-    if (repRes.ok) setRepRisk(await repRes.json());
-    if (applyRes.ok) setApplyReady(await applyRes.json());
-    if (atsRes.ok) setAtsInfo(await atsRes.json());
-  }, [apiFetch, jobId]);
 
   useEffect(() => {
-    if (authStatus === "authenticated") void loadJobData();
-  }, [authStatus, loadJobData]);
+    if (!jobId) return;
+    authFetch(`/api/jobs/${jobId}`).then((r) => r.json()).then(setJob);
+    authFetch(`/api/companies/jobs/${jobId}/duplicate-risk`)
+      .then((r) => r.json())
+      .then(setDupRisk);
+    authFetch(`/api/representations/jobs/${jobId}/representation-risk`)
+      .then((r) => r.json())
+      .then(setRepRisk);
+    authFetch(`/api/applications/jobs/${jobId}/apply-readiness`)
+      .then((r) => r.json())
+      .then(setApplyReady);
+    authFetch(`/api/assisted-apply/jobs/${jobId}/ats-detection`)
+      .then((r) => r.json())
+      .then(setAtsInfo);
+  }, [jobId]);
 
   async function generatePacket() {
-    const res = await apiFetch(`/api/applications/jobs/${jobId}/generate`, { method: "POST" });
+    const res = await authFetch(`/api/applications/jobs/${jobId}/generate`, {
+      method: "POST",
+    });
     const data = await res.json();
     setMessage(res.ok ? "Packet generated. Review it on the Applications page." : data.detail || "Generation failed");
   }
 
   async function recordOverride() {
-    const res = await apiFetch(`/api/companies/jobs/${jobId}/duplicate-override`, {
+    const res = await authFetch(`/api/companies/jobs/${jobId}/duplicate-override`, {
       method: "POST",
       body: JSON.stringify({ reason: overrideReason }),
     });
@@ -91,8 +90,8 @@ export default function JobDetailPage() {
       return;
     }
     setMessage("Override recorded with audit trail.");
-    const refreshed = await apiFetch(`/api/companies/jobs/${jobId}/duplicate-risk`);
-    if (refreshed.ok) setDupRisk(await refreshed.json());
+    const refreshed = await authFetch(`/api/companies/jobs/${jobId}/duplicate-risk`);
+    setDupRisk(await refreshed.json());
   }
 
   if (!job) return <p>Loading job detail…</p>;

@@ -1,26 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+
+import { authFetch } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 export default function HomePage() {
-  const { apiFetch, status } = useAuth();
+  const { status } = useAuth();
   const [analytics, setAnalytics] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status !== "authenticated") return;
-    apiFetch("/api/analytics")
+    setLoading(true);
+    authFetch("/api/analytics")
       .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load analytics (${res.status})`);
+        if (!res.ok) throw new Error("Failed to load analytics");
         return res.json();
       })
       .then(setAnalytics)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load analytics"));
-  }, [apiFetch, status]);
+      .catch(() => setError("Could not load dashboard metrics. Retry in a moment."))
+      .finally(() => setLoading(false));
+  }, [status]);
 
-  if (status !== "authenticated") {
-    return null;
+  if (status === "loading" || loading) {
+    return (
+      <div className="card">
+        <h1>Executive Overview</h1>
+        <p>Loading dashboard…</p>
+      </div>
+    );
   }
 
   return (
@@ -28,7 +38,7 @@ export default function HomePage() {
       <h1>Executive Overview</h1>
       <p>Local-first supervised career operations. Schedules disabled by default.</p>
       {error && (
-        <div className="card risk-amber">
+        <div className="card warn">
           <p>{error}</p>
           <button type="button" onClick={() => window.location.reload()}>
             Retry

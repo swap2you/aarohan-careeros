@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+
+import { useAuth } from "@/lib/auth";
 
 const links = [
   ["Overview", "/"],
@@ -24,7 +25,7 @@ const links = [
 
 export function Nav() {
   const pathname = usePathname();
-  const { email, logout } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <nav className="nav">
@@ -38,10 +39,10 @@ export function Nav() {
           </li>
         ))}
       </ul>
-      <div className="nav-footer">
-        <p className="nav-user">{email}</p>
-        <button type="button" className="nav-logout" onClick={() => logout()}>
-          Log out
+      <div className="nav-user">
+        <span>{user?.email}</span>
+        <button type="button" onClick={() => logout()}>
+          Logout
         </button>
       </div>
     </nav>

@@ -1,82 +1,89 @@
-# Auth Session and Google Persistence Validation
+# AUTH-SESSION-AND-GOOGLE-PERSISTENCE — R2.6.1 validation
 
-Date: 2026-06-27  
-Release: **r2.6.1** (patch on r2.6.0)  
-Environment: local Docker (`docker compose`, volumes retained — no `-v`)
+**Date:** 2026-06-29  
+**Baseline:** r2.6.0 (`83bbe66`)  
+**Patch:** R2.6.1 auth/session lifecycle  
+**Validator:** automated + container restart acceptance
 
-## Root cause (Phase 1)
+## Root cause (confirmed)
 
-| Symptom | Cause |
+| Layer | Failure |
 |---|---|
-| Shell + Overview rendered after restart | Frontend treated `localStorage.careeros_token` as authenticated without server validation |
-| Dashboard dashes / API failures | Stale JWT or missing server session after container restart or `APP_SECRET` change |
-| No durable login | Bearer-only auth; no HttpOnly cookie; no PostgreSQL session rows |
+| Frontend | `localStorage` key `careeros_token` treated as proof of login; shell rendered before API validation |
+| Backend | Stateless JWT only (12h); no HttpOnly cookie; no PostgreSQL session rows |
+| After restart | Stale client token → API 401; UI still showed Nav + Overview with blank dashboard (`—`) |
 
-## Session architecture (implemented)
+## Session architecture (post-patch)
 
-- **Authority:** PostgreSQL `auth_sessions` table (migration `0007_auth_sessions`)
-- **Transport:** HttpOnly cookie `careeros_session` (`SameSite=Lax`, `Secure` in production/staging)
-- **Validation gate:** `GET /api/auth/session` on every load via `AuthProvider`
-- **Protected UI:** `AppShell` splash until session resolves; unauthenticated → `/login?reason=session_expired&returnTo=…`
-- **API:** `resolve_user_from_session` first; Bearer JWT retained for tests only
-- **Logout:** `POST /api/auth/logout` revokes DB row and clears cookie
-- **401 handling:** single `apiFetch` redirect; business 403 (e.g. autonomous mode) does not log out
+- **Authority:** PostgreSQL `user_sessions` table (Alembic `0007_auth_sessions`)
+- **Transport:** HttpOnly cookie `careeros_session` (`SameSite=Lax`, `Secure=false` on localhost HTTP)
+- **Validation gate:** `GET /api/auth/session` on every app load; splash until resolved
+- **Remember Me:** 60-day sliding renewal (server-managed)
+- **Short session:** 12 hours when Remember Me unchecked
+- **Logout:** `POST /api/auth/logout` revokes DB row + clears cookie
+- **API auth:** cookie first; Bearer session token or legacy JWT for tests only
+- **Session invalid:** `401` + `X-Aarohan-Auth: session-required` → single redirect to `/login?reason=session_expired`
+- **Business 403:** no logout (e.g. autonomous-mode policy)
 
-## Remember Me
+## Restart acceptance
 
-| Setting | Behavior |
-|---|---|
-| Enabled (default) | 30-day sliding server session; survives browser, API, web, and full stack restart |
-| Disabled | 12-hour session cookie max-age |
-
-## Restart acceptance (Phase 8)
-
-Test user: `e2e@test.local` (Remember Me enabled)
+### A. `docker compose restart api web` (no volume loss)
 
 | Step | Result |
 |---|---|
-| Login | `authenticated=true` |
-| `GET /api/auth/session` before restart | `authenticated=true` |
-| `docker compose restart api web` | api + web healthy |
-| Session after api/web restart | `authenticated=true` |
-| `GET /api/jobs` after restart | 200 (5 jobs) |
-| `docker compose down` + `docker compose up -d` (no `-v`) | all services healthy |
-| Session after full stack restart | `authenticated=true` |
+| Services healthy after restart | PASS — api, web, postgres, n8n healthy |
+| Playwright auth-session suite (6 tests) | PASS — login, protected routes, logout, tampered cookie, no shell leak |
+| API `/health` | PASS |
 
-Google integration status after restart: **disconnected** in fixture/local mode (no live OAuth connection on this test account). API keys/connectors remain configured via environment/SecretStore.
+### B. `docker compose down` → `docker compose up -d` (no `-v`)
 
-## Live Google Drive (Phase 9)
+| Step | Result |
+|---|---|
+| All services healthy | PASS |
+| PostgreSQL volume retained | PASS (sessions table present) |
+| Playwright smoke + auth-session | PASS (re-run after stack up) |
 
-**Status: PENDING OWNER ACTION**
+### C. Remember-Me persistence semantics
 
-1. Open **Settings**
-2. Click **Connect Google** (or **Reconnect Google** if required)
-3. Approve Drive/Gmail scopes in browser
-4. Return to Aarohan
+| Scenario | Expected | Result |
+|---|---|---|
+| Login with Remember Me | DB session row + cookie Max-Age | PASS (backend tests) |
+| API container restart | Session row in Postgres survives | PASS |
+| Web container restart | Cookie in browser survives | PASS (Playwright after restart) |
+| Logout | Row revoked, cookie cleared | PASS |
+| Tampered cookie | Redirect + session-expired message | PASS |
 
-After owner confirmation, re-run Drive packet upload validation to upgrade **R2.5** from CONDITIONAL GO to FULL GO.
+## Google OAuth persistence (fixture / unit)
+
+| Check | Result |
+|---|---|
+| Refresh token preserved when re-auth omits it | PASS (`test_save_token_preserves_refresh_when_missing`) |
+| Refresh response without new refresh token keeps old | PASS (`test_refresh_keeps_refresh_token`) |
+| Expired access token triggers refresh path | PASS (`test_get_token_auto_refresh_when_expired`) |
+| Tokens absent from `/api/integrations/status` payload | PASS |
+| Fixture mode survives restart | PASS (OAUTH_FIXTURE_MODE=true in compose) |
+
+## Live Google Drive
+
+| Item | Status |
+|---|---|
+| Owner browser OAuth + live upload proof | **PENDING** — owner action required |
+| R2.5 release status | **CONDITIONAL GO** |
+
+**Owner action (one step):** Open Settings → Connect Google (or Reconnect) → approve Drive/Gmail scopes → return to Aarohan → confirm Drive root and packet upload after restart.
 
 ## Test evidence
 
-| Suite | Result |
-|---|---|
-| API pytest (SQLite in container) | 105 passed |
-| Auth session tests (`test_auth_sessions.py`) | 10 passed |
-| Google persistence (`test_google_oauth_persistence.py`) | 3 passed |
-| Playwright e2e | 18 passed |
-| Web `npm run build` | PASS |
+| Suite | Count | Result |
+|---|---|---|
+| API pytest (container) | 108 passed | PASS |
+| Playwright auth-session + smoke | 7 passed | PASS |
+| Playwright auth-session after `restart api web` | 6 passed | PASS |
 
-## Playwright coverage
+## Configuration persistence after restart
 
-- Unauthenticated → login
-- Remember Me login → Overview with data
-- Protected routes gated
-- Logout → login; direct protected route blocked
-- Session-expired message
-- Invalid cookie → login
-- Autonomous 403 does not clear session
-- Cookie session survives API re-auth
+Integrations load from env/vault (not browser storage). Status values remain categorical (`READY`, `NOT_CONFIGURED`, `DEGRADED`, `ERROR`) — no secret values logged or returned.
 
-## Secrets
+## R2.7
 
-No tokens, cookies, or secret values are recorded in this document.
+**Not started** — resume after r2.6.1 tag and CI green.

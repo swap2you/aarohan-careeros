@@ -1,23 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { API_BASE, authFetch } from "@/lib/api";
 
 export default function ValidationCenterPage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const [validation, setValidation] = useState<Record<string, unknown> | null>(null);
   const [message, setMessage] = useState("");
 
+
   useEffect(() => {
-    if (authStatus !== "authenticated") return;
-    apiFetch("/api/validation/latest")
-      .then((res) => (res.ok ? res.json() : null))
+    authFetch(`/api/validation/latest`)
+      .then((res) => res.json())
       .then(setValidation);
-  }, [apiFetch, authStatus]);
+  }, []);
 
   async function runValidation() {
     setMessage("Running local validation...");
-    const response = await apiFetch("/api/validation/run", { method: "POST" });
+    const response = await authFetch(`/api/validation/run`, {
+      method: "POST", });
     const data = await response.json();
     setValidation(data);
     setMessage(`Validation ${data.status}`);

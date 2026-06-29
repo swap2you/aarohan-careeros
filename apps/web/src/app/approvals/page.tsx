@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useEffect, useState } from "react";
+import { API_BASE, authFetch } from "@/lib/api";
 
 type Application = {
   id: number;
@@ -13,34 +13,33 @@ type Application = {
 };
 
 export default function ApprovalsPage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const [items, setItems] = useState<Application[]>([]);
   const [preview, setPreview] = useState<Application | null>(null);
 
-  const load = useCallback(async () => {
-    const response = await apiFetch("/api/applications/queue");
-    if (response.ok) setItems(await response.json());
-  }, [apiFetch]);
+
+  async function load() {
+    const response = await authFetch(`/api/applications/queue`);
+    setItems(await response.json());
+  }
 
   useEffect(() => {
-    if (authStatus === "authenticated") void load();
-  }, [authStatus, load]);
+    load();
+  }, []);
 
   async function act(id: number, action: string) {
-    await apiFetch(`/api/applications/${id}/actions`, {
-      method: "POST",
-      body: JSON.stringify({ action }),
+    await authFetch(`/api/applications/${id}/actions`, {
+      method: "POST", body: JSON.stringify({ action }),
     });
     load();
   }
 
   async function showPreview(id: number) {
-    const response = await apiFetch(`/api/validation/applications/${id}/preview`);
-    if (response.ok) setPreview(await response.json());
+    const response = await authFetch(`/api/validation/applications/${id}/preview`);
+    setPreview(await response.json());
   }
 
   async function download(id: number, fileType: "docx" | "pdf") {
-    const response = await apiFetch(`/api/validation/applications/${id}/download/${fileType}`);
+    const response = await authFetch(`/api/validation/applications/${id}/download/${fileType}`);
     if (!response.ok) return;
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);

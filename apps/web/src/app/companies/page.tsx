@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { authFetch } from "@/lib/api";
 
 type LedgerRow = {
   id: number;
@@ -19,19 +19,18 @@ type Company = {
 };
 
 export default function CompaniesPage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
 
+
   useEffect(() => {
-    if (authStatus !== "authenticated") return;
-    apiFetch("/api/companies/ledger")
-      .then((res) => (res.ok ? res.json() : []))
+    authFetch(`/api/companies/ledger`)
+      .then((res) => res.json())
       .then(setLedger);
-    apiFetch("/api/companies")
-      .then((res) => (res.ok ? res.json() : []))
+    authFetch(`/api/companies`)
+      .then((res) => res.json())
       .then(setCompanies);
-  }, [apiFetch, authStatus]);
+  }, []);
 
   const companyName = (id: number) =>
     companies.find((c) => c.id === id)?.canonical_name ?? `Company #${id}`;

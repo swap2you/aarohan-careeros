@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { API_BASE, authFetch } from "@/lib/api";
 
 type Job = {
   id: number;
@@ -12,17 +12,14 @@ type Job = {
 };
 
 export default function ShortlistPage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
 
+
   useEffect(() => {
-    if (authStatus !== "authenticated") return;
-    apiFetch("/api/jobs")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((rows: Job[]) =>
-        setJobs(rows.filter((j) => j.state === "SHORTLISTED" || (j.score?.total_score ?? 0) >= 75)),
-      );
-  }, [apiFetch, authStatus]);
+    authFetch(`/api/jobs`)
+      .then((res) => res.json())
+      .then((rows: Job[]) => setJobs(rows.filter((j) => j.state === "SHORTLISTED" || (j.score?.total_score ?? 0) >= 75)));
+  }, []);
 
   return (
     <div>

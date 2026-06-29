@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useEffect, useState } from "react";
+import { API_BASE, authFetch } from "@/lib/api";
 
 type Signal = {
   id: number;
@@ -13,21 +13,22 @@ type Signal = {
 };
 
 export default function RecruiterSignalsPage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const [signals, setSignals] = useState<Signal[]>([]);
   const [message, setMessage] = useState("");
 
-  const load = useCallback(async () => {
-    const response = await apiFetch("/api/recruiter-signals");
-    if (response.ok) setSignals(await response.json());
-  }, [apiFetch]);
+
+  async function load() {
+    const response = await authFetch(`/api/recruiter-signals`);
+    setSignals(await response.json());
+  }
 
   useEffect(() => {
-    if (authStatus === "authenticated") void load();
-  }, [authStatus, load]);
+    load();
+  }, []);
 
   async function syncGmail() {
-    const response = await apiFetch("/api/integrations/gmail/sync", { method: "POST" });
+    const response = await authFetch(`/api/integrations/gmail/sync`, {
+      method: "POST", });
     const data = await response.json();
     setMessage(`Synced ${data.processed ?? 0} messages`);
     await load();

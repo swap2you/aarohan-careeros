@@ -6,29 +6,77 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, get_optional_user
 from app.models import User
-from app.schemas import LoginRequest, SessionResponse, SetupRequest
+from app.schemas import LoginRequest, TokenResponse
 from app.services.auth import hash_password, verify_password
 from app.services.career_vault import sync_evidence_registry
-from app.services.session_auth import (
-    clear_session_cookie,
-    create_session,
-    get_session_token,
-    resolve_session,
-    revoke_session,
-    set_session_cookie,
-)
 from app.services.setup import has_admin_user, is_setup_complete, mark_setup_complete
+from app.services.sessions import (
+    REMEMBER_ME_DAYS,
+    SESSION_COOKIE_NAME,
+    SHORT_SESSION_HOURS,
+    cleanup_expired_sessions,
+    create_session,
+    get_user_for_session_token,
+    revoke_session_token,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _session_response(user: User, session_row) -> SessionResponse:
-    return SessionResponse(
-        authenticated=True,
-        email=user.email,
-        user_id=user.id,
-        remember_me=session_row.remember_me if session_row else False,
-        expires_at=session_row.expires_at.isoformat() if session_row else None,
+class SetupRequest(BaseModel):
+    email: str
+    password: str
+    remember_me: bool = True
+
+
+class LoginBody(BaseModel):
+    email: str
+    password: str
+    remember_me: bool = True
+
+
+def _cookie_secure() -> bool:
+    return settings.app_env not in {"development", "test", "local"}
+
+
+def _set_session_cookie(response: Response, raw_token: str, *, remember_me: bool) -> None:
+    if remember_me:
+        max_age = REMEMBER_ME_DAYS * 24 * 60 * 60
+    else:
+        max_age = SHORT_SESSION_HOURS * 60 * 60
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=raw_token,
+        httponly=True,
+        secure=_cookie_secure(),
+        samesite="lax",
+        max_age=max_age,
+        path="/",
+    )
+
+
+def _clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(key=SESSION_COOKIE_NAME, path="/")
+
+
+def _issue_session(
+    response: Response,
+    db: Session,
+    user: User,
+    *,
+    remember_me: bool,
+    user_agent: str | None,
+) -> TokenResponse:
+    cleanup_expired_sessions(db)
+    raw_token, session = create_session(
+        db, user, remember_me=remember_me, user_agent=user_agent
+    )
+    _set_session_cookie(response, raw_token, remember_me=remember_me)
+    return TokenResponse(
+        access_token=raw_token,
+        token_type="session",
+        expires_at=session.expires_at.isoformat(),
+        remember_me=remember_me,
     )
 
 
@@ -40,28 +88,41 @@ def setup_status(db: Session = Depends(get_db)) -> dict:
     }
 
 
-@router.get("/session", response_model=SessionResponse)
-def auth_session(
+@router.get("/session")
+def get_session(
     request: Request,
     db: Session = Depends(get_db),
-    user: User | None = Depends(get_optional_user),
-) -> SessionResponse:
-    if not user:
-        return SessionResponse(authenticated=False)
-    raw = get_session_token(request)
-    row = resolve_session(db, raw) if raw else None
-    if raw and not row:
-        return SessionResponse(authenticated=False)
-    return _session_response(user, row)
+    current_user: User | None = Depends(get_optional_user),
+) -> dict:
+    if not current_user:
+        return {"authenticated": False}
+    from app.models import UserSession
+    from app.services.sessions import hash_session_token
+
+    raw_token = request.cookies.get(SESSION_COOKIE_NAME) or ""
+    session_row = (
+        db.query(UserSession)
+        .filter(
+            UserSession.session_token_hash == hash_session_token(raw_token),
+            UserSession.revoked_at.is_(None),
+        )
+        .one_or_none()
+    )
+    return {
+        "authenticated": True,
+        "user": {"id": current_user.id, "email": current_user.email},
+        "remember_me": bool(session_row.remember_me) if session_row else False,
+        "expires_at": session_row.expires_at.isoformat() if session_row else None,
+    }
 
 
-@router.post("/setup", response_model=SessionResponse)
+@router.post("/setup", response_model=TokenResponse)
 def setup_admin(
     payload: SetupRequest,
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
-) -> SessionResponse:
+) -> TokenResponse:
     if has_admin_user(db):
         raise HTTPException(status_code=400, detail="Administrator already configured")
     if len(payload.password) < 12:
@@ -69,37 +130,48 @@ def setup_admin(
     user = User(email=payload.email, hashed_password=hash_password(payload.password), is_admin=True)
     db.add(user)
     db.commit()
-    db.refresh(user)
     mark_setup_complete(db)
     sync_evidence_registry(db)
-    remember = payload.remember_me if payload.remember_me is not None else True
-    raw, row = create_session(db, user, remember_me=remember, user_agent=request.headers.get("user-agent"))
-    set_session_cookie(response, raw, remember_me=remember)
-    return _session_response(user, row)
+    return _issue_session(
+        response,
+        db,
+        user,
+        remember_me=payload.remember_me,
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
-@router.post("/login", response_model=SessionResponse)
+@router.post("/login", response_model=TokenResponse)
 def login(
-    payload: LoginRequest,
+    payload: LoginBody,
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
-) -> SessionResponse:
+) -> TokenResponse:
     if not has_admin_user(db):
         raise HTTPException(status_code=403, detail="Setup required")
     user = db.query(User).filter(User.email == payload.email).one_or_none()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    remember = payload.remember_me if payload.remember_me is not None else True
-    raw, row = create_session(db, user, remember_me=remember, user_agent=request.headers.get("user-agent"))
-    set_session_cookie(response, raw, remember_me=remember)
-    return _session_response(user, row)
+    return _issue_session(
+        response,
+        db,
+        user,
+        remember_me=payload.remember_me,
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 @router.post("/logout")
-def logout(request: Request, response: Response, db: Session = Depends(get_db)) -> dict:
-    revoke_session(db, get_session_token(request))
-    clear_session_cookie(response)
+def logout(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> dict:
+    raw_token = request.cookies.get(SESSION_COOKIE_NAME)
+    revoke_session_token(db, raw_token)
+    _clear_session_cookie(response)
     return {"logged_out": True}
 
 

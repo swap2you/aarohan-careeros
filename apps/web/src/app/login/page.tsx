@@ -1,72 +1,67 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
 
-function LoginForm() {
-  const { login, status } = useAuth();
+import { API_BASE } from "@/lib/api";
+
+type SetupStatus = { setup_required: boolean; has_admin: boolean };
+
+export default function LoginPage() {
   const searchParams = useSearchParams();
+  const [setup, setSetup] = useState<SetupStatus | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
-  const [setupRequired, setSetupRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
   const reason = searchParams.get("reason");
+  const returnTo = searchParams.get("returnTo") || "/";
 
   useEffect(() => {
-    if (status === "authenticated") {
-      const returnTo = searchParams.get("returnTo") || "/";
-      window.location.replace(returnTo.startsWith("/") ? returnTo : "/");
-    }
-  }, [status, searchParams]);
-
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000"}/api/auth/setup-status`)
-      .then((r) => r.json())
-      .then((data) => setSetupRequired(Boolean(data.setup_required)))
-      .catch(() => setSetupRequired(false));
+    fetch(`${API_BASE}/api/auth/setup-status`)
+      .then((res) => res.json())
+      .then(setSetup)
+      .catch(() => setSetup({ setup_required: true, has_admin: false }));
   }, []);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
+  async function submit(path: "/api/auth/setup" | "/api/auth/login") {
     setSubmitting(true);
-    try {
-      await login(email, password, rememberMe, setupRequired);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed");
-    } finally {
-      setSubmitting(false);
+    setError(null);
+    const response = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, remember_me: rememberMe }),
+    });
+    setSubmitting(false);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setError(data.detail || "Authentication failed");
+      return;
     }
+    window.location.assign(returnTo.startsWith("/") ? returnTo : "/");
   }
 
+  const isSetup = setup?.setup_required;
+
   return (
-    <div className="login card">
-      <h1>{setupRequired ? "First-run administrator setup" : "Sign in to Aarohan"}</h1>
-      {reason === "session_expired" && (
-        <p className="warn">Your session expired. Sign in again to continue.</p>
-      )}
-      <form onSubmit={onSubmit}>
-        <label htmlFor="login-email">Email</label>
+    <div className="login-page">
+      <div className="login card">
+        <h1>{isSetup ? "First-run administrator setup" : "Sign in to Aarohan CareerOS"}</h1>
+        {reason === "session_expired" && (
+          <p className="warn">Your session expired. Sign in again to continue.</p>
+        )}
+        <label htmlFor="careeros-email">Email</label>
+        <input id="careeros-email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
+        <label htmlFor="careeros-password">Password (min 12 characters)</label>
         <input
-          id="login-email"
-          type="email"
-          autoComplete="username"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <label htmlFor="login-password">Password (min 12 characters)</label>
-        <input
-          id="login-password"
+          id="careeros-password"
           type="password"
-          autoComplete={setupRequired ? "new-password" : "current-password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={12}
+          autoComplete="current-password"
         />
         <label className="checkbox-row">
           <input
@@ -77,18 +72,10 @@ function LoginForm() {
           Remember me on this device
         </label>
         {error && <p className="error">{error}</p>}
-        <button type="submit" disabled={submitting}>
-          {setupRequired ? "Create administrator" : "Sign in"}
+        <button type="button" disabled={submitting} onClick={() => submit(isSetup ? "/api/auth/setup" : "/api/auth/login")}>
+          {isSetup ? "Create administrator" : "Sign in"}
         </button>
-      </form>
+      </div>
     </div>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="card auth-splash">Loading…</div>}>
-      <LoginForm />
-    </Suspense>
   );
 }

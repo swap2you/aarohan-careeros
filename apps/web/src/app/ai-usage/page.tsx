@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { authFetch } from "@/lib/api";
 
 type Usage = {
   id: number;
@@ -12,15 +12,14 @@ type Usage = {
 };
 
 export default function AiUsagePage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const [usage, setUsage] = useState<Usage[]>([]);
   const [budget, setBudget] = useState<Record<string, unknown> | null>(null);
 
+
   useEffect(() => {
-    if (authStatus !== "authenticated") return;
-    apiFetch("/api/ai/usage").then((r) => (r.ok ? r.json() : [])).then(setUsage);
-    apiFetch("/api/ai/budget").then((r) => (r.ok ? r.json() : null)).then(setBudget);
-  }, [apiFetch, authStatus]);
+    authFetch(`/api/ai/usage`).then((r) => r.json()).then(setUsage);
+    authFetch(`/api/ai/budget`).then((r) => r.json()).then(setBudget);
+  }, []);
 
   return (
     <div>

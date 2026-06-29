@@ -48,16 +48,16 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    sessions: Mapped[list["AuthSession"]] = relationship(back_populates="user")
+    sessions: Mapped[list["UserSession"]] = relationship(back_populates="user")
 
 
-class AuthSession(Base):
-    __tablename__ = "auth_sessions"
+class UserSession(Base):
+    __tablename__ = "user_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
-    remember_me: Mapped[bool] = mapped_column(Boolean, default=True)
+    session_token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    remember_me: Mapped[bool] = mapped_column(Boolean, default=False)
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_used_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -88,9 +88,6 @@ class OAuthToken(Base):
     connected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_refresh_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    connection_status: Mapped[str] = mapped_column(String(32), default="connected")
 
 
 class Job(Base):

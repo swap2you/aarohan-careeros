@@ -1,22 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { authFetch } from "@/lib/api";
 
 export default function AnalyticsPage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [budget, setBudget] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
-    if (authStatus !== "authenticated") return;
-    apiFetch("/api/analytics")
-      .then((res) => (res.ok ? res.json() : null))
+    authFetch(`/api/analytics`)
+      .then((res) => res.json())
       .then(setData);
-    apiFetch("/api/ai/budget")
-      .then((res) => (res.ok ? res.json() : null))
+    authFetch(`/api/ai/budget`)
+      .then((res) => res.json())
       .then(setBudget);
-  }, [apiFetch, authStatus]);
+  }, []);
 
   return (
     <div>

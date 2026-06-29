@@ -1,25 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useEffect, useState } from "react";
+import { authFetch } from "@/lib/api";
 
 export default function ConsultingPage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const [leads, setLeads] = useState<Array<{ id: number; company: string; recommended_service?: string }>>([]);
   const [company, setCompany] = useState("");
   const [problem, setProblem] = useState("");
 
-  const load = useCallback(async () => {
-    const response = await apiFetch("/api/consulting/leads");
-    if (response.ok) setLeads(await response.json());
-  }, [apiFetch]);
+  async function load() {
+    const response = await authFetch(`/api/consulting/leads`);
+    setLeads(await response.json());
+  }
 
   useEffect(() => {
-    if (authStatus === "authenticated") void load();
-  }, [authStatus, load]);
+    load();
+  }, []);
 
   async function createLead() {
-    await apiFetch("/api/consulting/leads", {
+    await authFetch(`/api/consulting/leads`, {
       method: "POST",
       body: JSON.stringify({ company, problem_summary: problem }),
     });

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/context/AuthContext";
+import { API_BASE, authFetch } from "@/lib/api";
 
 type Application = {
   id: number;
@@ -57,7 +57,6 @@ function stateLabel(state: string) {
 }
 
 export default function ApplicationsPage() {
-  const { apiFetch, status: authStatus } = useAuth();
   const [items, setItems] = useState<Application[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
@@ -66,23 +65,24 @@ export default function ApplicationsPage() {
   const [message, setMessage] = useState("");
   const [confirmSubmit, setConfirmSubmit] = useState(false);
 
-  const loadApplications = useCallback(async () => {
-    const response = await apiFetch("/api/applications");
-    if (response.ok) setItems(await response.json());
-  }, [apiFetch]);
+
+  async function loadApplications() {
+    const response = await authFetch(`/api/applications`);
+    setItems(await response.json());
+  }
 
   useEffect(() => {
-    if (authStatus === "authenticated") void loadApplications();
-  }, [authStatus, loadApplications]);
+    loadApplications();
+  }, []);
 
   async function selectApplication(id: number) {
     setSelectedId(id);
     setMessage("");
     setConfirmSubmit(false);
     const [vRes, tRes, qRes] = await Promise.all([
-      apiFetch(`/api/applications/${id}/versions`),
-      apiFetch(`/api/applications/${id}/timeline`),
-      apiFetch(`/api/documents/applications/${id}/quality`),
+      authFetch(`/api/applications/${id}/versions`),
+      authFetch(`/api/applications/${id}/timeline`),
+      authFetch(`/api/documents/applications/${id}/quality`),
     ]);
     setVersions(vRes.ok ? await vRes.json() : []);
     setTimeline(tRes.ok ? await tRes.json() : []);
@@ -91,7 +91,7 @@ export default function ApplicationsPage() {
 
   async function act(action: string, notes?: string) {
     if (!selectedId) return;
-    const response = await apiFetch(`/api/applications/${selectedId}/actions`, {
+    const response = await authFetch(`/api/applications/${selectedId}/actions`, {
       method: "POST",
       body: JSON.stringify({ action, notes }),
     });
@@ -106,7 +106,7 @@ export default function ApplicationsPage() {
   }
 
   async function download(id: number, fileType: "docx" | "pdf") {
-    const response = await apiFetch(`/api/validation/applications/${id}/download/${fileType}`);
+    const response = await authFetch(`/api/validation/applications/${id}/download/${fileType}`);
     if (!response.ok) return;
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
