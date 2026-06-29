@@ -29,14 +29,18 @@ type WorkflowResult = { action: string; success: number; failed: number; details
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [total, setTotal] = useState(0);
   const [status, setStatus] = useState<string>("");
   const [forwardUrl, setForwardUrl] = useState("");
   const [profile, setProfile] = useState("qe_leadership");
+  const devMode = process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_E2E_MODE === "true";
 
 
   async function load() {
-    const response = await authFetch(`/api/jobs`);
-    setJobs(await response.json());
+    const response = await authFetch(`/api/jobs?page=1&page_size=50`);
+    const data = await response.json();
+    setJobs(data.items || data);
+    setTotal(data.total ?? (data.items || data).length);
   }
 
   useEffect(() => {
@@ -73,7 +77,9 @@ export default function JobsPage() {
     <div>
       <h1>Fresh Jobs & Manual Workflows</h1>
       <div className="card actions">
-        <button onClick={() => runWorkflow("/api/workflows/ingest/fixture")}>Import Fixture</button>
+        {devMode && (
+          <button onClick={() => runWorkflow("/api/workflows/ingest/fixture")}>Import Fixture</button>
+        )}
         <button onClick={() => runWorkflow("/api/workflows/ingest/public")}>Ingest Public Feed</button>
         <button onClick={() => runWorkflow("/api/workflows/score-all")}>Score All New Jobs</button>
         <button onClick={generateSelected}>Generate Selected Packets</button>
@@ -92,6 +98,7 @@ export default function JobsPage() {
         {status && <p className="status">{status}</p>}
       </div>
       <div className="card">
+        <p>{total} jobs (fixture/test data hidden in owner mode)</p>
         <table>
           <thead>
             <tr>

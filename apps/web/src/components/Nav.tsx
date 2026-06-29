@@ -15,7 +15,7 @@ const links = [
   ["Company Ledger", "/companies"],
   ["Recruiter Signals", "/recruiter-signals"],
   ["Interviews", "/interviews"],
-  ["Consulting", "/consulting"],
+  ["Consulting (Preview)", "/consulting"],
   ["Reports", "/analytics"],
   ["Ask Aarohan", "/ask"],
   ["AI Usage", "/ai-usage"],

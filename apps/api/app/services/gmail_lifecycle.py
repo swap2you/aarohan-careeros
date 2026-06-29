@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Application, CompanyDomain, Job, ProcessedGmailMessage, RecruiterSignal, WorkflowState
+from app.models import Application, CompanyDomain, GmailIngestReview, Job, ProcessedGmailMessage, RecruiterSignal, WorkflowState
 from app.services.audit import write_audit
 from app.services.gmail_alert_parsers import (
     JOB_ALERT_LABEL_PREFIX,
@@ -28,6 +28,9 @@ OFFER = "OFFER"
 FOLLOW_UP = "FOLLOW_UP"
 UNRELATED = "UNRELATED"
 
+AAROHAN_LABEL_PREFIX = "Aarohan/"
+MIN_PROCESS_CONFIDENCE = 0.72
+
 LABEL_CLASSIFICATION_HINTS: dict[str, str] = {
     "Aarohan/Recruiters": RECRUITER_OUTREACH,
     "Aarohan/Interviews": INTERVIEW,
@@ -38,7 +41,39 @@ LABEL_CLASSIFICATION_HINTS: dict[str, str] = {
 }
 
 
+def _is_configured_label(label: str | None) -> bool:
+    return bool(label and label.startswith(AAROHAN_LABEL_PREFIX))
+
+
+def _quarantine_message(
+    db: Session,
+    message: dict,
+    *,
+    label: str | None,
+    confidence: float,
+    reason: str,
+    parsed_payload: dict | None = None,
+) -> None:
+    row = GmailIngestReview(
+        gmail_message_id=message.get("id"),
+        gmail_thread_id=message.get("thread_id"),
+        gmail_label=label,
+        sender=message.get("sender"),
+        subject=message.get("subject"),
+        snippet=_snippet(message.get("body_text") or ""),
+        status="quarantined",
+        confidence=confidence,
+        ignored_reason=reason,
+        parsed_payload=parsed_payload,
+    )
+    db.add(row)
+    db.commit()
+    _mark_processed(db, message.get("id"))
+
+
 def classify_message(message: dict, *, label: str | None = None) -> tuple[str, float]:
+    if label and not _is_configured_label(label):
+        return UNRELATED, 0.2
     if label and label.startswith(JOB_ALERT_LABEL_PREFIX):
         return JOB_ALERT, 0.9
     if label and label in LABEL_CLASSIFICATION_HINTS:
@@ -145,6 +180,16 @@ def process_gmail_message(
     if not _claim_message(db, message_id):
         return None
 
+    if source == "gmail" and not _is_configured_label(label):
+        _quarantine_message(
+            db,
+            message,
+            label=label,
+            confidence=0.0,
+            reason="Message is not in a configured Aarohan label.",
+        )
+        return None
+
     if message_id:
         existing = db.query(RecruiterSignal).filter(RecruiterSignal.gmail_message_id == message_id).one_or_none()
         if existing:
@@ -152,18 +197,40 @@ def process_gmail_message(
             return existing
 
     signal_type, confidence = classify_message(message, label=label)
+    if confidence < MIN_PROCESS_CONFIDENCE and signal_type == UNRELATED:
+        _quarantine_message(
+            db,
+            message,
+            label=label,
+            confidence=confidence,
+            reason="Low confidence — message did not match a known Aarohan alert format.",
+        )
+        return None
+
     body = message.get("body_text") or ""
     job_id = _find_linked_job(db, message)
     company_id = _resolve_company_id(db, message.get("sender"))
 
     if signal_type == JOB_ALERT:
         alert = parse_job_alert(message, label=label)
-        if alert:
-            job = ingest_job(db, parsed_job_to_ingest_payload(alert), actor=actor)
+        if alert and alert.confidence >= MIN_PROCESS_CONFIDENCE:
+            payload = parsed_job_to_ingest_payload(alert)
+            payload["data_provenance"] = "gmail"
+            job = ingest_job(db, payload, actor=actor)
             job_id = job.id
             if not company_id:
                 company_id = job.company_id
             confidence = max(confidence, alert.confidence)
+        else:
+            _quarantine_message(
+                db,
+                message,
+                label=label,
+                confidence=confidence,
+                reason="Job alert could not be parsed with sufficient confidence.",
+                parsed_payload={"subject": message.get("subject")},
+            )
+            return None
 
     application_id = _resolve_application_id(db, job_id)
     follow_up_at = None

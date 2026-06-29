@@ -59,10 +59,17 @@ def test_ats_diagnostics_unit(tmp_path):
     path = tmp_path / "sample.docx"
     doc = Document()
     doc.add_paragraph("Professional Summary")
-    doc.add_paragraph("Summary text")
+    doc.add_paragraph("Summary text with enough content for ATS validation checks.")
+    doc.add_paragraph("Core Competencies")
+    doc.add_paragraph("Automation, leadership, CI/CD, quality engineering, API testing")
     doc.add_paragraph("Professional Experience")
-    doc.add_paragraph("Experience bullet")
-    doc.add_paragraph("Role Target")
+    doc.add_paragraph("Experience bullet with measurable outcomes")
+    doc.add_paragraph("Education")
+    doc.add_paragraph("Bachelor of Engineering — State University (2010)")
+    doc.add_paragraph(
+        "Additional experience includes automation platform leadership, API quality strategy, "
+        "and cross-functional delivery with measurable release confidence improvements."
+    )
     doc.save(path)
     result = run_ats_diagnostics(path)
     assert result["passed"] is True

@@ -32,16 +32,20 @@ def run_ats_diagnostics(docx_path: Path) -> dict:
     required = resume_cfg.get("required_sections", [])
     checks = validate_docx_text(docx_path, required)
     doc = Document(docx_path)
+    text = "\n".join(p.text for p in doc.paragraphs)
+    lower = text.lower()
     styles_used = {p.style.name for p in doc.paragraphs if p.text.strip()}
     issues: list[str] = []
     warnings: list[str] = []
 
     if checks.get("missing_sections"):
         issues.append(f"Missing sections: {', '.join(checks['missing_sections'])}")
-    if checks.get("line_count", 0) > resume_cfg.get("max_recommended_lines", 120):
-        warnings.append("Resume may exceed ATS-friendly length")
+    if checks.get("forbidden_phrases"):
+        issues.append(f"Forbidden content: {', '.join(checks['forbidden_phrases'])}")
+    if checks.get("empty_bullets", 0) > 0:
+        issues.append(f"Empty bullet points: {checks['empty_bullets']}")
     if checks.get("extracted_chars", 0) < 400:
-        warnings.append("Resume text is very short")
+        issues.append("Resume text is too short for submission")
 
     table_count = len(doc.tables)
     if table_count > 0:

@@ -19,6 +19,7 @@ from app.routers import (
     connectors,
     consulting,
     documents,
+    gmail_reviews,
     integrations,
     interviews,
     jobs,
@@ -73,6 +74,7 @@ app.include_router(career_vault.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(ops.router, prefix="/api")
 app.include_router(ask.router, prefix="/api")
+app.include_router(gmail_reviews.router, prefix="/api")
 app.include_router(integrations.router, prefix="/api")
 app.include_router(workflows.router, prefix="/api")
 app.include_router(representations.router, prefix="/api")

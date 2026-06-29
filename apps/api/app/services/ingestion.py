@@ -8,6 +8,7 @@ from app.services.duplicate_risk import description_fingerprint, link_job_to_com
 from app.services.normalization import build_dedupe_key, parse_salary_range
 from app.services.sanitize import html_to_text
 from app.services.sanitize import sanitize_html
+from app.services.provenance import infer_provenance
 from app.services.scoring import score_job
 
 
@@ -57,6 +58,8 @@ def ingest_job(db: Session, payload: dict, *, actor: str = "system") -> Job:
     if posted_at:
         freshness_hours = (discovered_at - posted_at).total_seconds() / 3600
 
+    provenance = infer_provenance(source, explicit=payload.get("data_provenance"))
+
     job = Job(
         source=source,
         external_id=external_id,
@@ -67,7 +70,7 @@ def ingest_job(db: Session, payload: dict, *, actor: str = "system") -> Job:
         salary_min=salary_min,
         salary_max=salary_max,
         description_html=description_html,
-        description_text=description_text,
+        description_text=description_text or "",
         url=payload["url"],
         posted_at=posted_at,
         discovered_at=discovered_at,
@@ -77,7 +80,8 @@ def ingest_job(db: Session, payload: dict, *, actor: str = "system") -> Job:
         raw_payload=payload,
         requisition_id=payload.get("requisition_id"),
         ats_job_id=payload.get("ats_job_id"),
-        description_fingerprint=description_fingerprint(description_text),
+        description_fingerprint=description_fingerprint(description_text or ""),
+        data_provenance=provenance,
     )
     db.add(job)
     db.flush()

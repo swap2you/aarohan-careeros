@@ -16,9 +16,12 @@ export default function ShortlistPage() {
 
 
   useEffect(() => {
-    authFetch(`/api/jobs`)
+    authFetch(`/api/jobs?page=1&page_size=100`)
       .then((res) => res.json())
-      .then((rows: Job[]) => setJobs(rows.filter((j) => j.state === "SHORTLISTED" || (j.score?.total_score ?? 0) >= 75)));
+      .then((data) => {
+        const rows: Job[] = data.items || data;
+        setJobs(rows.filter((j) => j.state === "SHORTLISTED" || (j.score?.total_score ?? 0) >= 75));
+      });
   }, []);
 
   return (

@@ -39,6 +39,7 @@ def workflow_ingest_fixture(
     adapter = FixtureFeedAdapter()
     details = []
     for item in adapter.fetch_jobs():
+        item["data_provenance"] = "fixture"
         job = ingest_job(db, item, actor=current_user.email)
         details.append({"job_id": job.id, "title": job.title, "status": "ok"})
     write_audit(db, event_type="workflow.ingest_fixture", actor=current_user.email, details={"count": len(details)})

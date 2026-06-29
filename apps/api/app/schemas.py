@@ -69,10 +69,13 @@ class JobOut(BaseModel):
     url: str
     state: str
     discovered_at: datetime
+    posted_at: datetime | None = None
+    description_text: str | None = None
     role_family: str | None = None
     is_expired: bool = False
     source_verified: bool = False
     match_summary: str | None = None
+    data_provenance: str = "live"
     score: JobScoreOut | None = None
 
     model_config = {"from_attributes": True}

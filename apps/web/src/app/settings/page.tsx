@@ -228,7 +228,11 @@ export default function SettingsPage() {
         <h3>Local Validation</h3>
         <p>
           <strong>Result:</strong>{" "}
-          <span className={validation?.status === "PASS" ? "status-pass" : validation?.status === "FAIL" ? "error" : ""}>
+          <span className={
+            validation?.status === "PASS" ? "status-pass"
+            : validation?.status === "FAIL" ? "error"
+            : ""
+          }>
             {validation?.status || "NONE"}
           </span>
         </p>

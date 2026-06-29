@@ -21,12 +21,19 @@ def test_interview_pack_uses_approved_evidence(client, auth_headers):
     )
     db.commit()
 
-    ingest = client.post(
-        "/api/workflows/ingest/fixture",
+    job = client.post(
+        "/api/jobs/ingest",
         headers=auth_headers,
-    )
-    assert ingest.status_code == 200
-    job_id = client.get("/api/jobs", headers=auth_headers).json()[0]["id"]
+        json={
+            "source": "manual",
+            "external_id": "interview-r28-job",
+            "title": "Director QE",
+            "company": "Interview Co",
+            "url": "https://jobs.lever.co/interview/abc",
+            "description_text": "Interview intelligence test",
+        },
+    ).json()
+    job_id = job["id"]
     pack_res = client.post(f"/api/interviews/jobs/{job_id}/generate", headers=auth_headers)
     assert pack_res.status_code == 200
     pack = pack_res.json()

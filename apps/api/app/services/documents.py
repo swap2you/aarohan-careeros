@@ -63,7 +63,7 @@ def generate_application_packet(
     if rep_risk.level == RiskLevel.RED and not skip_duplicate_block:
         raise ValueError(f"{rep_risk.indicator}: {rep_risk.summary}")
 
-    application = job.application or Application(job_id=job.id, latest_version_number=0)
+    application = job.application or Application(job_id=job.id, latest_version_number=0, data_provenance=job.data_provenance)
     db.add(application)
     previous_job_state = job.state
     job.state = WorkflowState.PACKET_GENERATING.value
@@ -76,7 +76,7 @@ def generate_application_packet(
 
     profile = load_resume_profile(resume_profile)
     contact = _load_contact()
-    keywords = extract_keywords(job.description_text)
+    keywords = extract_keywords(job.description_text or "")
     keyword_mapping = map_keywords_to_evidence(keywords, evidence)
     missing_warnings = _missing_evidence_warnings(db)
 

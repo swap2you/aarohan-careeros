@@ -29,7 +29,8 @@ export default function ConsultingPage() {
 
   return (
     <div>
-      <h1>Consulting Leads</h1>
+      <h1>Consulting Leads (Preview)</h1>
+      <p className="status">Minimal preview workflow — not final UAT scope.</p>
       <div className="card">
         <input placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
         <textarea

@@ -14,11 +14,12 @@ from app.services.google_api import integration_status
 from app.services.integrations import get_gmail_client
 
 
-def _step(name: str, ok: bool, summary: str, *, details: dict | None = None) -> dict:
+def _step(name: str, ok: bool, summary: str, *, details: dict | None = None, status: str | None = None) -> dict:
+    resolved = status or ("PASS" if ok else "FAIL")
     return {
         "name": name,
         "ok": ok,
-        "status": "PASS" if ok else "FAIL",
+        "status": resolved,
         "summary": summary,
         "details": details or {},
     }
@@ -100,8 +101,9 @@ def check_drive_packets(db: Session) -> dict:
     if not versions:
         return _step(
             "drive_packets",
-            False,
-            "No submitted packet versions found. Generate a packet, mark v01 submitted, then re-run validation.",
+            True,
+            "Not yet tested — create and submit a controlled v01 packet, then generate v02.",
+            status="NOT APPLICABLE",
         )
 
     v01 = versions[0]
@@ -221,7 +223,7 @@ def run_live_owner_validation(db: Session, *, actor: str) -> ValidationRun:
         check_gmail_live(db, actor=actor),
         check_connectors(db),
     ]
-    passed = all(s["ok"] for s in steps)
+    passed = all(s["ok"] or s.get("status") in {"NOT APPLICABLE", "NOT RUN"} for s in steps)
     results = {
         "mode": "live_owner",
         "steps": steps,

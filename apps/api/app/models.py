@@ -123,6 +123,7 @@ class Job(Base):
     is_expired: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     source_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     match_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data_provenance: Mapped[str] = mapped_column(String(32), default="live", index=True)
 
     score: Mapped["JobScore | None"] = relationship(back_populates="job", uselist=False)
     application: Mapped["Application | None"] = relationship(back_populates="job", uselist=False)
@@ -181,6 +182,7 @@ class Application(Base):
         nullable=True,
     )
     latest_version_number: Mapped[int] = mapped_column(Integer, default=0)
+    data_provenance: Mapped[str] = mapped_column(String(32), default="live")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     job: Mapped[Job] = relationship(back_populates="application")
@@ -329,6 +331,27 @@ class ProcessedGmailMessage(Base):
     processed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class GmailIngestReview(Base):
+    __tablename__ = "gmail_ingest_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    gmail_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    gmail_thread_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    gmail_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    sender: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    subject: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="quarantined")
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ignored_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parsed_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True)
+    recruiter_signal_id: Mapped[int | None] = mapped_column(ForeignKey("recruiter_signals.id"), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Company(Base):
     __tablename__ = "companies"
 
@@ -337,6 +360,7 @@ class Company(Base):
     normalized_name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     parent_company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    data_provenance: Mapped[str] = mapped_column(String(32), default="live", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     aliases: Mapped[list["CompanyAlias"]] = relationship(back_populates="company")
