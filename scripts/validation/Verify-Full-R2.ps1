@@ -72,8 +72,12 @@ if (-not (Test-Path .venv)) {
     .\.venv\Scripts\pip install -r requirements.txt -q
 }
 Step "pytest" {
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     .\.venv\Scripts\pytest -q --tb=no 2>&1 | Out-File -FilePath $reportPath -Append
-    if ($LASTEXITCODE -ne 0) { throw "pytest exit $LASTEXITCODE" }
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prevEap
+    if ($code -ne 0) { throw "pytest exit $code" }
 }
 Pop-Location
 
@@ -84,8 +88,12 @@ Step "web_lint_type_build" {
 }
 if (-not $SkipPlaywright) {
     Step "playwright" {
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
         npm run test:e2e 2>&1 | Out-File -FilePath $reportPath -Append
-        if ($LASTEXITCODE -ne 0) { throw "playwright exit $LASTEXITCODE" }
+        $code = $LASTEXITCODE
+        $ErrorActionPreference = $prevEap
+        if ($code -ne 0) { throw "playwright exit $code" }
     }
 }
 Pop-Location
