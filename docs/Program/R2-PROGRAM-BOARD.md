@@ -11,7 +11,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED_EXTERNAL`, `BLOCKED_TECHNI
 | R2.4 Document Quality | DONE | f06a5a9 | r2.4.0 | 58 passed, 1 skipped | | ATS diagnostics + answer sheet |
 | R2.5 Manual Workflow | DONE | 7a0a93b | r2.5.0 | 76 passed (CI Postgres) | Drive OAuth owner step | CONDITIONAL GO |
 | R2.6 Assisted Apply | DONE | 83bbe66 | r2.6.0 | 84 passed, 8 skipped | | assisted API + ATS detection |
-| R2.6.1 Auth Session | DONE | (pending tag) | r2.6.1 | 108 API + 7 Playwright | Drive OAuth owner step | patch on r2.6.0 |
+| R2.6.1 Auth Session | DONE | 9c7a677 | r2.6.1 | 108 API + 7 Playwright | Drive OAuth owner step | patch on r2.6.0 |
 | R2.7 Gmail Lifecycle | NOT_STARTED | | | | | paused until r2.6.1 green |
 | R2.8 Interview Intelligence | NOT_STARTED | | | | | |
 | R2.9 Ask Aarohan/TTS | NOT_STARTED | | | | | |
