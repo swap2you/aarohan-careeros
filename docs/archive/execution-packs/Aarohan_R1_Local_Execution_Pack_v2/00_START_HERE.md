@@ -8,7 +8,7 @@ Finish and prove the complete local V1 before any cloud deployment.
 - Google Cloud project name: `Aarohan CareerOS`
 - Google Cloud project ID: `aarohan-careeros-500722`
 - Google Cloud project number: `558756512850`
-- Google Drive root folder ID: `1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI`
+- Google Drive root folder ID: `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`
 - Frontend origins:
   - `http://localhost:3000`
   - `http://127.0.0.1:3000`

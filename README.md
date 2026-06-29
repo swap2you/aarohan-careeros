@@ -40,7 +40,7 @@ Proven on local Docker: OAuth connected, app-owned Drive root, idempotent subfol
 
 - **OAuth account:** `swapnilpatil.tech@gmail.com`
 - **Scopes:** `openid`, `userinfo.email`, `userinfo.profile`, `drive.file`, `gmail.readonly`
-- **Configured manual Drive root** (`1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI`): inaccessible with `drive.file` (expected)
+- **Configured manual Drive root** (`1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`): inaccessible with `drive.file` (expected)
 - **Active app-created root:** `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` (folder `aarohan-careeros`)
 
 Use **Create Aarohan Drive Root** in Settings if Drive sync is unavailable after OAuth.

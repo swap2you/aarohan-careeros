@@ -7,7 +7,7 @@ Generated as part of R2.12 consolidation. Canonical locations:
 | Program board | `docs/Program/R2-PROGRAM-BOARD.md` |
 | Release notes | `docs/releases/R2.*.md` |
 | Validation evidence | `docs/validation/` |
-| Runbooks | `docs/runbooks/` |
+| Runbooks | `docs/runbooks/` — **start:** `LOCAL-APPLICATION-EXECUTION.md` |
 | Cloud ADRs | `docs/architecture/cloud/` |
 | API fixtures | `apps/api/fixtures/` |
 | Gmail fixtures | `apps/api/fixtures/gmail/` |

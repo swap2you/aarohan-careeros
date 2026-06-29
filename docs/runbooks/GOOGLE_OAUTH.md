@@ -12,7 +12,7 @@ Dedicated career Gmail integration for Drive sync and labeled Gmail ingestion. C
 | Dedicated account | `swapnilpatil.tech@gmail.com` (`CAREER_GMAIL_ADDRESS`) |
 | Primary phone | `714.307.4266` (Career Vault `contact.yml`) |
 | Redirect URI | `http://localhost:8000/api/integrations/google/callback` |
-| Configured Drive root (manual) | `1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI` |
+| Configured Drive root (manual) | `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` |
 | Active app-created root (proven) | `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` (`aarohan-careeros`) |
 
 Google Cloud project: `aarohan-careeros-500722` (number `558756512850`).
@@ -54,7 +54,7 @@ Post-connect: encrypted tokens in `oauth_tokens`; active root ID in `system_sett
 
 ## Drive root and `drive.file` scope
 
-The `drive.file` scope **does not** grant access to arbitrary folders by ID. Manually created roots (including `1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI`) are **inaccessible** unless the app created them. Public link sharing does not fix this.
+The `drive.file` scope **does not** grant access to arbitrary folders by ID. Manually created roots (including `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`) are **inaccessible** unless the app created them. Public link sharing does not fix this.
 
 **Proven behavior (2026-06-28):**
 

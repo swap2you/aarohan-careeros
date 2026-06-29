@@ -1,5 +1,21 @@
 # Owner Checklist
 
+**Run the app:** `docs/runbooks/LOCAL-APPLICATION-EXECUTION.md`
+
+## Machine setup (once)
+
+- [ ] `pwsh .\scripts\local\Bootstrap-Aarohan.ps1`
+- [ ] `pwsh .\scripts\local\Initialize-AarohanSecrets.ps1`
+- [ ] OAuth JSON at `C:\AarohanSecrets\google-oauth-client.json`
+- [ ] `.env.local` configured (non-secrets only; see `.env.example`)
+
+## Daily / validation
+
+- [ ] `pwsh .\scripts\local\Start-Aarohan.ps1 -Detached`
+- [ ] Sign in at http://localhost:3000/login (SecretStore admin)
+- [ ] `pwsh .\scripts\validation\Verify-Full-R2.ps1` before release sign-off
+- [ ] `pwsh .\scripts\validation\Live-RC-Validation.ps1` after live Google connect
+
 ## Today — key/account actions
 
 - [ ] Complete the OpenAI key setup widget.

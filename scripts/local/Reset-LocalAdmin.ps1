@@ -74,9 +74,13 @@ if len(password) < 12:
 
 db = SessionLocal()
 try:
+    from app.models import UserSession
+
     for user in db.query(User).all():
         if user.email.lower() != email.lower():
+            db.query(UserSession).filter(UserSession.user_id == user.id).delete()
             db.delete(user)
+    db.flush()
     target = db.query(User).filter(User.email == email).one_or_none()
     hashed = hash_password(password)
     if target:

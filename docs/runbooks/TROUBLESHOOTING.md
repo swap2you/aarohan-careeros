@@ -24,13 +24,18 @@ Common local development issues and fixes. Check logs with `docker compose logs 
 
 ### API not ready / migrations fail
 
-**Symptom:** `/ready` returns `not_ready`; API container restarts.
+**Symptom:** `/ready` returns `not_ready`; API container restarts; logs show `relation "users" already exists`.
 
 **Fix:**
 
 1. Confirm postgres healthy: `docker compose ps`.
-2. Check API logs for Alembic errors.
-3. Reset DB if corrupted: `Reset-Aarohan.ps1 -Volumes` (destroys data), then restart.
+2. Check API logs: `docker compose logs api --tail 50`.
+3. If schema exists but `alembic_version` is missing (common after manual DB creation):
+   ```powershell
+   docker compose run --rm api alembic stamp head
+   docker compose up -d api
+   ```
+4. Corrupted DB only: `Reset-Aarohan.ps1 -Volumes` (destroys data), then restart.
 
 ## Authentication
 
@@ -38,14 +43,25 @@ Common local development issues and fixes. Check logs with `docker compose logs 
 
 **Fix:**
 
-1. Use local checkpoint credentials: `swapnilpatil.tech@gmail.com` / `TempLocal123!` at http://localhost:3000
-2. Reset admin: `powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force` (password via prompt or `RESET_LOCAL_ADMIN_PASSWORD` env — not stored in repo)
-3. Clear `localStorage` key `careeros_token` or sign in from home page (not Settings first)
-4. If DB was volume-reset, re-run `Reset-LocalAdmin.ps1` or bootstrap from SecretStore
+1. Use **SecretStore** credentials: run `Initialize-AarohanSecrets.ps1` if missing; login with `ADMIN_EMAIL` / `ADMIN_PASSWORD` at http://localhost:3000/login
+2. Reset admin to match vault: `pwsh .\scripts\local\Reset-LocalAdmin.ps1`
+3. Do **not** use `admin@test.local` or Playwright `e2e@test.local` for daily use — those are test-only
+4. If session expired: you will redirect to `/login?reason=session_expired` — sign in again
+5. Auth uses **HttpOnly cookie** `careeros_session` (R2.6.1+). No token in `localStorage`
+
+### Settings or API returns 401 after Docker restart
+
+**Cause:** Stack started without `Start-Aarohan.ps1` (no `ADMIN_EMAIL` in API container) or stale browser tab.
+
+**Fix:**
+
+1. Always start via `pwsh .\scripts\local\Start-Aarohan.ps1 -Detached`
+2. Sign out and sign in again at `/login`
+3. Confirm `GET http://localhost:8000/api/auth/session` returns 200 when logged in
 
 ### Settings shows "Not authenticated"
 
-**Fix:** JWT is set on home-page login only. Open http://localhost:3000, sign in, then http://localhost:3000/settings.
+**Fix:** Open http://localhost:3000/login first, sign in, then http://localhost:3000/settings. Protected routes require valid session cookie.
 
 ### CORS errors in browser
 
@@ -71,7 +87,7 @@ Common local development issues and fixes. Check logs with `docker compose logs 
 
 ### Drive root inaccessible after OAuth
 
-**Symptom:** Callback or Settings warns that configured root `1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI` is inaccessible.
+**Symptom:** Callback or Settings warns that configured root `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` is inaccessible.
 
 **Cause:** `drive.file` scope cannot access manually created folders by ID.
 
@@ -81,7 +97,7 @@ Common local development issues and fixes. Check logs with `docker compose logs 
 
 **Symptom:** Gmail/Drive actions succeed but no real Google data changes.
 
-**Fix:** Set `OAUTH_FIXTURE_MODE=false` before starting stack.
+**Fix:** Set `OAUTH_FIXTURE_MODE=false` in `.env.local`, **export it into the shell** (or use `docker compose --env-file .env.local`), then restart via `Start-Aarohan.ps1`. Default when unset is `true` in `docker-compose.yml`.
 
 ## Tests and validation
 
@@ -116,6 +132,20 @@ Check Node 20+ and TypeScript errors in output.
 
 **Fix:** Expected if stack is stopped. Start with `Start-Aarohan.ps1 -Detached`, wait for healthy containers, re-run tests.
 
+### Playwright failures after real admin exists
+
+**Symptom:** Tests timeout at "Executive Overview" using `e2e@test.local`.
+
+**Cause:** Playwright only creates e2e admin when `setup_required` is true; production admin DB skips that path.
+
+**Fix:** Run against fresh test DB, or document as known env limitation. See `docs/runbooks/LOCAL-APPLICATION-EXECUTION.md` §7.
+
+### Verify-Full-R2.ps1 pytest false failure
+
+**Symptom:** Gate fails on pytest stderr warnings despite tests passing.
+
+**Fix:** Use latest `scripts/validation/Verify-Full-R2.ps1` (checks exit code only). Or run `cd apps\api; .\.venv\Scripts\pytest -q` directly.
+
 ## Docker-specific
 
 ### Slow first build
@@ -146,7 +176,8 @@ Check Node 20+ and TypeScript errors in output.
 
 ## Getting help
 
-1. API docs: http://localhost:8000/docs
-2. Audit log in dashboard (Ops section)
-3. Validation artifacts in `validation/`
-4. Architecture: `docs/architecture/ARCHITECTURE.md`
+1. **Canonical runbook:** `docs/runbooks/LOCAL-APPLICATION-EXECUTION.md`
+2. API docs: http://localhost:8000/docs
+3. Audit log in dashboard
+4. Validation reports: `generated/validation-reports/`
+5. Architecture: `docs/architecture/ARCHITECTURE.md`

@@ -46,7 +46,7 @@ OAuth JSON: `/run/secrets/google-oauth-client.json` in API container.
 |-------|--------|
 | OAuth connected | `swapnilpatil.tech@gmail.com` |
 | Encrypted tokens | 3 rows (google/gmail/drive) |
-| Configured root `1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI` | **Inaccessible** with `drive.file` (expected) |
+| Configured root `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` | **Inaccessible** with `drive.file` (expected) |
 | App-created root | `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` |
 | Subfolder sync ×2 | **Idempotent** |
 | Gmail sync ×2 | **PASS** (0 messages; dedup table ready) |

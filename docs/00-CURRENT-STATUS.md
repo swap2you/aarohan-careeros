@@ -29,6 +29,8 @@ Local-first CareerOS RC is code-complete through R2.13:
 
 ## Commands
 
+**Full runbook:** `docs/runbooks/LOCAL-APPLICATION-EXECUTION.md`
+
 ```powershell
 scripts/local/Start-Aarohan.ps1
 scripts/validation/Verify-Full-R2.ps1

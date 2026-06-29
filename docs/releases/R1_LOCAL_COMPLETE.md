@@ -41,7 +41,7 @@ Local-first Aarohan CareerOS with:
 | Item | Value |
 |------|-------|
 | OAuth account | `swapnilpatil.tech@gmail.com` |
-| Configured manual root | `1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI` (inaccessible with `drive.file`) |
+| Configured manual root | `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` (inaccessible with `drive.file`) |
 | App-created root | `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` (`aarohan-careeros`) |
 
 ### Subfolder IDs (app-created root)

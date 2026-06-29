@@ -5,6 +5,20 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $Root
 
+function Import-EnvLocalFile {
+    $path = Join-Path $Root ".env.local"
+    if (-not (Test-Path $path)) { return }
+    Write-Host "Loading non-secret config from .env.local"
+    Get-Content $path | Where-Object { $_ -match '^\s*[^#]' -and $_ -match '=' } | ForEach-Object {
+        $n, $v = $_ -split '=', 2
+        $name = $n.Trim()
+        $value = $v.Trim().Trim('"').Trim("'")
+        if ($name) { Set-Item -Path "env:$name" -Value $value }
+    }
+}
+
+Import-EnvLocalFile
+
 function Get-SecretValue {
     param([string]$Name, [string]$Default = "")
     try {
@@ -37,7 +51,7 @@ if (-not (Test-Path $hostOAuthJson)) {
 }
 # Container path (Linux) — host file is bind-mounted to /run/secrets/
 $env:GOOGLE_OAUTH_CLIENT_JSON_PATH = "/run/secrets/google-oauth-client.json"
-$env:GOOGLE_DRIVE_ROOT_FOLDER_ID = Get-SecretValue -Name GOOGLE_DRIVE_ROOT_FOLDER_ID "1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI"
+$env:GOOGLE_DRIVE_ROOT_FOLDER_ID = Get-SecretValue -Name GOOGLE_DRIVE_ROOT_FOLDER_ID "1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr"
 $env:GOOGLE_DRIVE_FOLDER_ID = $env:GOOGLE_DRIVE_ROOT_FOLDER_ID
 $env:GOOGLE_OAUTH_REDIRECT_URI = Get-SecretValue -Name GOOGLE_OAUTH_REDIRECT_URI "http://localhost:8000/api/integrations/google/callback"
 $env:CAREER_GMAIL_ADDRESS = Get-SecretValue -Name CAREER_GMAIL_ADDRESS "swapnilpatil.tech@gmail.com"

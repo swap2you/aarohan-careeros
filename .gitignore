@@ -35,6 +35,7 @@ apps/api/generated/
 .idea/
 .vscode/
 docs/Swapnil/
+**/LOCAL-CREDENTIALS.private.md
 **/Persistent Accounts*
 vault/private/
 **/Credentials*.txt

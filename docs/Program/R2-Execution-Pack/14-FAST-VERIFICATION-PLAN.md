@@ -1,25 +1,59 @@
 # Fast Verification Plan
 
-The following assumptions must be verified early:
+Use this checklist to verify the app quickly after clone, bootstrap, or RC validation.
 
-1. Current repository still matches the handoff.
-2. Existing GitHub Actions are accessible and passing.
-3. The frontend and backend stacks support incremental modernization.
-4. Existing document generation can be improved without replacement.
-5. Google OAuth scopes remain sufficient.
-6. Job connector terms allow the intended personal-use integration.
-7. OpenAI models available to the user's project are configurable at runtime.
+**Full steps:** `docs/runbooks/LOCAL-APPLICATION-EXECUTION.md`
 
-Verification method:
+## Prerequisites verified
 
-- inspect current code and migrations,
-- run baseline locally,
-- query source endpoints with non-secret smoke tests,
-- generate one packet from a controlled job fixture,
-- parse generated DOCX/PDF,
-- compare UI/API/DB,
-- perform one Drive upload,
-- perform one Gmail sync,
-- record evidence.
+```powershell
+git --version
+python --version    # 3.12+
+node --version      # 20+
+docker compose version
+```
 
-Do not make a full architecture rewrite decision until these checks are complete.
+## One-time setup
+
+```powershell
+pwsh .\scripts\local\Bootstrap-Aarohan.ps1
+pwsh .\scripts\local\Initialize-AarohanSecrets.ps1
+```
+
+## Start and smoke
+
+```powershell
+pwsh .\scripts\local\Start-Aarohan.ps1 -Detached
+Invoke-RestMethod http://localhost:8000/health
+Invoke-RestMethod http://localhost:8000/ready
+start http://localhost:3000/login
+```
+
+## Automated gates
+
+```powershell
+pwsh .\scripts\local\Test-Aarohan.ps1
+pwsh .\scripts\validation\Verify-Full-R2.ps1
+docker compose exec -T api pytest tests/test_migrations.py tests/test_duplicate_risk_postgres.py -q
+cd apps\web; npm run test:e2e
+```
+
+## Live checks (owner, optional)
+
+```powershell
+# Export OAUTH_FIXTURE_MODE=false from .env.local first
+pwsh .\scripts\validation\Live-RC-Validation.ps1
+```
+
+Manual: Settings → Connect Google → ingest fixture jobs → generate packet → Gmail sync.
+
+## Evidence locations
+
+| Output | Path |
+|--------|------|
+| Full gate report | `generated/validation-reports/verify-full-r2-*.txt` |
+| Live validation | `generated/validation-reports/live-rc-*.json` |
+| Playwright | `artifacts/playwright/` |
+| Backups | `artifacts/backups/` |
+
+Do not make architecture changes until these checks pass.

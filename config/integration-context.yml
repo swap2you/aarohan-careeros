@@ -4,7 +4,7 @@ google:
   project_number: "558756512850"
   dedicated_gmail: swapnilpatil.tech@gmail.com
   primary_phone: "714.307.4266"
-  drive_root_folder_id: 1yqQixjo6GGBcjwIXEfHx1STeaJHz_qOI
+  drive_root_folder_id: 1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr
   oauth_client_json_path: C:\AarohanSecrets\google-oauth-client.json
   oauth_redirect_uris:
     - http://localhost:8000/api/integrations/google/callback

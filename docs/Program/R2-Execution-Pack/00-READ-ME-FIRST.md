@@ -48,10 +48,10 @@ The immediate objective is a complete local-first career workflow:
 
 1. Extract this folder outside the repository.
 2. Open Cursor in `C:\Development\Workspace\aarohan-careeros`.
-3. Paste the contents of `01-MASTER-CURSOR-PROMPT.md` into Cursor Agent mode.
-4. Give Cursor this pack as reference, or copy the markdown files into `docs/program/r2-planning/`.
+3. **Run the app:** follow `docs/runbooks/LOCAL-APPLICATION-EXECUTION.md` (bootstrap, start, test, troubleshoot).
+4. Paste the contents of `01-MASTER-CURSOR-PROMPT.md` into Cursor Agent mode when driving releases.
 5. Complete the key/account checklist in `04-KEYS-AND-JOB-ALERTS-SETUP.md` while Cursor works.
-6. Do not paste secrets into Cursor chat. Place them only in the discovered local secret file.
+6. Do not paste secrets into Cursor chat. Place them only in SecretStore / `.env.local` (non-secrets).
 7. Use `12-OWNER-CHECKLIST.md` to track external actions.
 
 ## Definition of the first usable product
