@@ -253,9 +253,11 @@ Invoke-RestMethod http://localhost:8000/ready
 
 ```powershell
 # API login (owner) — should return 200 without re-setup
+# Load password from docs/runbooks/LOCAL-CREDENTIALS.private.md (gitignored).
+$loginPassword = $env:OWNER_LOGIN_PASSWORD  # set locally; never commit
 $login = @{
   email = "swapnilpatil.tech@gmail.com"
-  password = "<from LOCAL-CREDENTIALS.private.md>"
+  password = $loginPassword
   remember_me = $true
 } | ConvertTo-Json
 Invoke-RestMethod -Method POST -Uri http://localhost:8000/api/auth/login `
@@ -316,7 +318,7 @@ Full usernames and passwords: **`docs/runbooks/LOCAL-CREDENTIALS.private.md`** (
 **Owner admin** (sets your Gmail login; removes other users — run E2E script after):
 
 ```powershell
-$env:RESET_LOCAL_ADMIN_PASSWORD = '<your-password-min-12-chars>'
+$env:RESET_LOCAL_ADMIN_PASSWORD = Read-Host "New admin password" -AsSecureString
 pwsh .\scripts\local\Reset-LocalAdmin.ps1 -Force -Email swapnilpatil.tech@gmail.com
 Remove-Item Env:RESET_LOCAL_ADMIN_PASSWORD
 ```

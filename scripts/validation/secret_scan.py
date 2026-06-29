@@ -9,8 +9,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 IGNORE_DIRS = {".git", "node_modules", ".venv", "private", "__pycache__", ".next", "artifacts", ".local", "docs/archive"}
-SKIP_FILES = {"google-oauth-client.json"}
-SKIP_NAME_PATTERNS = [re.compile(r"keys.*secrets", re.I), re.compile(r"\.zip$", re.I)]
+SKIP_FILES = {"google-oauth-client.json", "LOCAL-CREDENTIALS.private.md"}
+SKIP_NAME_PATTERNS = [
+    re.compile(r"keys.*secrets", re.I),
+    re.compile(r"\.zip$", re.I),
+    re.compile(r"LOCAL-CREDENTIALS\.private\.md$", re.I),
+]
 PATTERNS = [
     re.compile(r"github_pat_[A-Za-z0-9_]+"),
     re.compile(r"AKIA[0-9A-Z]{16}"),

@@ -121,6 +121,14 @@ jobs:
         run: |
           npm run start &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000 && break; sleep 2; done
+      - name: Seed Playwright e2e user
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql+psycopg://career_os:testpass@localhost:5432/career_os
+          APP_SECRET: ci-test-secret-key-32chars-minimum!
+          TOKEN_ENCRYPTION_KEY: ci-test-token-encryption-key-32chars!
+          E2E_TEST_PASSWORD: ci-e2e-playwright-password-32chars!
+        run: python scripts/ensure_e2e_user.py
       - name: Install Playwright browsers
         working-directory: apps/web
         run: npx playwright install chromium --with-deps
