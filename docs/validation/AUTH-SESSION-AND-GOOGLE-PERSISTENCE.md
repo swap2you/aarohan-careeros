@@ -47,9 +47,10 @@
 
 | Scenario | Expected | Result |
 |---|---|---|
-| Login with Remember Me | DB session row + cookie Max-Age | PASS (backend tests) |
+| Login with Remember Me | DB session row + cookie Max-Age (~60 days sliding) | PASS |
+| Login without Remember Me | Browser-session cookie (no Max-Age); server row 12h expiry | PASS (`test_non_remember_cookie_is_session_only`) |
 | API container restart | Session row in Postgres survives | PASS |
-| Web container restart | Cookie in browser survives | PASS (Playwright after restart) |
+| Web container restart | Cookie in browser survives (Remember Me) | PASS (Playwright after restart) |
 | Logout | Row revoked, cookie cleared | PASS |
 | Tampered cookie | Redirect + session-expired message | PASS |
 
@@ -84,6 +85,8 @@
 
 Integrations load from env/vault (not browser storage). Status values remain categorical (`READY`, `NOT_CONFIGURED`, `DEGRADED`, `ERROR`) — no secret values logged or returned.
 
-## R2.7
+## R2.7–R2.13
 
-**Not started** — resume after r2.6.1 tag and CI green.
+Gmail lifecycle (R2.7), interview intelligence (R2.8), Ask Aarohan/TTS (R2.9), and UI modernization (R2.10) complete. Live Drive validation remains **PENDING** — owner OAuth in Settings.
+
+**Owner action (one step):** Open Settings → Connect Google (or Reconnect) → approve Drive/Gmail scopes → return to Aarohan → confirm Drive root and packet upload after restart.
