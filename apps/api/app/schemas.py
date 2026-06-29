@@ -129,12 +129,18 @@ class InterviewPackOut(BaseModel):
     role_map: str | None
     gap_analysis: str | None
     questions: dict | None
+    star_stories: dict | None
     exercises: dict | None
     weak_areas: dict | None
     prep_plan: str | None
     voice_mock_prompt: str | None
     answer_rubric: dict | None
     system_design: dict | None
+    interview_rounds: dict | None = None
+    negotiation_prep: dict | None = None
+    document_links: dict | None = None
+    recruiter_timeline: list | dict | None = None
+    gaps_and_risks: dict | None = None
 
     model_config = {"from_attributes": True}
 

@@ -1,12 +1,81 @@
+"""R2.8 evidence-grounded interview intelligence."""
+
+from __future__ import annotations
+
 from sqlalchemy.orm import Session
 
-from app.models import InterviewPack, Job
+from app.models import Application, ApplicationDocumentVersion, EvidenceItem, InterviewPack, Job, RecruiterSignal
 from app.services.ai_budget import enforce_budget, record_usage
 from app.services.audit import write_audit
 
 
+def _approved_evidence(db: Session) -> list[EvidenceItem]:
+    return (
+        db.query(EvidenceItem)
+        .filter(EvidenceItem.public_use.is_(True), EvidenceItem.status == "USER_CONFIRMED")
+        .order_by(EvidenceItem.evidence_id)
+        .all()
+    )
+
+
+def _star_stories_from_evidence(items: list[EvidenceItem]) -> dict[str, str]:
+    stories: dict[str, str] = {}
+    for item in items[:8]:
+        stories[item.evidence_id] = item.statement
+    if not stories:
+        stories["note"] = "No approved public evidence available. Add Career Vault items before external interviews."
+    return stories
+
+
+def _document_links(db: Session, job_id: int) -> dict:
+    app = (
+        db.query(Application)
+        .filter(Application.job_id == job_id)
+        .order_by(Application.id.desc())
+        .first()
+    )
+    if not app:
+        return {"status": "no_application", "message": "Generate an application packet to link resume and cover letter."}
+    version = (
+        db.query(ApplicationDocumentVersion)
+        .filter(ApplicationDocumentVersion.application_id == app.id)
+        .order_by(ApplicationDocumentVersion.version_number.desc())
+        .first()
+    )
+    if not version:
+        return {"application_id": app.id, "status": "no_versions"}
+    return {
+        "application_id": app.id,
+        "version_id": version.id,
+        "version_number": version.version_number,
+        "docx_path": version.docx_path,
+        "pdf_path": version.pdf_path,
+        "immutable_submitted": version.is_submitted_immutable,
+    }
+
+
+def _recruiter_timeline(db: Session, job: Job) -> list[dict]:
+    q = db.query(RecruiterSignal).order_by(RecruiterSignal.received_at.desc())
+    rows = q.filter(
+        (RecruiterSignal.job_id == job.id)
+        | (RecruiterSignal.company_id == job.company_id)
+    ).limit(20).all()
+    return [
+        {
+            "id": row.id,
+            "signal_type": row.signal_type,
+            "sender": row.sender,
+            "subject": row.subject,
+            "snippet": row.snippet,
+            "received_at": row.received_at.isoformat() if row.received_at else None,
+        }
+        for row in rows
+    ]
+
+
 def generate_interview_pack(db: Session, job: Job, *, actor: str) -> InterviewPack:
     enforce_budget(db, estimated_cost=2.0, operation="interview_pack")
+    evidence = _approved_evidence(db)
     text = f"{job.title} {job.description_text}".lower()
 
     questions = {
@@ -25,87 +94,70 @@ def generate_interview_pack(db: Session, job: Job, *, actor: str) -> InterviewPa
             "How would you reduce flaky tests in CI?",
             "Explain your approach to performance test design and capacity readiness.",
         ],
-        "automation_api_performance_cicd": [
-            "How do you structure REST Assured layers for maintainability?",
-            "What CI/CD quality gates would you implement for release confidence?",
-            "How do you triage performance regressions under release pressure?",
-        ],
-        "system_design": [
-            "Design a test platform for 30+ microservices with shared fixtures and reporting.",
-            "How would you architect an automation framework for web, API, and batch validation?",
-        ],
-        "ai_qe": [
-            "How do you evaluate LLM-assisted test generation quality?",
-            "What guardrails would you add for agentic QA workflows?",
-            "How would you evaluate RAG quality for internal knowledge bases?",
-            "What observability would you require for AI-assisted SDLC workflows?",
-        ],
         "leadership": [
             "Tell me about leading a distributed offshore team.",
             "How do you handle conflicting stakeholder priorities?",
-            "Describe hiring and interview process design for SDET teams.",
         ],
         "behavioral": [
             "Describe a time you improved release confidence under deadline pressure.",
-            "Tell me about a quality transformation with measurable outcomes.",
         ],
     }
+    if "data" in text:
+        questions["data"] = ["How do you validate data-heavy enterprise workflows?"]
+    if "cloud" in text or "aws" in text:
+        questions["cloud"] = ["How do you test cloud-native deployment pipelines?"]
 
-    if "data" in text or "database" in text:
-        questions.setdefault("data", ["How do you validate data-heavy enterprise workflows?"])
-    if "cloud" in text or "aws" in text or "azure" in text:
-        questions.setdefault("cloud", ["How do you test cloud-native services and deployment pipelines?"])
-
-    system_design = {
-        "scenarios": questions["system_design"],
-        "evaluation_criteria": ["scope clarity", "tradeoffs", "operational readiness", "quality governance"],
+    interview_rounds = {
+        "rounds": [
+            {"name": "Recruiter screen", "focus": "motivation, logistics, compensation range", "status": "planned"},
+            {"name": "Hiring manager", "focus": "leadership, delivery, stakeholder alignment", "status": "planned"},
+            {"name": "Technical panel", "focus": "architecture, automation, quality strategy", "status": "planned"},
+            {"name": "Final", "focus": "culture, executive alignment, close plan", "status": "planned"},
+        ]
     }
-    answer_rubric = {
-        "dimensions": ["technical depth", "leadership", "truthfulness", "structure", "business impact"],
-        "scale": "1-5",
-        "pass_threshold": 4,
+    negotiation_prep = {
+        "research": [
+            "Document verified scope and outcomes from approved evidence only.",
+            "Clarify base vs bonus vs equity before negotiating.",
+            "Prepare questions on quality investment and team size.",
+        ],
+        "questions_for_them": [
+            "What quality metrics matter most in the first 90 days?",
+            "How is QE represented in release governance?",
+        ],
+        "boundaries": "Do not invent compensation history or competing offers.",
     }
-    exercises = {
-        "api_automation_design": {
-            "prompt": "Draft a REST Assured + CI integration outline for a sample service.",
-            "rubric": answer_rubric,
-        },
-        "flaky_test_triage": {
-            "prompt": "Given 20 failing tests, propose a triage workflow.",
-            "rubric": answer_rubric,
-        },
-        "take_home_simulation": {
-            "prompt": "Create a 2-hour quality assessment plan for a legacy monolith moving to microservices.",
-            "rubric": answer_rubric,
-        },
+    gaps = {
+        "verified_strengths": [e.evidence_id for e in evidence[:5]],
+        "risks": [
+            "Any JD requirement without matching approved evidence should be discussed honestly.",
+            "Use bridge answers only when evidence is partial, never fabricated metrics.",
+        ],
     }
 
     pack = db.query(InterviewPack).filter(InterviewPack.job_id == job.id).one_or_none() or InterviewPack(job_id=job.id)
     pack.company_briefing = (
-        f"{job.company}: research product, quality maturity, engineering blog, recent releases, and leadership priorities."
+        f"{job.company} — {job.title}. Review public product information, engineering practices, "
+        f"and recent releases. Location: {job.location or 'TBD'}."
     )
-    pack.role_map = (
-        f"Primary outcomes for {job.title}: quality strategy, automation platform, team leadership, release governance."
-    )
-    pack.gap_analysis = "Map verified evidence to each JD requirement; flag TODO_VERIFY items with honest bridge answers."
+    pack.role_map = f"Primary outcomes for {job.title}: quality strategy, automation platform, team leadership."
+    pack.gap_analysis = "Mapped from approved Career Vault evidence only."
     pack.questions = questions
-    pack.star_stories = {
-        "framework_modernization": "Use verified automation leadership evidence only.",
-        "performance_program": "Bridge from JMeter/BlazeMeter experience where applicable.",
-        "offshore_leadership": "Use TEAM_LEADERSHIP and MULTI_ROLE_DELIVERY evidence.",
+    pack.star_stories = _star_stories_from_evidence(evidence)
+    pack.exercises = {
+        "api_automation_design": {"prompt": "Outline REST Assured + CI integration for a sample service."},
+        "flaky_test_triage": {"prompt": "Propose triage workflow for failing CI tests."},
     }
-    pack.exercises = exercises
     pack.weak_areas = {"tracked": [], "history": []}
-    pack.prep_plan = (
-        "Day 1: company research. Day 2: technical refresh. Day 3: leadership STAR stories. "
-        "Day 4: AI/QE topics. Day 5: system design. Day 6: mock interview. Day 7: gap review."
-    )
-    pack.voice_mock_prompt = (
-        f"Conduct a 45-minute mock interview for {job.title} at {job.company}. "
-        "Focus on QE leadership, automation architecture, AI-enabled quality, and stakeholder communication."
-    )
-    pack.answer_rubric = answer_rubric
-    pack.system_design = system_design
+    pack.prep_plan = "Research → technical refresh → STAR rehearsal → mock interview → gap review."
+    pack.voice_mock_prompt = f"45-minute mock interview for {job.title} at {job.company}."
+    pack.answer_rubric = {"dimensions": ["technical depth", "leadership", "truthfulness"], "scale": "1-5"}
+    pack.system_design = {"scenarios": ["Design a test platform for microservices at scale."]}
+    pack.interview_rounds = interview_rounds
+    pack.negotiation_prep = negotiation_prep
+    pack.document_links = _document_links(db, job.id)
+    pack.recruiter_timeline = _recruiter_timeline(db, job)
+    pack.gaps_and_risks = gaps
 
     db.add(pack)
     db.commit()

@@ -248,6 +248,11 @@ class InterviewPack(Base):
     voice_mock_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     answer_rubric: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     system_design: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    interview_rounds: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    negotiation_prep: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    document_links: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    recruiter_timeline: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    gaps_and_risks: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
