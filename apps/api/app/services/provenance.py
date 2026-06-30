@@ -37,9 +37,19 @@ CONNECTOR_SOURCES = frozenset(
 )
 
 
-def infer_provenance(source: str, *, explicit: str | None = None) -> str:
+def infer_provenance(source: str, *, explicit: str | None = None, payload: dict | None = None) -> str:
     if explicit:
         return explicit
+    if payload:
+        ext = (payload.get("external_id") or "").lower()
+        if ext.startswith("e2e-") or ext.startswith("e2e_"):
+            return PROVENANCE_TEST
+        url = (payload.get("url") or "").lower()
+        if "/e2e/" in url or "example.com/e2e" in url:
+            return PROVENANCE_TEST
+        req = payload.get("requisition_id") or ""
+        if str(req).startswith("REQ-E2E-"):
+            return PROVENANCE_TEST
     normalized = (source or "").lower().strip()
     if normalized in FIXTURE_SOURCES or "fixture" in normalized or normalized.startswith("test_"):
         return PROVENANCE_FIXTURE

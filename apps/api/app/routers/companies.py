@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -14,6 +14,7 @@ from app.services.duplicate_risk import (
     evaluate_duplicate_risk,
     reject_autonomous_submission,
 )
+from app.services.provenance import OWNER_EXCLUDED
 
 router = APIRouter(prefix="/companies", tags=["companies"])
 
@@ -41,14 +42,84 @@ class OverrideRequest(BaseModel):
     reason: str = Field(min_length=10)
 
 
-@router.get("", response_model=list[CompanyOut])
-def list_companies(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> list[Company]:
-    return db.query(Company).order_by(Company.canonical_name).limit(200).all()
+@router.get("")
+def list_companies(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str | None = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> dict:
+    query = db.query(Company).filter(~Company.data_provenance.in_(OWNER_EXCLUDED))
+    if search:
+        like = f"%{search.strip()}%"
+        query = query.filter(
+            (Company.canonical_name.ilike(like)) | (Company.normalized_name.ilike(like))
+        )
+    query = query.order_by(Company.canonical_name)
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    items = []
+    for row in rows:
+        app_count = db.query(ApplicationLedger).filter(ApplicationLedger.company_id == row.id).count()
+        items.append(
+            {
+                "id": row.id,
+                "canonical_name": row.canonical_name,
+                "normalized_name": row.normalized_name,
+                "data_provenance": row.data_provenance,
+                "application_count": app_count,
+            }
+        )
+    return {
+        "items": items,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "page_count": max(1, (total + page_size - 1) // page_size),
+    }
 
 
-@router.get("/ledger", response_model=list[LedgerOut])
-def list_ledger(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> list[ApplicationLedger]:
-    return db.query(ApplicationLedger).order_by(ApplicationLedger.updated_at.desc()).limit(100).all()
+@router.get("/ledger")
+def list_ledger(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    search: str | None = None,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> dict:
+    query = (
+        db.query(ApplicationLedger)
+        .join(Company)
+        .options(joinedload(ApplicationLedger.company))
+        .filter(~Company.data_provenance.in_(OWNER_EXCLUDED))
+        .order_by(ApplicationLedger.updated_at.desc())
+    )
+    if search:
+        like = f"%{search.strip()}%"
+        query = query.filter(
+            (Company.canonical_name.ilike(like)) | (ApplicationLedger.normalized_title.ilike(like))
+        )
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "items": [
+            {
+                "id": row.id,
+                "company_id": row.company_id,
+                "company_name": row.company.canonical_name if row.company else None,
+                "job_id": row.job_id,
+                "status": row.status,
+                "normalized_title": row.normalized_title,
+                "submitted_at": row.submitted_at.isoformat() if row.submitted_at else None,
+            }
+            for row in rows
+        ],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "page_count": max(1, (total + page_size - 1) // page_size),
+    }
 
 
 @router.get("/jobs/{job_id}/duplicate-risk")

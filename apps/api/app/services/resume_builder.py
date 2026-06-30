@@ -232,3 +232,34 @@ def build_cover_letter_docx(
     doc.add_paragraph("Regards,")
     doc.add_paragraph(contact.get("name", "Candidate"))
     doc.save(output_path)
+
+
+def build_interview_brief_docx(
+    *,
+    output_path: Path,
+    contact: dict,
+    job_title: str,
+    company: str,
+    talking_points: list[str],
+    gap_notes: list[str] | None = None,
+) -> None:
+    """Interview preparation brief — no internal IDs or review notes."""
+    doc = Document()
+    doc.add_paragraph(f"Interview Preparation Brief — {job_title} at {company}")
+    doc.add_paragraph(contact.get("name", "Candidate"))
+    doc.add_paragraph("")
+    _add_heading(doc, "Role Summary")
+    doc.add_paragraph(f"Target role: {job_title} at {company}")
+    doc.add_paragraph("")
+    _add_heading(doc, "Evidence-Grounded Talking Points")
+    for point in talking_points[:12]:
+        if point.strip():
+            doc.add_paragraph(point.strip(), style="List Bullet")
+    if gap_notes:
+        doc.add_paragraph("")
+        _add_heading(doc, "Areas to Clarify")
+        for note in gap_notes[:6]:
+            if note.strip():
+                doc.add_paragraph(note.strip(), style="List Bullet")
+    doc.core_properties.title = f"Interview Brief — {company}"
+    doc.save(output_path)

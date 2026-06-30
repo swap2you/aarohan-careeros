@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
+import { AskDrawer } from "@/components/AskDrawer";
 import { Nav } from "@/components/Nav";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
@@ -21,6 +22,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="layout">
       <Nav />
       <main>{children}</main>
+      <AskDrawer />
     </div>
   );
 }

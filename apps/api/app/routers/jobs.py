@@ -89,7 +89,8 @@ def ingest_single_job(
     current_user: User = Depends(get_current_user),
 ) -> Job:
     data = payload.model_dump()
-    data.setdefault("data_provenance", infer_provenance(data.get("source", ""), explicit="manual"))
+    if not data.get("data_provenance"):
+        data["data_provenance"] = infer_provenance(data.get("source", ""), payload=data)
     return ingest_job(db, data, actor=current_user.email)
 
 

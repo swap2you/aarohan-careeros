@@ -32,7 +32,8 @@ def test_company_registry_and_duplicate_green(client: TestClient, auth_headers):
 
     companies = client.get("/api/companies", headers=auth_headers)
     assert companies.status_code == 200
-    assert any(c["canonical_name"] == "Example Health Tech" for c in companies.json())
+    items = companies.json()["items"]
+    assert any(c["canonical_name"] == "Example Health Tech" for c in items)
 
 
 def test_exact_duplicate_url_blocked(client: TestClient, auth_headers):
@@ -132,7 +133,7 @@ def test_ledger_recorded_on_packet(client: TestClient, auth_headers):
     client.post(f"/api/applications/jobs/{job['id']}/generate", headers=auth_headers)
     ledger = client.get("/api/companies/ledger", headers=auth_headers)
     assert ledger.status_code == 200
-    rows = ledger.json()
+    rows = ledger.json()["items"]
     assert any(row["job_id"] == job["id"] for row in rows)
 
 

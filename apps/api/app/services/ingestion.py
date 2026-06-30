@@ -58,7 +58,7 @@ def ingest_job(db: Session, payload: dict, *, actor: str = "system") -> Job:
     if posted_at:
         freshness_hours = (discovered_at - posted_at).total_seconds() / 3600
 
-    provenance = infer_provenance(source, explicit=payload.get("data_provenance"))
+    provenance = infer_provenance(source, explicit=payload.get("data_provenance"), payload=payload)
 
     job = Job(
         source=source,

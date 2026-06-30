@@ -1,0 +1,32 @@
+# E2E-isolated stack: separate database so Playwright never writes to owner data.
+# Usage: pwsh scripts/local/Start-Aarohan-E2E.ps1 -Detached
+#        PLAYWRIGHT_API_BASE=http://localhost:8001 npx playwright test
+
+services:
+  api-e2e:
+    extends:
+      file: docker-compose.yml
+      service: api
+    container_name: aarohan-api-e2e
+    environment:
+      DATABASE_URL: postgresql+psycopg://career_os:${POSTGRES_PASSWORD}@postgres:5432/career_os_e2e
+      OAUTH_FIXTURE_MODE: "true"
+      CONNECTOR_FIXTURE_MODE: "true"
+      APP_ENV: test
+    ports:
+      - "8001:8000"
+    networks: [career_os]
+
+  web-e2e:
+    extends:
+      file: docker-compose.yml
+      service: web
+    container_name: aarohan-web-e2e
+    depends_on:
+      api-e2e:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_BASE: http://localhost:8001
+    ports:
+      - "3001:3000"
+    networks: [career_os]

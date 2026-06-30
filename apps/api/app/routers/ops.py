@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -16,6 +16,7 @@ from app.models import (
 )
 from app.schemas import AnalyticsOut, AuditLogOut, RecruiterSignalRequest
 from app.services.ai_budget import budget_status
+from app.services.audit_labels import audit_event_label
 from app.services.auth import process_recruiter_signal
 from app.services.gmail_lifecycle import correct_classification, signal_to_public_dict
 
@@ -38,12 +39,79 @@ def analytics(db: Session = Depends(get_db), _: User = Depends(get_current_user)
     )
 
 
-@router.get("/audit", response_model=list[AuditLogOut])
+@router.get("/audit")
 def audit_logs(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    event_type: str | None = None,
+    search: str | None = None,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
-) -> list[AuditLog]:
-    return db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(200).all()
+) -> dict:
+    query = db.query(AuditLog).order_by(AuditLog.created_at.desc())
+    if event_type:
+        query = query.filter(AuditLog.event_type == event_type)
+    if search:
+        like = f"%{search.strip()}%"
+        query = query.filter(
+            (AuditLog.event_type.ilike(like))
+            | (AuditLog.actor.ilike(like))
+            | (AuditLog.resource_id.ilike(like))
+        )
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "items": [
+            {
+                "id": row.id,
+                "event_type": row.event_type,
+                "event_label": audit_event_label(row.event_type),
+                "actor": row.actor,
+                "resource_type": row.resource_type,
+                "resource_id": row.resource_id,
+                "details": row.details,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in rows
+        ],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "page_count": max(1, (total + page_size - 1) // page_size),
+    }
+
+
+@router.get("/connectors/runs")
+def connector_run_history(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> dict:
+    query = (
+        db.query(AuditLog)
+        .filter(AuditLog.event_type == "connector.run")
+        .order_by(AuditLog.created_at.desc())
+    )
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    return {
+        "items": [
+            {
+                "id": row.id,
+                "provider": (row.details or {}).get("provider"),
+                "job_count": (row.details or {}).get("job_count"),
+                "fixture": (row.details or {}).get("fixture"),
+                "actor": row.actor,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in rows
+        ],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "page_count": max(1, (total + page_size - 1) // page_size),
+    }
 
 
 @router.get("/ai/budget")
@@ -52,18 +120,47 @@ def ai_budget(db: Session = Depends(get_db), _: User = Depends(get_current_user)
 
 
 @router.get("/ai/usage")
-def ai_usage(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> list[dict]:
-    rows = db.query(AIUsageRecord).order_by(AIUsageRecord.created_at.desc()).limit(100).all()
-    return [
-        {
-            "id": row.id,
-            "operation": row.operation,
-            "cost_usd": row.cost_usd,
-            "model": row.model,
-            "created_at": row.created_at.isoformat(),
-        }
-        for row in rows
-    ]
+def ai_usage(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> dict:
+    from app.config import settings
+
+    query = db.query(AIUsageRecord).order_by(AIUsageRecord.created_at.desc())
+    total = query.count()
+    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    budget = budget_status(db)
+    synthetic = settings.oauth_fixture_mode or settings.app_env in {"test", "local"}
+    return {
+        "budget": {
+            "monthly_spend_usd": budget["monthly_spend_usd"],
+            "soft_cap_usd": budget["soft_cap_usd"],
+            "hard_cap_usd": budget["hard_cap_usd"],
+            "remaining_usd": round(max(budget["hard_cap_usd"] - budget["monthly_spend_usd"], 0), 4),
+            "percent_of_hard_cap": budget["percent_of_hard_cap"],
+            "note": "Spend totals are estimated from recorded usage rows, not vendor billing.",
+        },
+        "items": [
+            {
+                "id": row.id,
+                "operation": row.operation,
+                "model": row.model or "—",
+                "cost_usd": row.cost_usd,
+                "cost_label": "estimated" if synthetic else "recorded",
+                "tokens_in": row.tokens_in,
+                "tokens_out": row.tokens_out,
+                "token_count": row.tokens_in + row.tokens_out,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in rows
+        ],
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "page_count": max(1, (total + page_size - 1) // page_size),
+    }
 
 
 @router.get("/recruiter-signals")

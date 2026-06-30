@@ -232,4 +232,4 @@ class TestPostgresExactDuplicates:
         )
         assert ok.status_code == 200
         audit = pg_client.get("/api/audit", headers=pg_auth).json()
-        assert any(row.get("event_type") == "duplicate.override" for row in audit)
+        assert any(row.get("event_type") == "duplicate.override" for row in audit["items"])
