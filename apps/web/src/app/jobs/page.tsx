@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { API_BASE, authFetch } from "@/lib/api";
 
@@ -17,6 +17,11 @@ type Job = {
   title: string;
   company: string;
   state: string;
+  source?: string;
+  location?: string | null;
+  workplace_type?: string | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
   role_family?: string | null;
   is_expired?: boolean;
   source_verified?: boolean;
@@ -27,25 +32,55 @@ type Job = {
 
 type WorkflowResult = { action: string; success: number; failed: number; details: unknown[] };
 
+const PAGE_SIZES = [25, 50, 100];
+
+function formatSalary(job: Job) {
+  if (!job.salary_min && !job.salary_max) return "Not disclosed";
+  if (job.salary_min && job.salary_max && job.salary_min !== job.salary_max) {
+    return `$${job.salary_min.toLocaleString()} – $${job.salary_max.toLocaleString()}`;
+  }
+  const value = job.salary_max || job.salary_min;
+  return value ? `$${value.toLocaleString()}` : "Not disclosed";
+}
+
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [pageCount, setPageCount] = useState(1);
+  const [search, setSearch] = useState("");
+  const [source, setSource] = useState("");
+  const [company, setCompany] = useState("");
+  const [roleFamily, setRoleFamily] = useState("");
+  const [workplaceType, setWorkplaceType] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
   const [status, setStatus] = useState<string>("");
   const [forwardUrl, setForwardUrl] = useState("");
-  const [profile, setProfile] = useState("qe_leadership");
+  const [profile, setProfile] = useState("tpm_delivery");
   const devMode = process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_E2E_MODE === "true";
 
-
-  async function load() {
-    const response = await authFetch(`/api/jobs?page=1&page_size=50`);
+  const load = useCallback(async () => {
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(pageSize),
+      sort_by: sortBy,
+    });
+    if (search) params.set("search", search);
+    if (source) params.set("source", source);
+    if (company) params.set("company", company);
+    if (roleFamily) params.set("role_family", roleFamily);
+    if (workplaceType) params.set("workplace_type", workplaceType);
+    const response = await authFetch(`/api/jobs?${params.toString()}`);
     const data = await response.json();
     setJobs(data.items || data);
     setTotal(data.total ?? (data.items || data).length);
-  }
+    setPageCount(data.page_count || 1);
+  }, [page, pageSize, search, source, company, roleFamily, workplaceType, sortBy]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   async function runWorkflow(path: string, body?: unknown) {
     setStatus("Running...");
@@ -83,12 +118,52 @@ export default function JobsPage() {
         <button onClick={() => runWorkflow("/api/workflows/ingest/public")}>Ingest Public Feed</button>
         <button onClick={() => runWorkflow("/api/workflows/score-all")}>Score All New Jobs</button>
         <button onClick={generateSelected}>Generate Selected Packets</button>
+        <Link href="/opportunities/new">New Opportunity</Link>
       </div>
       <div className="card">
+        <div className="filters-grid">
+          <input placeholder="Title / keyword" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input placeholder="Source (linkedin, indeed…)" value={source} onChange={(e) => setSource(e.target.value)} />
+          <input placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} />
+          <input placeholder="Role family" value={roleFamily} onChange={(e) => setRoleFamily(e.target.value)} />
+          <select value={workplaceType} onChange={(e) => setWorkplaceType(e.target.value)}>
+            <option value="">Any work mode</option>
+            <option value="remote">Remote</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="fully_remote_us">Fully remote (US)</option>
+          </select>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="newest">Newest</option>
+            <option value="fit">Highest fit</option>
+            <option value="trust">Highest trust</option>
+            <option value="salary">Highest salary</option>
+            <option value="company">Company</option>
+            <option value="title">Title</option>
+          </select>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            {PAGE_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {size} / page
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={() => load()}>
+            Apply filters
+          </button>
+        </div>
         <label>Resume profile </label>
         <select value={profile} onChange={(e) => setProfile(e.target.value)}>
+          <option value="tpm_delivery">TPM / Program Manager</option>
+          <option value="qe_manager">QE Manager</option>
+          <option value="director_qe">Director-targeted QE</option>
+          <option value="platform_architect">Principal / Architect</option>
           <option value="qe_leadership">QE Leadership</option>
-          <option value="platform_architect">Platform Architect</option>
           <option value="ai_enabled_qe">AI-Enabled QE</option>
         </select>
         <div style={{ marginTop: "1rem" }}>
@@ -104,6 +179,8 @@ export default function JobsPage() {
             <tr>
               <th></th>
               <th>Job</th>
+              <th>Source</th>
+              <th>Salary</th>
               <th>Family</th>
               <th>Fit</th>
               <th>Trust</th>
@@ -118,9 +195,11 @@ export default function JobsPage() {
                 <td>
                   <Link href={`/jobs/${job.id}`}>{job.title}</Link>
                   <br />
-                  <small>{job.company}{job.is_expired ? " · expired" : ""}{job.source_verified ? " · verified source" : ""}</small>
+                  <small>{job.company}{job.location ? ` · ${job.location}` : ""}{job.is_expired ? " · expired" : ""}</small>
                   {job.match_summary && <p><small>{job.match_summary}</small></p>}
                 </td>
+                <td>{job.source || "—"}</td>
+                <td>{formatSalary(job)}</td>
                 <td>{job.role_family ?? "—"}</td>
                 <td>{job.score?.total_score ?? "—"}</td>
                 <td>{job.score?.trust_score ?? "—"}</td>
@@ -130,6 +209,17 @@ export default function JobsPage() {
             ))}
           </tbody>
         </table>
+        <div className="pagination">
+          <span>
+            Page {page} of {pageCount}
+          </span>
+          <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            Previous
+          </button>
+          <button type="button" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );

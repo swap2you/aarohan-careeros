@@ -15,11 +15,16 @@ candidate:
   work_authorization_public_statement: TODO_VERIFY
 positioning:
   primary:
-    - Director of Quality Engineering
+    - Technical Project Manager
+    - Senior Technical Project Manager
+    - Technical Program Manager
+    - Engineering Program Manager
+    - Quality Engineering Manager
     - Senior Manager of Quality Engineering
+    - Director of Quality Engineering
     - Head of Quality Engineering
-    - Quality Engineering Architect
     - Principal Quality Engineer
+    - Quality Engineering Architect
     - Test Platform Architect
     - QE Transformation Lead
     - GenAI / LLM Quality Engineering Lead

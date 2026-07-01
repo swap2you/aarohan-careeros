@@ -4,28 +4,35 @@ Supervised career operations system — job ingestion, evidence-based scoring, a
 
 ## What it does
 
-- Ingest jobs from public ATS feeds, manual URLs, and dedicated Gmail labels
+- Ingest jobs from public ATS feeds, manual URLs, dedicated Gmail labels, and the Ad Hoc Opportunity Studio
 - Score and deduplicate with transparent, deterministic rules + bounded AI assist
 - Generate resumes and cover letters grounded in Career Vault evidence
 - Manage approval queues — no automatic submission or outbound email
-- Google Drive sync and Gmail read (dedicated account: `swapnilpatil.tech@gmail.com`)
+- Google Drive sync and Gmail read (dedicated account configured via `CAREER_GMAIL_ADDRESS`)
 - Full dashboard, audit log, and AI spend controls
 
-**Stack:** FastAPI + PostgreSQL + Next.js + n8n, orchestrated via Docker Compose on Windows.
+**Stack:** FastAPI + PostgreSQL + Next.js + n8n (optional), orchestrated via Docker Compose on Windows.
 
-## R1 local checkpoint (2026-06-28)
-
-Proven on local Docker: OAuth connected, app-owned Drive root, idempotent subfolders, fixture packet + Drive upload, 29 pytest / scans pass.
-
-### Sign in
+## Sign in
 
 | Item | Value |
 |------|-------|
 | Dashboard | http://localhost:3000 |
 | Settings | http://localhost:3000/settings |
-| Login email | `swapnilpatil.tech@gmail.com` |
-| Local password | `TempLocal123!` (local dev only) |
-| Reset admin | `powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force` |
+| Login email | `ADMIN_EMAIL` from local secrets |
+| Login password | `ADMIN_PASSWORD` from local secrets |
+
+Configure credentials once:
+
+```powershell
+powershell -File scripts/local/Initialize-LocalSecrets.ps1
+```
+
+Reset admin password (interactive — never commit the value):
+
+```powershell
+powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force
+```
 
 ### Services
 
@@ -34,26 +41,28 @@ Proven on local Docker: OAuth connected, app-owned Drive root, idempotent subfol
 | Dashboard | http://localhost:3000 |
 | API health | http://localhost:8000/health |
 | API docs | http://localhost:8000/docs |
-| n8n | http://localhost:5678 |
+| n8n (optional profile) | http://localhost:5678 |
 
 ### Google integration
 
-- **OAuth account:** `swapnilpatil.tech@gmail.com`
+- **OAuth account:** dedicated career Gmail (`CAREER_GMAIL_ADDRESS` in secrets)
 - **Scopes:** `openid`, `userinfo.email`, `userinfo.profile`, `drive.file`, `gmail.readonly`
-- **Configured manual Drive root** (`1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`): inaccessible with `drive.file` (expected)
-- **Active app-created root:** `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr` (folder `aarohan-careeros`)
+- **Drive root:** app-created private folder stored in database metadata — reused across restarts
 
-Use **Create Aarohan Drive Root** in Settings if Drive sync is unavailable after OAuth.
+Use **Connect Google** in Settings on first setup. Reconnect only when refresh tokens are revoked or scopes change.
 
 ## Quick start
 
 ```powershell
 # One-time setup
 powershell -File scripts/local/Bootstrap-Aarohan.ps1
-powershell -File scripts/local/Initialize-AarohanSecrets.ps1
+powershell -File scripts/local/Initialize-LocalSecrets.ps1
 
-# Start full stack
+# Start core stack (postgres + api + web)
 powershell -File scripts/local/Start-Aarohan.ps1 -Detached
+
+# Optional n8n
+powershell -File scripts/local/Start-Aarohan.ps1 -Detached -WithN8n
 
 # Validate
 powershell -File scripts/local/Test-Aarohan.ps1
@@ -63,23 +72,12 @@ powershell -File scripts/local/Test-Aarohan.ps1
 
 ```powershell
 docker compose ps
-docker compose up -d
-docker compose down
+powershell -File scripts/local/Import-LocalSecrets.ps1
 powershell -File scripts/local/Start-Aarohan.ps1 -Detached
 powershell -File scripts/local/Test-Aarohan.ps1
 ```
 
 **Stop:** `powershell -File scripts/local/Stop-Aarohan.ps1`
-
-## Known gaps (next session)
-
-- Document quality needs improvement
-- ATS templates need validation
-- Real Gmail content still needs more test data
-- GitHub Actions needs verification
-- Playwright coverage needs expansion
-- Backup/restore n8n schema noise
-- UI polish pending
 
 ## Documentation
 
@@ -102,9 +100,9 @@ powershell -File scripts/local/Test-Aarohan.ps1
 
 ## Security
 
-- Secrets in PowerShell SecretStore — not Git
+- Secrets in `C:\AarohanSecrets\aarohan.local.env` — not Git
 - OAuth client JSON at `C:\AarohanSecrets\google-oauth-client.json`
-- OAuth tokens encrypted at rest
+- OAuth tokens encrypted at rest (`TOKEN_ENCRYPTION_KEY`)
 - No LinkedIn/Indeed scraping; no automatic submission or messaging
 
 ## Not enabled in local-first mode

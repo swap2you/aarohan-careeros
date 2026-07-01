@@ -47,7 +47,10 @@
 
 ### Ascensus / Persistent Quality Engineering — October 2022 to present
 - Ascensus: Sr Principal SDET – Automation Framework Architect (2022 – 2025).
-- Persistent Systems (Client: Ascensus): Project Lead – QE Platform Architect (2025 – Present).
+- Persistent Systems Ltd., USA (Client: Ascensus): Technical Project Manager — Quality Engineering & Automation Platforms (effective July 1, 2026).
+- Prior Persistent designation through June 2026: Project Lead – QE Platform Architect.
+- Official grade 7.1; business unit IARS_Retirement_Services; organization unit BFSI OU.
+- Promotion letter is confidential owner-provided evidence — not stored in Git or public Career Vault.
 - Leads automation and performance-testing delivery.
 - Manages four direct team members.
 - Provides automation guidance across a broader offshore group of roughly 20+ people.

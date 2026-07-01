@@ -18,7 +18,14 @@ from app.services.document_versions import (
 from app.services.duplicate_risk import RiskLevel, evaluate_duplicate_risk, record_ledger_from_application
 from app.services.factual_core import validate_factual_core
 from app.services.representation import evaluate_representation_risk
-from app.services.resume_builder import build_ats_docx, extract_keywords, load_resume_profile, map_keywords_to_evidence
+from app.services.resume_builder import (
+    build_ats_docx,
+    docx_to_submission_html,
+    extract_docx_plaintext,
+    extract_keywords,
+    load_resume_profile,
+    map_keywords_to_evidence,
+)
 from app.services.workflow_timeline import record_timeline_event
 
 
@@ -122,7 +129,7 @@ def generate_application_packet(
         "prompt_version": template_config().get("prompt_version"),
         "model_version": template_config().get("model_version"),
     }
-    resume_preview = fit_analysis + "\n\n" + "\n".join(evidence)
+    resume_preview = extract_docx_plaintext(docx_path)
     factual = validate_factual_core(db, resume_text=resume_preview)
     if not factual.consistent:
         raise ValueError(f"{factual.indicator}: {'; '.join(factual.contradictions)}")
@@ -130,20 +137,9 @@ def generate_application_packet(
     try:
         from weasyprint import HTML
 
-        html_parts = [
-            "<html><head><style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;margin:40px;}</style></head><body>",
-            f"<h1>{contact.get('name', 'Candidate')}</h1>",
-            f"<p>{contact.get('email', '')} | {contact.get('linkedin', '')}</p>",
-            f"<h2>Professional Summary</h2><p>{profile.get('summary', '')}</p>",
-            "<h2>Professional Experience</h2><ul>",
-            *[f"<li>{line}</li>" for line in evidence],
-            "</ul>",
-            f"<h2>Role Target</h2><p>{job.title} at {job.company}</p>",
-            "</body></html>",
-        ]
-        HTML(string="".join(html_parts)).write_pdf(pdf_path)
+        HTML(string=docx_to_submission_html(docx_path)).write_pdf(pdf_path)
     except Exception:
-        pdf_path.write_text("\n".join(evidence), encoding="utf-8")
+        pdf_path.write_text(resume_preview, encoding="utf-8")
 
     quality = run_document_quality_report(
         db,
@@ -186,7 +182,7 @@ def generate_application_packet(
         "change_report": change_report,
         "missing_evidence_warnings": missing_warnings,
         "keyword_mapping": keyword_mapping,
-        "preview_text": fit_analysis + "\n\n" + cover_letter[:1000],
+        "preview_text": resume_preview[:4000],
         "duplicate_risk": risk.to_dict(),
         "representation_risk": rep_risk.to_dict(),
         "factual_core": factual.to_dict(),

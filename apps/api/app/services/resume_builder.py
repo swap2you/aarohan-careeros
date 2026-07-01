@@ -92,6 +92,46 @@ def _group_evidence_by_employer(evidence: list[str]) -> list[tuple[str, list[str
     return groups
 
 
+def extract_docx_plaintext(path: Path) -> str:
+    doc = Document(path)
+    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+
+
+def docx_to_submission_html(path: Path) -> str:
+    """Render DOCX paragraphs to submission HTML — no internal notes or role-target sections."""
+    doc = Document(path)
+    parts = [
+        "<html><head><style>",
+        "body{font-family:Calibri,Arial,sans-serif;font-size:11pt;margin:40px;line-height:1.35;}",
+        "h1{font-size:16pt;text-align:center;} h2{font-size:12pt;margin-top:14px;}",
+        "ul{margin-left:18px;} .contact{text-align:center;}",
+        "</style></head><body>",
+    ]
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if not text:
+            continue
+        lower = text.lower()
+        if lower in FORBIDDEN_DOCX_PHRASES or "role target" in lower:
+            continue
+        style = (para.style.name or "").lower()
+        if para.runs and para.runs[0].bold and "heading" not in style and len(text) < 80:
+            if any(section in text for section in REQUIRED_SECTIONS):
+                parts.append(f"<h2>{text}</h2>")
+            else:
+                parts.append(f"<p><strong>{text}</strong></p>")
+        elif "list" in style:
+            parts.append(f"<ul><li>{text}</li></ul>")
+        elif text == doc.paragraphs[0].text.strip():
+            parts.append(f"<h1>{text}</h1>")
+        elif "@" not in text[:1] and para.runs and para.runs[0].bold:
+            parts.append(f"<p><strong>{text}</strong></p>")
+        else:
+            parts.append(f"<p>{text}</p>")
+    parts.append("</body></html>")
+    return "".join(parts)
+
+
 def validate_docx_text(path: Path, expected_sections: list[str] | None = None) -> dict:
     doc = Document(path)
     text = "\n".join(p.text for p in doc.paragraphs)

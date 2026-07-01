@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 const links = [
   ["Overview", "/"],
   ["Fresh Jobs", "/jobs"],
+  ["New Opportunity", "/opportunities/new"],
   ["Job Connectors", "/connectors"],
   ["Shortlist", "/shortlist"],
   ["Approval Queue", "/approvals"],

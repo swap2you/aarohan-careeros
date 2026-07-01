@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy import asc, desc
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.integrations.job_sources import FixtureFeedAdapter, GreenhouseAdapter, LeverAdapter
-from app.models import Job, User, WorkflowState
+from app.models import Job, JobScore, User, WorkflowState
 from app.schemas import JobIngestRequest, JobOut
 from app.services.job_detail import build_job_detail
 from app.services.ingestion import ingest_job
@@ -18,7 +19,7 @@ def _owner_jobs_query(db: Session, *, include_fixture: bool = False):
     query = db.query(Job)
     if not include_fixture:
         query = query.filter(~Job.data_provenance.in_(OWNER_EXCLUDED))
-    return query.order_by(Job.discovered_at.desc())
+    return query
 
 
 @router.get("")
@@ -30,6 +31,9 @@ def list_jobs(
     source: str | None = None,
     company: str | None = None,
     role_family: str | None = None,
+    workplace_type: str | None = None,
+    application_state: str | None = None,
+    sort_by: str = Query("newest", pattern="^(newest|fit|trust|salary|company|title)$"),
     include_fixture: bool = False,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -46,9 +50,31 @@ def list_jobs(
         query = query.filter(Job.company.ilike(f"%{company.strip()}%"))
     if role_family:
         query = query.filter(Job.role_family == role_family)
+    if workplace_type:
+        query = query.filter(Job.workplace_type == workplace_type)
+    if application_state:
+        from app.models import Application
+
+        query = query.join(Application, Application.job_id == Job.id).filter(Application.state == application_state)
 
     total = query.count()
-    rows = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    if sort_by in {"fit", "trust", "salary"}:
+        query = query.outerjoin(JobScore, JobScore.job_id == Job.id)
+        if sort_by == "fit":
+            query = query.order_by(desc(JobScore.total_score), desc(Job.discovered_at))
+        elif sort_by == "trust":
+            query = query.order_by(desc(JobScore.trust_score), desc(Job.discovered_at))
+        else:
+            query = query.order_by(desc(Job.salary_max), desc(Job.discovered_at))
+    elif sort_by == "company":
+        query = query.order_by(asc(Job.company), desc(Job.discovered_at))
+    elif sort_by == "title":
+        query = query.order_by(asc(Job.title), desc(Job.discovered_at))
+    else:
+        query = query.order_by(desc(Job.discovered_at))
+
+    rows = query.options(joinedload(Job.score)).offset((page - 1) * page_size).limit(page_size).all()
     return {
         "items": [JobOut.model_validate(row).model_dump(mode="json") for row in rows],
         "page": page,

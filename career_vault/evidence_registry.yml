@@ -42,9 +42,21 @@ evidence:
 
   - id: PERSISTENT_PROJECT_LEAD
     category: employment
-    statement: Persistent Systems Project Lead – QE Platform Architect for Ascensus client (2025 – Present).
+    statement: Persistent Systems Ltd., USA — Project Lead, QE Platform Architect for Ascensus client (2025 – June 2026).
     status: USER_CONFIRMED
     public_use: true
+
+  - id: PERSISTENT_TPM_PROMOTION
+    category: employment
+    statement: >
+      Persistent Systems Ltd., USA — Technical Project Manager (grade 7.1), effective July 1, 2026,
+      supporting Quality Engineering & Automation Platforms for Ascensus (IARS_Retirement_Services / BFSI OU).
+      Source — owner-provided confidential promotion letter (not in repository).
+    status: OWNER_VERIFIED
+    public_use: true
+    verification_needed:
+      - public HR systems update after effective date
+    private_source: promotion_letter_persistent_2026
 
   - id: TEAM_LEADERSHIP
     category: leadership

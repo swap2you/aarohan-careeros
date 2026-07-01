@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { ToastStack } from "@/components/Toast";
+import { TtsMiniPlayer } from "@/components/TtsMiniPlayer";
 import { authFetch } from "@/lib/api";
 import { useToasts } from "@/lib/useToasts";
 
@@ -266,7 +267,16 @@ export default function ApprovalsPage() {
         <div className="card">
           <h3>Packet Preview</h3>
           {preview.fit_analysis && <pre>{preview.fit_analysis}</pre>}
-          {preview.cover_letter && <pre>{preview.cover_letter}</pre>}
+          {preview.cover_letter && (
+            <>
+              <pre>{preview.cover_letter}</pre>
+              <TtsMiniPlayer text={preview.cover_letter} label="Cover letter" />
+            </>
+          )}
+          {preview.resume_preview && <TtsMiniPlayer text={preview.resume_preview} label="Resume preview" />}
+          {preview.packet_metadata?.preview_text && (
+            <TtsMiniPlayer text={preview.packet_metadata.preview_text} label="Packet summary" />
+          )}
           {preview.packet_metadata?.missing_evidence_warnings?.length ? (
             <div className="warn">
               <strong>Missing evidence warnings</strong>

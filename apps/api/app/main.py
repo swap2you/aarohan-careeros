@@ -28,6 +28,7 @@ from app.routers import (
     representations,
     validation,
     workflows,
+    opportunities,
 )
 from app.routers.auth import bootstrap_admin_from_env
 from app.services.career_vault import sync_evidence_registry
@@ -79,6 +80,7 @@ app.include_router(integrations.router, prefix="/api")
 app.include_router(workflows.router, prefix="/api")
 app.include_router(representations.router, prefix="/api")
 app.include_router(validation.router, prefix="/api")
+app.include_router(opportunities.router, prefix="/api")
 
 
 @app.get("/health")

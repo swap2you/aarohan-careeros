@@ -1,0 +1,62 @@
+# Saved job-search profiles — alert volume should stay controlled; one primary alert per family where possible.
+profiles:
+  - id: tpm
+    label: Technical Project Manager
+    role_family: tpm
+    keywords:
+      - technical project manager
+      - senior technical project manager
+      - technical program manager
+    sources: [linkedin, indeed]
+
+  - id: senior_tpm
+    label: Senior TPM / Engineering Program Manager
+    role_family: tpm
+    keywords:
+      - senior technical project manager
+      - engineering program manager
+      - delivery manager engineering
+    sources: [linkedin, indeed]
+
+  - id: qe_manager
+    label: QE Manager / Senior Manager
+    role_family: qe_management
+    keywords:
+      - quality engineering manager
+      - senior manager quality engineering
+      - test engineering manager
+    sources: [linkedin, indeed]
+
+  - id: director_qe
+    label: Director / Head of QE
+    role_family: qe_leadership
+    keywords:
+      - director quality engineering
+      - head of quality engineering
+    sources: [linkedin]
+
+  - id: principal_qe
+    label: Principal / Staff QE
+    role_family: qe_architecture
+    keywords:
+      - principal quality engineer
+      - staff quality engineer
+    sources: [linkedin, indeed]
+
+  - id: qe_architect
+    label: QE / Automation Architect
+    role_family: qe_architecture
+    keywords:
+      - test automation architect
+      - quality engineering architect
+      - solution architect quality
+    sources: [linkedin]
+
+  - id: ai_quality
+    label: AI Quality / AI-enabled delivery
+    role_family: ai_qe
+    keywords:
+      - ai quality engineering
+      - llm evaluation
+      - agentic ai quality
+    sources: [linkedin]

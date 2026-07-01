@@ -131,7 +131,14 @@ def test_integration_status(client: TestClient, auth_headers):
 def test_resume_profiles(client: TestClient, auth_headers):
     from app.services.resume_builder import load_resume_profile
 
-    for profile in ["qe_leadership", "platform_architect", "ai_enabled_qe"]:
+    for profile in [
+        "qe_leadership",
+        "platform_architect",
+        "ai_enabled_qe",
+        "tpm_delivery",
+        "qe_manager",
+        "director_qe",
+    ]:
         data = load_resume_profile(profile)
         assert data["id"] == profile
 
