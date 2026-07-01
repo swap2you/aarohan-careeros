@@ -10,6 +10,7 @@ from app.services.approval import apply_approval_action
 from app.services.document_versions import list_versions
 from app.services.documents import generate_application_packet
 from app.services.duplicate_risk import evaluate_duplicate_risk, reject_autonomous_submission
+from app.services.representation import evaluate_representation_risk
 from app.services.provenance import OWNER_EXCLUDED
 from app.services.packet_artifacts import list_packet_artifacts
 
