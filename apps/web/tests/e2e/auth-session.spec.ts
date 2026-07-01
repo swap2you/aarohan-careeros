@@ -80,4 +80,27 @@ test.describe("R2.6.1 auth session lifecycle", () => {
     await expect(page.locator("nav.nav")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: /Sign in to Aarohan CareerOS/ })).toBeVisible();
   });
+
+  test("password visibility toggle on login screen", async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto(`${WEB}/login`);
+    await expect(
+      page.getByRole("heading", { name: /Sign in to Aarohan CareerOS|First-run administrator setup/ }),
+    ).toBeVisible({ timeout: 20000 });
+
+    const password = page.locator("#careeros-password");
+    await expect(password).toHaveAttribute("type", "password");
+    await password.fill("E2eTestPass123!");
+
+    const showButton = page.getByRole("button", { name: "Show password" });
+    await showButton.click();
+    await expect(password).toHaveAttribute("type", "text");
+    await expect(page.getByRole("button", { name: "Hide password" })).toBeVisible();
+
+    const hideButton = page.getByRole("button", { name: "Hide password" });
+    await hideButton.focus();
+    await page.keyboard.press("Enter");
+    await expect(password).toHaveAttribute("type", "password");
+    await expect(page.getByRole("button", { name: "Show password" })).toBeVisible();
+  });
 });
