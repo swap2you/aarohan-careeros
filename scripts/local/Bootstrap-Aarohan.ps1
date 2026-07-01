@@ -58,7 +58,13 @@ if (-not (Test-Path $oauthPath)) {
     Write-Host "OAuth JSON path verified (file exists)."
 }
 
-& "$PSScriptRoot\Initialize-AarohanSecrets.ps1"
+if (-not (Test-Path "C:\AarohanSecrets\aarohan.local.env")) {
+    Write-Host "Creating local secrets template at C:\AarohanSecrets\aarohan.local.env"
+    Write-Host "If you have SecretStore values, run: pwsh scripts/local/Initialize-LocalSecrets.ps1 -FromSecretStore -Force"
+    & "$PSScriptRoot\Initialize-LocalSecrets.ps1"
+} else {
+    Write-Host "Local secrets file found: C:\AarohanSecrets\aarohan.local.env"
+}
 
 Push-Location apps/api
 if (-not (Test-Path .venv)) { python -m venv .venv }

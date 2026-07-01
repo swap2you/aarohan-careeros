@@ -87,6 +87,7 @@ services:
       start_period: 40s
 
   n8n:
+    profiles: ["n8n"]
     image: n8nio/n8n:1.70.3
     restart: unless-stopped
     depends_on:
@@ -100,7 +101,7 @@ services:
       DB_POSTGRESDB_USER: career_os
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_POSTGRESDB_SCHEMA: n8n
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY required}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-local-n8n-disabled-placeholder}
       N8N_HOST: localhost
       N8N_PORT: 5678
       N8N_PROTOCOL: http

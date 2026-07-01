@@ -57,6 +57,39 @@ export default function GmailReviewsPage() {
     load(1);
   }, [statusFilter]);
 
+  async function approveReview(id: number) {
+    setActionLoading(id);
+    try {
+      const response = await authFetch(`/api/gmail/reviews/${id}/approve`, { method: "POST" });
+      if (!response.ok) {
+        push("error", "Could not approve review item.");
+        return;
+      }
+      push("success", "Review approved and job ingested.");
+      await load(page);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function correctReview(id: number, title: string, company: string) {
+    setActionLoading(id);
+    try {
+      const response = await authFetch(`/api/gmail/reviews/${id}/correct`, {
+        method: "POST",
+        body: JSON.stringify({ title, company }),
+      });
+      if (!response.ok) {
+        push("error", "Could not correct and approve review item.");
+        return;
+      }
+      push("success", "Corrections saved and job ingested.");
+      await load(page);
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function rejectReview(id: number) {
     setActionLoading(id);
     try {
@@ -77,8 +110,7 @@ export default function GmailReviewsPage() {
       <ToastStack toasts={toasts} onDismiss={dismiss} />
       <h1>Gmail Ingestion Review</h1>
       <p>
-        Low-confidence or unrecognized Gmail alerts are quarantined here. Approve/correct flows will
-        arrive in a later checkpoint; you can reject false positives now.
+        Low-confidence or unrecognized Gmail alerts are quarantined here. Approve, correct, or reject.
       </p>
 
       <div className="card">
@@ -86,7 +118,8 @@ export default function GmailReviewsPage() {
           Status filter{" "}
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">All</option>
-            <option value="pending">Pending</option>
+            <option value="quarantined">Quarantined</option>
+            <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
           </select>
         </label>
@@ -121,14 +154,34 @@ export default function GmailReviewsPage() {
                     <td>{item.ignored_reason || "—"}</td>
                     <td>{item.status}</td>
                     <td>
-                      {item.status === "pending" && (
-                        <button
-                          type="button"
-                          disabled={actionLoading === item.id}
-                          onClick={() => rejectReview(item.id)}
-                        >
-                          {actionLoading === item.id ? "Rejecting…" : "Reject"}
-                        </button>
+                      {(item.status === "quarantined" || item.status === "pending") && (
+                        <div className="actions">
+                          <button
+                            type="button"
+                            disabled={actionLoading === item.id}
+                            onClick={() => approveReview(item.id)}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actionLoading === item.id}
+                            onClick={() => {
+                              const title = window.prompt("Correct job title", item.subject || "");
+                              const company = window.prompt("Correct company name", "");
+                              if (title && company) correctReview(item.id, title, company);
+                            }}
+                          >
+                            Correct
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actionLoading === item.id}
+                            onClick={() => rejectReview(item.id)}
+                          >
+                            {actionLoading === item.id ? "Working…" : "Reject"}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

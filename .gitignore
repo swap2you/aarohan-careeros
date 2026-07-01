@@ -4,6 +4,7 @@
 .env.local
 .env.*.local
 AarohanSecrets/
+**/aarohan.local.env
 private/
 secrets/
 .local/

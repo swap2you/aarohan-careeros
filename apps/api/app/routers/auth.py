@@ -181,14 +181,18 @@ def me(current_user: User = Depends(get_current_user)) -> dict:
 
 
 def bootstrap_admin_from_env(db: Session) -> None:
+    """Create admin only when no admin exists — never overwrite password or delete users."""
     if has_admin_user(db):
         return
-    if settings.admin_email and settings.admin_password and len(settings.admin_password) >= 12:
-        user = User(
-            email=settings.admin_email,
-            hashed_password=hash_password(settings.admin_password),
-            is_admin=True,
-        )
-        db.add(user)
-        db.commit()
-        mark_setup_complete(db)
+    if not (settings.admin_email and settings.admin_password):
+        return
+    if len(settings.admin_password) < 12:
+        return
+    user = User(
+        email=settings.admin_email,
+        hashed_password=hash_password(settings.admin_password),
+        is_admin=True,
+    )
+    db.add(user)
+    db.commit()
+    mark_setup_complete(db)

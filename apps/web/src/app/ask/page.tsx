@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { authFetch } from "@/lib/api";
+import { TtsMiniPlayer } from "@/components/TtsMiniPlayer";
 
 type AskResponse = {
   answer: string;
@@ -77,6 +78,7 @@ export default function AskPage() {
               </ul>
             </>
           )}
+          <TtsMiniPlayer text={response.answer} label="Ask Aarohan answer" />
           {audioUrl && <audio controls src={audioUrl} />}
         </div>
       )}
