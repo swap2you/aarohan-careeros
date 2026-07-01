@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from email.utils import parseaddr
 
+from app.config import settings
 from sqlalchemy.orm import Session
-
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Application, CompanyDomain, GmailIngestReview, Job, ProcessedGmailMessage, RecruiterSignal, WorkflowState
@@ -14,6 +14,7 @@ from app.services.audit import write_audit
 from app.services.gmail_alert_parsers import (
     JOB_ALERT_LABEL_PREFIX,
     parse_job_alert,
+    parse_job_alerts,
     parsed_job_to_ingest_payload,
 )
 from app.services.ingestion import ingest_job
@@ -39,6 +40,34 @@ LABEL_CLASSIFICATION_HINTS: dict[str, str] = {
     "Aarohan/Offers": OFFER,
     "Aarohan/Processing": UNRELATED,
 }
+
+
+def _sync_start_cutoff() -> datetime | None:
+    raw = (settings.gmail_sync_start_date or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00").split("+")[0])
+    except ValueError:
+        return None
+
+
+def _message_received_at(message: dict) -> datetime | None:
+    raw = message.get("received_at")
+    if isinstance(raw, datetime):
+        return raw
+    if isinstance(raw, str) and raw.strip():
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00").split("+")[0])
+        except ValueError:
+            return None
+    return None
+
+
+def _before_sync_baseline(message: dict) -> bool:
+    cutoff = _sync_start_cutoff()
+    received = _message_received_at(message)
+    return bool(cutoff and received and received < cutoff)
 
 
 def _is_configured_label(label: str | None) -> bool:
@@ -180,6 +209,10 @@ def process_gmail_message(
     if not _claim_message(db, message_id):
         return None
 
+    if source == "gmail" and _before_sync_baseline(message):
+        _mark_processed(db, message_id)
+        return None
+
     if source == "gmail" and not _is_configured_label(label):
         _quarantine_message(
             db,
@@ -212,25 +245,40 @@ def process_gmail_message(
     company_id = _resolve_company_id(db, message.get("sender"))
 
     if signal_type == JOB_ALERT:
-        alert = parse_job_alert(message, label=label)
-        if alert and alert.confidence >= MIN_PROCESS_CONFIDENCE:
-            payload = parsed_job_to_ingest_payload(alert)
-            payload["data_provenance"] = "gmail"
-            job = ingest_job(db, payload, actor=actor)
-            job_id = job.id
-            if not company_id:
-                company_id = job.company_id
-            confidence = max(confidence, alert.confidence)
-        else:
+        alerts = parse_job_alerts(message, label=label)
+        confident = [a for a in alerts if a.confidence >= MIN_PROCESS_CONFIDENCE]
+        if len(alerts) > 1 and not confident:
+            _quarantine_message(
+                db,
+                message,
+                label=label,
+                confidence=max((a.confidence for a in alerts), default=confidence),
+                reason=(
+                    f"Digest contained {len(alerts)} entries but none met extraction confidence "
+                    f"({MIN_PROCESS_CONFIDENCE:.0%}). Review and correct fields."
+                ),
+                parsed_payload={"entries": len(alerts), "subject": message.get("subject")},
+            )
+            return None
+        if not confident:
             _quarantine_message(
                 db,
                 message,
                 label=label,
                 confidence=confidence,
-                reason="Job alert could not be parsed with sufficient confidence.",
+                reason="Job alert could not be parsed with sufficient extraction confidence.",
                 parsed_payload={"subject": message.get("subject")},
             )
             return None
+        last_job = None
+        for alert in confident:
+            payload = parsed_job_to_ingest_payload(alert, gmail_message_id=message_id)
+            payload["data_provenance"] = "gmail"
+            last_job = ingest_job(db, payload, actor=actor)
+            confidence = max(confidence, alert.confidence)
+        job_id = last_job.id if last_job else job_id
+        if last_job and not company_id:
+            company_id = last_job.company_id
 
     application_id = _resolve_application_id(db, job_id)
     follow_up_at = None

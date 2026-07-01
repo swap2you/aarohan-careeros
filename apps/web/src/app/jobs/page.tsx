@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useDeploymentEnvironment } from "@/components/EnvironmentBadge";
 import { API_BASE, authFetch } from "@/lib/api";
 
 type JobScore = {
@@ -58,7 +59,7 @@ export default function JobsPage() {
   const [status, setStatus] = useState<string>("");
   const [forwardUrl, setForwardUrl] = useState("");
   const [profile, setProfile] = useState("tpm_delivery");
-  const devMode = process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_E2E_MODE === "true";
+  const { showFixtureControls } = useDeploymentEnvironment();
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({
@@ -112,7 +113,7 @@ export default function JobsPage() {
     <div>
       <h1>Fresh Jobs & Manual Workflows</h1>
       <div className="card actions">
-        {devMode && (
+        {showFixtureControls && (
           <button onClick={() => runWorkflow("/api/workflows/ingest/fixture")}>Import Fixture</button>
         )}
         <button onClick={() => runWorkflow("/api/workflows/ingest/public")}>Ingest Public Feed</button>

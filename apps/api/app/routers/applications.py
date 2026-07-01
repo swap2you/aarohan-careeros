@@ -11,7 +11,7 @@ from app.services.document_versions import list_versions
 from app.services.documents import generate_application_packet
 from app.services.duplicate_risk import evaluate_duplicate_risk, reject_autonomous_submission
 from app.services.provenance import OWNER_EXCLUDED
-from app.services.representation import evaluate_representation_risk
+from app.services.packet_artifacts import list_packet_artifacts
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -74,6 +74,18 @@ def approval_queue(
         "total": total,
         "page_count": max(1, (total + page_size - 1) // page_size),
     }
+
+
+@router.get("/{application_id}/packet")
+def get_packet_manifest(
+    application_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> dict:
+    application = db.query(Application).filter(Application.id == application_id).one_or_none()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return list_packet_artifacts(application)
 
 
 @router.post("/jobs/{job_id}/generate", response_model=ApplicationOut)

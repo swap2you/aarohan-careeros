@@ -83,37 +83,34 @@ def remediation_for_error(error: str, *, default: str = "Google integration erro
 
 
 def integration_status(db: Session) -> dict:
-    rows = db.query(OAuthToken).filter(OAuthToken.is_active.is_(True)).all()
-    by_service = {row.service: {"connected": True, "account_email": row.account_email} for row in rows}
-    google_connected = bool(by_service.get("google") or (by_service.get("gmail") and by_service.get("drive")))
-    token_usable = bool(get_token(db, "google")) if google_connected and not settings.oauth_fixture_mode else google_connected
-    connected_account = None
-    for svc in ("google", "gmail", "drive"):
-        if by_service.get(svc, {}).get("account_email"):
-            connected_account = by_service[svc]["account_email"]
-            break
+    from app.services.drive_settings import get_drive_root_status
+    from app.services.google_health import evaluate_google_health
 
+    health = evaluate_google_health(db)
     drive_root: dict = {
         "configured_folder_id": settings.google_drive_folder_id or None,
         "active_folder_id": None,
         "source": None,
-        "accessible": False,
+        "accessible": health.get("drive_accessible", False),
         "warning": None,
         "subfolders": None,
         "app_root_folder_name": APP_DRIVE_ROOT_FOLDER_NAME,
     }
-    if google_connected and not settings.oauth_fixture_mode:
-        from app.services.drive_settings import get_drive_root_status
-
+    if health.get("connected") and not settings.oauth_fixture_mode:
         drive_root = get_drive_root_status(db)
 
+    google_connected = health["state"] not in {"DISCONNECTED"}
     return {
-        "google": by_service.get("google", by_service.get("gmail", {"connected": False})),
-        "gmail": by_service.get("gmail", by_service.get("google", {"connected": False})),
-        "drive": by_service.get("drive", by_service.get("google", {"connected": False})),
+        "google": {"connected": google_connected, "account_email": health.get("account_email")},
+        "gmail": {"connected": google_connected, "account_email": health.get("account_email")},
+        "drive": {"connected": google_connected, "account_email": health.get("account_email")},
         "google_connected": google_connected,
-        "token_usable": token_usable,
-        "connected_account": connected_account,
+        "google_health_state": health["state"],
+        "google_display_status": health["display_status"],
+        "token_usable": health.get("token_usable", False),
+        "connected_account": health.get("account_email"),
+        "google_remediation": health.get("remediation"),
+        "google_health": health,
         "fixture_mode": settings.oauth_fixture_mode,
         "oauth_configured": bool(settings.google_client_id and settings.google_client_secret),
         "scheduling_enabled": settings.scheduling_enabled,

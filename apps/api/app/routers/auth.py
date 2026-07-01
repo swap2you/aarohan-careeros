@@ -10,6 +10,7 @@ from app.schemas import LoginRequest, TokenResponse
 from app.services.auth import hash_password, verify_password
 from app.services.career_vault import sync_evidence_registry
 from app.services.setup import has_admin_user, is_setup_complete, mark_setup_complete
+from app.services.environment import assert_e2e_user_allowed
 from app.services.sessions import (
     REMEMBER_ME_DAYS,
     SESSION_COOKIE_NAME,
@@ -150,6 +151,10 @@ def login(
 ) -> TokenResponse:
     if not has_admin_user(db):
         raise HTTPException(status_code=403, detail="Setup required")
+    try:
+        assert_e2e_user_allowed(payload.email)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     user = db.query(User).filter(User.email == payload.email).one_or_none()
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")

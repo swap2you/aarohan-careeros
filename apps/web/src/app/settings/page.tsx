@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useDeploymentEnvironment } from "@/components/EnvironmentBadge";
 import { authFetch } from "@/lib/api";
 
 type DriveRoot = {
@@ -16,7 +17,17 @@ type DriveRoot = {
 type IntegrationStatus = {
   connected_account?: string;
   google_connected?: boolean;
+  google_health_state?: string;
+  google_display_status?: string;
+  google_remediation?: string | null;
+  token_usable?: boolean;
   dedicated_gmail?: string;
+  google_health?: {
+    last_successful_refresh?: string | null;
+    last_drive_check_ok?: boolean;
+    last_gmail_check_ok?: boolean;
+    remediation?: string | null;
+  };
   drive_root?: DriveRoot;
   fixture_mode?: boolean;
 };
@@ -71,8 +82,7 @@ export default function SettingsPage() {
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const [validationTechnicalOpen, setValidationTechnicalOpen] = useState(false);
 
-  const devMode =
-    process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_E2E_MODE === "true";
+  const { showFixtureControls } = useDeploymentEnvironment();
 
   const loadStatus = useCallback(() => {
     authFetch(`/api/integrations/status`)
@@ -159,8 +169,11 @@ export default function SettingsPage() {
   }
 
   const driveRoot = status?.drive_root;
-  const googleConnected = Boolean(status?.google_connected);
-  const showCreateRoot = Boolean(googleConnected && driveRoot && !driveRoot.accessible);
+  const healthState = status?.google_health_state || (status?.google_connected ? "LINKED_UNVERIFIED" : "DISCONNECTED");
+  const showReconnect = healthState === "REAUTH_REQUIRED" || healthState === "DISCONNECTED";
+  const showConnect = healthState === "DISCONNECTED";
+  const googleHealthy = healthState === "HEALTHY" || healthState === "DEGRADED";
+  const showCreateRoot = Boolean(googleHealthy && driveRoot && !driveRoot.accessible);
   const validationSteps = validation?.results?.steps ?? [];
   const validationSummary =
     validation?.results?.plain_summary || validation?.summary || validation?.status || "NONE";
@@ -188,19 +201,23 @@ export default function SettingsPage() {
           <strong>Dedicated Gmail:</strong> {status?.dedicated_gmail || "—"}
         </p>
         <p>
-          <strong>Status:</strong> {googleConnected ? "Connected" : "Not connected"}
-          {status?.fixture_mode ? " (test fixture mode)" : ""}
+          <strong>Status:</strong> {status?.google_display_status || healthState}
+          {status?.fixture_mode ? " (fixture mode)" : ""}
         </p>
+        {status?.google_remediation && <p className="warn">{status.google_remediation}</p>}
+        {status?.google_health?.last_successful_refresh && (
+          <p className="muted">Last token refresh: {status.google_health.last_successful_refresh}</p>
+        )}
         <div className="actions">
-          {!googleConnected && (
-            <button onClick={() => connectGoogle()}>Connect Google</button>
-          )}
-          {googleConnected && (
+          {showConnect && <button onClick={() => connectGoogle()}>Connect Google</button>}
+          {showReconnect && !showConnect && (
             <button onClick={() => connectGoogle()}>Reconnect Google</button>
           )}
           <button onClick={disconnectGoogle}>Disconnect Google</button>
-          <button onClick={syncGmail}>Sync Gmail (read-only)</button>
-          {devMode && (
+          <button onClick={syncGmail} disabled={!status?.token_usable}>
+            Sync Gmail (read-only)
+          </button>
+          {showFixtureControls && (
             <button onClick={syncFixtureGmail}>Sync Gmail Fixture</button>
           )}
         </div>

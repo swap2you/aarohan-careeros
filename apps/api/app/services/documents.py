@@ -255,7 +255,7 @@ def generate_application_packet(
             db.commit()
             db.refresh(application)
 
-    record_usage(db, operation="packet_generation", cost_usd=0.5, job_id=job.id)
+    record_usage(db, operation="packet_generation", cost_usd=0.5, job_id=job.id, usage_kind="deterministic")
     record_ledger_from_application(db, application, actor=actor, status=application.state)
     record_timeline_event(
         db,

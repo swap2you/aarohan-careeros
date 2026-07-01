@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 
 import { AskDrawer } from "@/components/AskDrawer";
+import { EnvironmentBadge } from "@/components/EnvironmentBadge";
 import { Nav } from "@/components/Nav";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
@@ -20,6 +21,9 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="layout">
+      <div className="env-banner">
+        <EnvironmentBadge />
+      </div>
       <Nav />
       <main>{children}</main>
       <AskDrawer />

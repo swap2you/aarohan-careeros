@@ -23,6 +23,13 @@ from app.services.gmail_lifecycle import correct_classification, signal_to_publi
 router = APIRouter(tags=["ops"])
 
 
+@router.get("/environment")
+def deployment_environment(_: User = Depends(get_current_user)) -> dict:
+    from app.services.environment import environment_payload
+
+    return environment_payload()
+
+
 @router.get("/analytics", response_model=AnalyticsOut)
 def analytics(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> AnalyticsOut:
     return AnalyticsOut(

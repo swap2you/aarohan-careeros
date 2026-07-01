@@ -24,17 +24,31 @@ VERIFIED_SOURCES = {
 }
 
 ROLE_FAMILIES = {
+    "tpm_delivery": [
+        "technical project manager",
+        "technical program manager",
+        "engineering program manager",
+        "delivery manager",
+        "platform program manager",
+    ],
+    "qe_manager": [
+        "quality engineering manager",
+        "qe manager",
+        "test engineering manager",
+        "senior manager quality",
+    ],
     "qe_leadership": [
         "director of quality",
         "head of quality",
         "vp quality",
         "quality engineering director",
-        "senior manager quality",
     ],
     "platform_architect": [
         "platform architect",
         "test platform",
         "automation architect",
+        "principal quality",
+        "staff quality",
         "sdet architect",
     ],
     "ai_enabled_qe": [
@@ -43,11 +57,7 @@ ROLE_FAMILIES = {
         "llm quality",
         "agentic",
         "ai quality",
-    ],
-    "engineering_management": [
-        "engineering manager",
-        "technical program",
-        "delivery manager",
+        "senior ai engineer",
     ],
 }
 

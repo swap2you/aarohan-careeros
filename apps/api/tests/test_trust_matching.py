@@ -67,3 +67,4 @@ def test_role_family_classification(client: TestClient, auth_headers):
 
     assert classify_role_family("Director of Quality Engineering", "") == "qe_leadership"
     assert classify_role_family("Test Platform Architect", "automation platform") == "platform_architect"
+    assert classify_role_family("Senior Technical Project Manager", "") == "tpm_delivery"

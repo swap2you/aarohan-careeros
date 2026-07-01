@@ -34,32 +34,32 @@ def _mask_id(value: str | None) -> str:
 
 
 def check_google_connection(db: Session) -> dict:
-    status = integration_status(db)
-    connected = bool(status.get("google_connected"))
-    token_usable = bool(status.get("token_usable"))
-    fixture = bool(status.get("fixture_mode"))
-    account = status.get("connected_account") or "not connected"
-    if fixture:
+    from app.services.google_health import evaluate_google_health
+
+    health = evaluate_google_health(db)
+    state = health["state"]
+    if state == "HEALTHY":
         return _step(
             "google_connection",
-            False,
-            "Google is in fixture mode. Set OAUTH_FIXTURE_MODE=false and reconnect for live validation.",
-            details={"fixture_mode": True},
+            True,
+            f"Google healthy for {health.get('account_email')}.",
+            details={"state": state},
         )
-    if not connected:
-        return _step("google_connection", False, "Google is not connected. Use Settings → Reconnect Google.")
-    if not token_usable:
+    if state == "DEGRADED":
         return _step(
             "google_connection",
-            False,
-            "Google account is linked but tokens cannot be used. Reconnect Google once (no data loss).",
-            details={"dedicated_gmail": status.get("dedicated_gmail")},
+            True,
+            health.get("remediation") or "Google connected with temporary Drive issues.",
+            status="DEGRADED",
+            details={"state": state},
         )
+    if state == "DISCONNECTED":
+        return _step("google_connection", False, health.get("remediation") or "Google is not connected.")
     return _step(
         "google_connection",
-        True,
-        f"Google connected for {account}.",
-        details={"dedicated_gmail": status.get("dedicated_gmail")},
+        False,
+        health.get("remediation") or f"Google state: {health.get('display_status')}",
+        details={"state": state},
     )
 
 
@@ -138,21 +138,37 @@ def check_gmail_live(db: Session, *, actor: str) -> dict:
     if settings.oauth_fixture_mode:
         return _step("gmail_live", False, "Gmail validation requires live OAuth (fixture mode is on).")
 
+    from app.models import GmailIngestReview, ProcessedGmailMessage
     from app.services.gmail_lifecycle import sync_messages
     from app.services.google_api import fetch_aarohan_labeled_messages
 
     before_signals = db.query(RecruiterSignal).count()
     before_jobs = db.query(Job).count()
+    before_processed = db.query(ProcessedGmailMessage).count()
     t0 = time.perf_counter()
     messages = fetch_aarohan_labeled_messages(db, max_results=50)
-    if not messages:
-        client = get_gmail_client(db)
-        messages = client.fetch_recent_messages(max_results=50)
+    api_auth_ok = False
+    auth_error = None
+    try:
+        from app.services.google_api import get_token
+
+        token = get_token(db, "google")
+        api_auth_ok = bool(token and token.get("access_token"))
+    except Exception as exc:
+        auth_error = str(exc)
+
+    if not api_auth_ok and not messages:
+        return _step(
+            "gmail_live",
+            False,
+            f"Gmail API authentication failed. {auth_error or 'Reconnect Google.'}",
+        )
+
     result1 = sync_messages(db, messages, source="gmail", actor=actor)
     result2 = sync_messages(db, messages, source="gmail", actor=actor)
     latency_ms = int((time.perf_counter() - t0) * 1000)
 
-    idempotent = result2.get("skipped", 0) >= result1.get("processed", 0)
+    idempotent = result2.get("skipped", 0) >= max(result1.get("processed", 0), 1)
     sources = {}
     for label_prefix in ("LinkedIn", "Indeed", "Dice", "USAJOBS", "Glassdoor"):
         count = (
@@ -163,26 +179,42 @@ def check_gmail_live(db: Session, *, actor: str) -> dict:
         if count:
             sources[label_prefix] = count
 
-    ok = idempotent and (result1.get("processed", 0) > 0 or before_signals > 0 or len(messages) == 0)
-    if len(messages) == 0:
-        summary = "Gmail sync ran but no labeled messages were returned (inbox may be empty)."
-    elif idempotent:
+    new_messages = max(len(messages) - before_processed, 0)
+    stored_signals = before_signals
+    quarantined = db.query(GmailIngestReview).filter(GmailIngestReview.status == "quarantined").count()
+
+    if api_auth_ok and len(messages) == 0:
         summary = (
-            f"Gmail sync processed {result1.get('processed', 0)} messages; "
-            f"replay skipped {result2.get('skipped', 0)} (idempotent)."
+            f"Gmail API healthy; 0 new messages scanned; "
+            f"{stored_signals} previously stored signals."
         )
+        ok = True
+    elif api_auth_ok and idempotent:
+        summary = (
+            f"Gmail API healthy; {len(messages)} messages scanned; "
+            f"{result1.get('processed', 0)} processed this run; "
+            f"{result2.get('skipped', 0)} skipped on replay; "
+            f"{stored_signals} stored signals total."
+        )
+        ok = True
     else:
         summary = "Gmail sync may have duplicated messages — review recruiter signals."
+        ok = False
 
     return _step(
         "gmail_live",
         ok,
         summary,
         details={
+            "api_authenticated": api_auth_ok,
+            "labels_scanned": len(messages),
             "messages_fetched": len(messages),
-            "pass1": {k: result1.get(k) for k in ("processed", "skipped", "errors")},
+            "new_messages_fetched": new_messages,
+            "existing_stored_signals": stored_signals,
+            "pass1": {k: result1.get(k) for k in ("processed", "skipped", "jobs_ingested", "errors")},
             "pass2_skipped": result2.get("skipped"),
             "signals_by_source_label": sources,
+            "quarantined_total": quarantined,
             "jobs_delta": db.query(Job).count() - before_jobs,
             "latency_ms": latency_ms,
         },

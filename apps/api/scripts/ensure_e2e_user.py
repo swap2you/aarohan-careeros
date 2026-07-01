@@ -6,11 +6,19 @@ import sys
 from app.database import SessionLocal
 from app.models import User
 from app.services.auth import hash_password
+from app.services.environment import is_e2e_database
 
 E2E_EMAIL = "e2e@test.local"
 
 
 def main() -> int:
+    if not is_e2e_database():
+        print(
+            "Refusing to create E2E user on owner database. "
+            "Use Start-Aarohan-E2E.ps1 (career_os_e2e on ports 8001/3001).",
+            file=sys.stderr,
+        )
+        return 1
     e2e_password = os.environ.get("E2E_TEST_PASSWORD")
     if not e2e_password:
         print("E2E_TEST_PASSWORD environment variable is required", file=sys.stderr)

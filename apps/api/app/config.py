@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     openai_tts_model: str = "tts-1"
     allow_legacy_jwt_auth: bool = False
     expose_session_token_in_login_response: bool = False
+    allow_e2e_login_on_owner: bool = False
+    gmail_sync_start_date: str = ""
+    deployment_mode: str = ""
 
     @model_validator(mode="after")
     def resolve_runtime_paths(self) -> "Settings":

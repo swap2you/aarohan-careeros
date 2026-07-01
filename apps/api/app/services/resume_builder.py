@@ -194,9 +194,16 @@ def build_ats_docx(
     if summary:
         doc.add_paragraph(summary)
 
-    competencies = profile.get("core_competencies") or list(keyword_mapping.keys())[:12]
+    competencies = profile.get("core_competencies") or []
     if not competencies:
-        competencies = ["Quality Engineering", "Test Automation", "CI/CD", "Leadership", "API Testing"]
+        competencies = [
+            "Quality Engineering",
+            "Test Automation",
+            "CI/CD",
+            "Program Delivery",
+            "Stakeholder Management",
+            "API Testing",
+        ]
     doc.add_paragraph("")
     _add_heading(doc, "Core Competencies")
     doc.add_paragraph(", ".join(str(c) for c in competencies[:18]))
@@ -214,8 +221,23 @@ def build_ats_docx(
         employer_para.runs[0].bold = True
         for line in lines:
             clean = re.sub(r"^\[?\w+-\d+\]?\s*", "", line).strip()
-            if clean:
-                doc.add_paragraph(clean, style="List Bullet")
+            lower = clean.lower()
+            if not clean:
+                continue
+            if any(
+                phrase in lower
+                for phrase in (
+                    "confidential",
+                    "owner-provided",
+                    "not in repository",
+                    "promotion letter",
+                    "evidence_id",
+                )
+            ):
+                continue
+            if lower.startswith("bachelor") or lower.startswith("master"):
+                continue
+            doc.add_paragraph(clean, style="List Bullet")
 
     education = contact.get("education") or profile.get("education") or []
     doc.add_paragraph("")
@@ -229,14 +251,38 @@ def build_ats_docx(
             else:
                 doc.add_paragraph(str(item))
     else:
-        doc.add_paragraph("See verified career record.")
+        doc.add_paragraph("Education details available upon request.")
 
     certs = contact.get("certifications") or []
     if certs:
         doc.add_paragraph("")
         _add_heading(doc, "Certifications")
         for cert in certs:
-            doc.add_paragraph(f"{cert.get('name')} ({cert.get('date', '')})", style="List Bullet")
+            name = cert.get("name", "")
+            raw_date = str(cert.get("date", "") or "")
+            if raw_date and len(raw_date) >= 7:
+                try:
+                    year, month, _day = raw_date.split("-")
+                    month_names = [
+                        "January",
+                        "February",
+                        "March",
+                        "April",
+                        "May",
+                        "June",
+                        "July",
+                        "August",
+                        "September",
+                        "October",
+                        "November",
+                        "December",
+                    ]
+                    display_date = f"{month_names[int(month) - 1]} {year}"
+                except (ValueError, IndexError):
+                    display_date = raw_date[:7]
+            else:
+                display_date = raw_date
+            doc.add_paragraph(f"{name} ({display_date})" if display_date else name, style="List Bullet")
 
     doc.core_properties.title = f"Resume — {company} — {job_title}"
     doc.core_properties.author = contact.get("name", "Candidate")

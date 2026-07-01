@@ -54,6 +54,12 @@ export default function ApprovalsPage() {
   const [total, setTotal] = useState(0);
   const [pageCount, setPageCount] = useState(1);
   const [preview, setPreview] = useState<PreviewPayload | null>(null);
+  const [packetManifest, setPacketManifest] = useState<{
+    artifacts?: { label: string; external?: boolean; validation_passed?: boolean }[];
+    submission_artifacts?: string[];
+    approval_blocked?: boolean;
+    approval_block_reason?: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ id: number; action: string } | null>(null);
@@ -109,7 +115,14 @@ export default function ApprovalsPage() {
         push("error", "Could not load preview.");
         return;
       }
-      setPreview(await response.json());
+      const payload = await response.json();
+      setPreview(payload);
+      const packetRes = await authFetch(`/api/applications/${id}/packet`);
+      if (packetRes.ok) {
+        setPacketManifest(await packetRes.json());
+      } else {
+        setPacketManifest(null);
+      }
       push("info", "Preview loaded.");
     } finally {
       setActionLoading(null);
@@ -266,6 +279,23 @@ export default function ApprovalsPage() {
       {preview && (
         <div className="card">
           <h3>Packet Preview</h3>
+          {packetManifest && (
+            <div>
+              <h4>Application packet ({packetManifest.submission_artifacts?.length || 0} submission artifacts)</h4>
+              <ul>
+                {(packetManifest.artifacts || []).map((artifact) => (
+                  <li key={artifact.label}>
+                    {artifact.label}
+                    {artifact.external ? " · for submission" : " · internal"}
+                    {artifact.validation_passed === false ? " · validation failed" : ""}
+                  </li>
+                ))}
+              </ul>
+              {packetManifest.approval_blocked && (
+                <p className="error">{packetManifest.approval_block_reason || "Approval blocked."}</p>
+              )}
+            </div>
+          )}
           {preview.fit_analysis && <pre>{preview.fit_analysis}</pre>}
           {preview.cover_letter && (
             <>

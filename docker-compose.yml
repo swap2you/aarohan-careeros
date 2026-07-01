@@ -32,7 +32,7 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       CORS_ORIGINS: http://localhost:3000
-      OAUTH_FIXTURE_MODE: ${OAUTH_FIXTURE_MODE:-true}
+      OAUTH_FIXTURE_MODE: ${OAUTH_FIXTURE_MODE:-false}
       SCHEDULING_ENABLED: "false"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -75,6 +75,7 @@ services:
         condition: service_healthy
     environment:
       NEXT_PUBLIC_API_BASE: http://localhost:8000
+      NEXT_PUBLIC_DEPLOYMENT_BADGE: OWNER LOCAL
       HOSTNAME: 0.0.0.0
     ports:
       - "3000:3000"

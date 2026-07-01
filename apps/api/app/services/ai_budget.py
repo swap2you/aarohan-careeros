@@ -47,10 +47,12 @@ def record_usage(
     tokens_in: int = 0,
     tokens_out: int = 0,
     job_id: int | None = None,
+    usage_kind: str = "estimated",
 ) -> AIUsageRecord:
+    op_label = operation if usage_kind == "actual" else f"{usage_kind}:{operation}"
     record = AIUsageRecord(
-        operation=operation,
-        model=model,
+        operation=op_label,
+        model=model or ("deterministic" if usage_kind == "deterministic" else None),
         cost_usd=cost_usd,
         tokens_in=tokens_in,
         tokens_out=tokens_out,
