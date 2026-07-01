@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     allow_legacy_jwt_auth: bool = False
     expose_session_token_in_login_response: bool = False
     allow_e2e_login_on_owner: bool = False
+    local_dev_auth_bypass: bool = False
     gmail_sync_start_date: str = ""
     deployment_mode: str = ""
 

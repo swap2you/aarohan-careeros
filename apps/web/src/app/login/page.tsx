@@ -1,15 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { API_BASE } from "@/lib/api";
 
 type SetupStatus = { setup_required: boolean; has_admin: boolean };
+type BypassStatus = {
+  enabled: boolean;
+  auto_login: boolean;
+  owner_email_hint: string | null;
+};
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
+  const autoLoginAttempted = useRef(false);
   const [setup, setSetup] = useState<SetupStatus | null>(null);
+  const [bypass, setBypass] = useState<BypassStatus | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,7 +32,37 @@ export default function LoginPage() {
       .then((res) => res.json())
       .then(setSetup)
       .catch(() => setSetup({ setup_required: true, has_admin: false }));
+    fetch(`${API_BASE}/api/auth/local-bypass-status`)
+      .then((res) => res.json())
+      .then(setBypass)
+      .catch(() => setBypass({ enabled: false, auto_login: false, owner_email_hint: null }));
   }, []);
+
+  async function enterLocalAdmin() {
+    setSubmitting(true);
+    setError(null);
+    const response = await fetch(`${API_BASE}/api/auth/local-admin-login`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ remember_me: rememberMe }),
+    });
+    setSubmitting(false);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setError(data.detail || "Local admin sign-in failed");
+      return;
+    }
+    window.location.assign(returnTo.startsWith("/") ? returnTo : "/");
+  }
+
+  useEffect(() => {
+    if (!bypass?.enabled || !bypass.auto_login || autoLoginAttempted.current || submitting) {
+      return;
+    }
+    autoLoginAttempted.current = true;
+    void enterLocalAdmin();
+  }, [bypass, submitting]);
 
   async function submit(path: "/api/auth/setup" | "/api/auth/login") {
     setSubmitting(true);
@@ -45,6 +82,13 @@ export default function LoginPage() {
     window.location.assign(returnTo.startsWith("/") ? returnTo : "/");
   }
 
+  function onEmailChange(value: string) {
+    setEmail(value);
+    if (error) {
+      setError(null);
+    }
+  }
+
   const isSetup = setup?.setup_required;
 
   return (
@@ -54,8 +98,19 @@ export default function LoginPage() {
         {reason === "session_expired" && (
           <p className="warn">Your session expired. Sign in again to continue.</p>
         )}
+        {bypass?.enabled && (
+          <p className="muted">
+            Local owner mode{bypass.owner_email_hint ? ` (${bypass.owner_email_hint})` : ""} — password
+            sign-in or one-click local admin entry.
+          </p>
+        )}
         <label htmlFor="careeros-email">Email</label>
-        <input id="careeros-email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
+        <input
+          id="careeros-email"
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value)}
+          autoComplete="username"
+        />
         <label htmlFor="careeros-password">Password (min 12 characters)</label>
         <div className="password-field">
           <input
@@ -100,6 +155,11 @@ export default function LoginPage() {
           Remember me on this device
         </label>
         {error && <p className="error">{error}</p>}
+        {bypass?.enabled && !isSetup && (
+          <button type="button" className="secondary" disabled={submitting} onClick={() => void enterLocalAdmin()}>
+            Enter Local Admin
+          </button>
+        )}
         <button type="button" disabled={submitting} onClick={() => submit(isSetup ? "/api/auth/setup" : "/api/auth/login")}>
           {isSetup ? "Create administrator" : "Sign in"}
         </button>

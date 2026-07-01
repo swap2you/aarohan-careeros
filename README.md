@@ -17,21 +17,22 @@ Supervised career operations system — job ingestion, evidence-based scoring, a
 
 | Item | Value |
 |------|-------|
-| Dashboard | http://localhost:3000 |
-| Settings | http://localhost:3000/settings |
-| Login email | `ADMIN_EMAIL` from local secrets |
-| Login password | `ADMIN_PASSWORD` from local secrets |
+| Dashboard | http://127.0.0.1:3000 |
+| Settings | http://127.0.0.1:3000/settings |
+| Config file | `.env.local` (gitignored — copy from `.env.local.example`) |
+| Local admin bypass | **Enter Local Admin** on login when `LOCAL_DEV_AUTH_BYPASS=true` |
 
 Configure credentials once:
 
 ```powershell
-powershell -File scripts/local/Initialize-LocalSecrets.ps1
+Copy-Item .env.local.example .env.local   # if missing
+# Edit .env.local — set APP_SECRET, POSTGRES_PASSWORD, TOKEN_ENCRYPTION_KEY, ADMIN_EMAIL, ADMIN_PASSWORD
 ```
 
-Reset admin password (interactive — never commit the value):
+Reset admin password (uses `.env.local` when `-UseConfiguredPassword`):
 
 ```powershell
-powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force
+powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force -UseConfiguredPassword
 ```
 
 ### Services
@@ -56,9 +57,9 @@ Use **Connect Google** in Settings on first setup. Reconnect only when refresh t
 ```powershell
 # One-time setup
 powershell -File scripts/local/Bootstrap-Aarohan.ps1
-powershell -File scripts/local/Initialize-LocalSecrets.ps1
+# Edit .env.local with required secrets (see .env.local.example)
 
-# Start core stack (postgres + api + web)
+# Start core stack (postgres + api + web) — loads .env.local automatically
 powershell -File scripts/local/Start-Aarohan.ps1 -Detached
 
 # Optional n8n

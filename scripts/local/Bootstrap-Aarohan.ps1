@@ -45,7 +45,10 @@ if (-not $SkipDockerCheck) {
 }
 
 if (-not (Test-Path ".env.local")) {
-    if (Test-Path ".env.example") {
+    if (Test-Path ".env.local.example") {
+        Copy-Item ".env.local.example" ".env.local"
+        Write-Host "Created .env.local from .env.local.example — fill in secrets before starting."
+    } elseif (Test-Path ".env.example") {
         Copy-Item ".env.example" ".env.local"
         Write-Host "Created .env.local from .env.example (no secrets)."
     }
@@ -56,14 +59,6 @@ if (-not (Test-Path $oauthPath)) {
     Write-Warning "OAuth JSON not found at $oauthPath. Google live mode will be unavailable until placed."
 } else {
     Write-Host "OAuth JSON path verified (file exists)."
-}
-
-if (-not (Test-Path "C:\AarohanSecrets\aarohan.local.env")) {
-    Write-Host "Creating local secrets template at C:\AarohanSecrets\aarohan.local.env"
-    Write-Host "If you have SecretStore values, run: pwsh scripts/local/Initialize-LocalSecrets.ps1 -FromSecretStore -Force"
-    & "$PSScriptRoot\Initialize-LocalSecrets.ps1"
-} else {
-    Write-Host "Local secrets file found: C:\AarohanSecrets\aarohan.local.env"
 }
 
 Push-Location apps/api
@@ -77,5 +72,6 @@ Pop-Location
 
 Write-Host ""
 Write-Host "Bootstrap complete. Next:"
-Write-Host "  pwsh scripts/local/Start-Aarohan.ps1 -Detached"
-Write-Host "  pwsh scripts/local/Test-Aarohan.ps1"
+Write-Host "  1. Edit .env.local with APP_SECRET, POSTGRES_PASSWORD, TOKEN_ENCRYPTION_KEY, ADMIN_EMAIL, ADMIN_PASSWORD"
+Write-Host "  2. pwsh scripts/local/Start-Aarohan.ps1 -Detached"
+Write-Host "  3. Open http://127.0.0.1:3000 and click Enter Local Admin (or sign in with password)"

@@ -82,7 +82,8 @@ export default function SettingsPage() {
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const [validationTechnicalOpen, setValidationTechnicalOpen] = useState(false);
 
-  const { showFixtureControls } = useDeploymentEnvironment();
+  const { showFixtureControls, environment } = useDeploymentEnvironment();
+  const localBypassEnabled = Boolean(environment?.local_dev_auth_bypass && environment?.is_owner_stack);
 
   const loadStatus = useCallback(() => {
     authFetch(`/api/integrations/status`)
@@ -160,6 +161,21 @@ export default function SettingsPage() {
     setMessage(`Fixture sync: ${data.processed ?? 0} messages loaded.`);
   }
 
+  async function recreateLocalOwnerSession() {
+    setMessage("Recreating local owner session…");
+    const response = await authFetch(`/api/auth/local-admin-login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ remember_me: true }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setMessage(plainError(data.detail || data));
+      return;
+    }
+    setMessage("Local owner session refreshed.");
+  }
+
   async function runValidation() {
     setMessage("Running local validation…");
     const response = await authFetch(`/api/validation/run`, { method: "POST" });
@@ -181,6 +197,21 @@ export default function SettingsPage() {
   return (
     <div>
       <h1>Settings & Integrations</h1>
+      <div className="card">
+        <h3>Local Development</h3>
+        <p>
+          <strong>App environment:</strong> {environment?.app_env || "—"}
+        </p>
+        <p>
+          <strong>Local admin bypass:</strong> {localBypassEnabled ? "enabled" : "disabled"}
+        </p>
+        <p className="muted">
+          Configuration loads from <code>.env.local</code> only. Secrets are never committed to Git.
+        </p>
+        {localBypassEnabled && (
+          <button onClick={() => void recreateLocalOwnerSession()}>Recreate Local Owner Session</button>
+        )}
+      </div>
       <div className="card">
         <h3>Application Modes</h3>
         {applicationModes.map((mode) => (
@@ -276,7 +307,6 @@ export default function SettingsPage() {
       </div>
       {message && <p className="status">{message}</p>}
       <div className="card">
-        <p>Secrets load from PowerShell SecretStore via Start-Aarohan.ps1. No credentials in Git.</p>
         <p>Human approval is required before external submission or messaging.</p>
       </div>
       {status && (

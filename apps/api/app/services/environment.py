@@ -50,6 +50,7 @@ def environment_payload() -> dict:
         "is_e2e_stack": badge == "E2E TEST",
         "show_fixture_controls": badge in {"E2E TEST", "FIXTURE"},
         "e2e_login_allowed": settings.allow_e2e_login_on_owner or not is_owner_database(),
+        "local_dev_auth_bypass": settings.local_dev_auth_bypass and settings.app_env == "local",
         "api_port_hint": 8001 if is_e2e_database() else 8000,
         "web_port_hint": 3001 if is_e2e_database() else 3000,
     }

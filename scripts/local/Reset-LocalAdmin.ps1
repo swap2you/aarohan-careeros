@@ -6,21 +6,31 @@
 .DESCRIPTION
   Updates the Career OS postgres admin via the API container using bcrypt (app.services.auth).
   Password is never stored in this script — pass -PasswordSecure, set RESET_LOCAL_ADMIN_PASSWORD
-  for the current process, or enter at prompt.
+  for the current process, use -UseConfiguredPassword, or enter at prompt.
 
 .EXAMPLE
-  Read-Host -AsSecureString when prompted, or set env RESET_LOCAL_ADMIN_PASSWORD for this session only.
-  powershell -File scripts/local/Reset-LocalAdmin.ps1 -Force
+  pwsh scripts/local/Reset-LocalAdmin.ps1 -Force -UseConfiguredPassword
 #>
 param(
-    [string]$Email = "swapnilpatil.tech@gmail.com",
+    [string]$Email = "",
     [SecureString]$PasswordSecure,
-    [switch]$Force
+    [switch]$Force,
+    [switch]$UseConfiguredPassword
 )
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $Root
+
+. (Join-Path $PSScriptRoot "Invoke-AarohanCompose.ps1")
+Import-AarohanRepoEnvLocal -Root $Root
+
+if ([string]::IsNullOrWhiteSpace($Email)) {
+    $Email = $env:ADMIN_EMAIL
+}
+if ([string]::IsNullOrWhiteSpace($Email)) {
+    throw "ADMIN_EMAIL is not configured in .env.local"
+}
 
 function Get-PlainPassword {
     param([SecureString]$Secure)
@@ -37,7 +47,12 @@ if (-not $Force) {
     if ($confirm -ne "RESET") { throw "Cancelled." }
 }
 
-if (-not $PasswordSecure) {
+if ($UseConfiguredPassword) {
+    if ([string]::IsNullOrWhiteSpace($env:ADMIN_PASSWORD)) {
+        throw "ADMIN_PASSWORD is not configured in .env.local"
+    }
+    $PasswordSecure = ConvertTo-SecureString $env:ADMIN_PASSWORD -AsPlainText -Force
+} elseif (-not $PasswordSecure) {
     if ($env:RESET_LOCAL_ADMIN_PASSWORD) {
         $PasswordSecure = ConvertTo-SecureString $env:RESET_LOCAL_ADMIN_PASSWORD -AsPlainText -Force
     } else {
@@ -50,9 +65,11 @@ if ($plainPassword.Length -lt 12) {
     throw "Password must be at least 12 characters."
 }
 
-$apiStatus = docker compose ps api --format "{{.Status}}" 2>$null
+$apiStatus = docker compose --env-file (Join-Path $Root ".env.local") ps api --format "{{.Status}}" 2>$null
 if (-not $apiStatus -or $apiStatus -notmatch "Up") {
-    throw "API container is not running. Start stack first: docker compose up -d"
+    Write-Host "API container not running — starting stack..."
+    Invoke-AarohanCompose up -d
+    Start-Sleep -Seconds 5
 }
 
 $py = @'
@@ -63,6 +80,7 @@ from app.database import SessionLocal
 from app.models import User
 from app.services.auth import hash_password
 from app.services.career_vault import sync_evidence_registry
+from app.services.local_auth import deactivate_stray_e2e_user
 from app.services.setup import mark_setup_complete
 
 email = os.environ["LOCAL_ADMIN_RESET_EMAIL"]
@@ -76,6 +94,7 @@ db = SessionLocal()
 try:
     from app.models import UserSession
 
+    deactivate_stray_e2e_user(db)
     for user in db.query(User).all():
         if user.email.lower() != email.lower():
             db.query(UserSession).filter(UserSession.user_id == user.id).delete()
@@ -103,14 +122,13 @@ try {
     $env:LOCAL_ADMIN_RESET_EMAIL = $Email
     $env:LOCAL_ADMIN_RESET_PASSWORD = $plainPassword
     $plainPassword = $null
-    $py | docker compose exec -T -e LOCAL_ADMIN_RESET_EMAIL -e LOCAL_ADMIN_RESET_PASSWORD api python -
-    if ($LASTEXITCODE -ne 0) { throw "Admin reset failed (exit $LASTEXITCODE)." }
+    Invoke-AarohanComposeExec -InputScript $py -Args @("-T", "-e", "LOCAL_ADMIN_RESET_EMAIL", "-e", "LOCAL_ADMIN_RESET_PASSWORD", "api", "python", "-")
 } finally {
     $env:LOCAL_ADMIN_RESET_EMAIL = $prevEmail
     $env:LOCAL_ADMIN_RESET_PASSWORD = $null
     if ($env:RESET_LOCAL_ADMIN_PASSWORD) { Remove-Item Env:RESET_LOCAL_ADMIN_PASSWORD -ErrorAction SilentlyContinue }
 }
 
-Write-Host "Login: POST http://localhost:8000/api/auth/login"
+Write-Host "Login: POST http://127.0.0.1:8000/api/auth/login"
 Write-Host "Email: $Email"
-Write-Host "Then sign in at http://localhost:3000 before opening Settings."
+Write-Host "Or use Enter Local Admin at http://127.0.0.1:3000/login when bypass is enabled."

@@ -103,4 +103,10 @@ test.describe("R2.6.1 auth session lifecycle", () => {
     await expect(password).toHaveAttribute("type", "password");
     await expect(page.getByRole("button", { name: "Show password" })).toBeVisible();
   });
+
+  test("Enter Local Admin hidden when bypass disabled", async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto(`${WEB}/login`);
+    await expect(page.getByRole("button", { name: "Enter Local Admin" })).toHaveCount(0);
+  });
 });

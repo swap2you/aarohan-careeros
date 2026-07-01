@@ -129,6 +129,7 @@ jobs:
           APP_SECRET: ci-test-secret-key-32chars-minimum!
           TOKEN_ENCRYPTION_KEY: ci-test-token-encryption-key-32chars!
           E2E_TEST_PASSWORD: E2eTestPass123!
+          ALLOW_E2E_LOGIN_ON_OWNER: "true"
         run: python scripts/ensure_e2e_user.py
       - name: Install Playwright browsers
         working-directory: apps/web

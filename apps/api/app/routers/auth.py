@@ -10,7 +10,15 @@ from app.schemas import LoginRequest, TokenResponse
 from app.services.auth import hash_password, verify_password
 from app.services.career_vault import sync_evidence_registry
 from app.services.setup import has_admin_user, is_setup_complete, mark_setup_complete
+from app.services.audit import write_audit
 from app.services.environment import assert_e2e_user_allowed
+from app.services.local_auth import (
+    deactivate_stray_e2e_user,
+    ensure_configured_owner,
+    local_bypass_status_payload,
+    local_dev_bypass_enabled,
+    request_is_localhost,
+)
 from app.services.sessions import (
     REMEMBER_ME_DAYS,
     SESSION_COOKIE_NAME,
@@ -87,6 +95,50 @@ def setup_status(db: Session = Depends(get_db)) -> dict:
         "setup_required": not is_setup_complete(db) and not has_admin_user(db),
         "has_admin": has_admin_user(db),
     }
+
+
+@router.get("/local-bypass-status")
+def local_bypass_status() -> dict:
+    return local_bypass_status_payload()
+
+
+class LocalAdminLoginBody(BaseModel):
+    remember_me: bool = True
+
+
+@router.post("/local-admin-login", response_model=TokenResponse)
+def local_admin_login(
+    payload: LocalAdminLoginBody,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    if not local_dev_bypass_enabled():
+        raise HTTPException(status_code=403, detail="Local admin bypass is not enabled")
+    if not request_is_localhost(request):
+        raise HTTPException(status_code=403, detail="Local admin bypass is limited to localhost")
+    deactivate_stray_e2e_user(db)
+    user = ensure_configured_owner(db)
+    if not user:
+        raise HTTPException(
+            status_code=503,
+            detail="Configured owner is not available. Set ADMIN_EMAIL and ADMIN_PASSWORD in .env.local",
+        )
+    write_audit(
+        db,
+        event_type="local_admin_bypass_login",
+        actor=user.email,
+        resource_type="user",
+        resource_id=str(user.id),
+        details={"remember_me": payload.remember_me},
+    )
+    return _issue_session(
+        response,
+        db,
+        user,
+        remember_me=payload.remember_me,
+        user_agent=request.headers.get("user-agent"),
+    )
 
 
 @router.get("/session")
@@ -186,18 +238,11 @@ def me(current_user: User = Depends(get_current_user)) -> dict:
 
 
 def bootstrap_admin_from_env(db: Session) -> None:
-    """Create admin only when no admin exists — never overwrite password or delete users."""
+    """Ensure configured owner exists on startup — never overwrite an existing password."""
+    deactivate_stray_e2e_user(db)
     if has_admin_user(db):
+        ensure_configured_owner(db)
         return
-    if not (settings.admin_email and settings.admin_password):
-        return
-    if len(settings.admin_password) < 12:
-        return
-    user = User(
-        email=settings.admin_email,
-        hashed_password=hash_password(settings.admin_password),
-        is_admin=True,
-    )
-    db.add(user)
-    db.commit()
-    mark_setup_complete(db)
+    user = ensure_configured_owner(db)
+    if user:
+        sync_evidence_registry(db)

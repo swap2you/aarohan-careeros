@@ -14,7 +14,7 @@ services:
       CONNECTOR_FIXTURE_MODE: "true"
       APP_ENV: test
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     networks: [career_os]
 
   web-e2e:
@@ -29,5 +29,5 @@ services:
       NEXT_PUBLIC_API_BASE: http://localhost:8001
       NEXT_PUBLIC_DEPLOYMENT_BADGE: E2E TEST
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     networks: [career_os]

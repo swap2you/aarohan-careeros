@@ -6,8 +6,10 @@ import { authFetch } from "@/lib/api";
 
 type EnvInfo = {
   badge: string;
+  app_env?: string;
   is_owner_stack: boolean;
   show_fixture_controls: boolean;
+  local_dev_auth_bypass?: boolean;
 };
 
 export function EnvironmentBadge() {
@@ -44,6 +46,7 @@ export function useDeploymentEnvironment() {
 
   return {
     env,
+    environment: env,
     showFixtureControls: env?.show_fixture_controls ?? process.env.NEXT_PUBLIC_E2E_MODE === "true",
     isOwnerStack: env?.is_owner_stack ?? process.env.NEXT_PUBLIC_DEPLOYMENT_BADGE === "OWNER LOCAL",
   };

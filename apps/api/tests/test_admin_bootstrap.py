@@ -35,7 +35,7 @@ def test_bootstrap_preserves_existing_admin_password():
         )
         db.commit()
         alt_pwd = "TotallyDifferentPass999!"
-        with patch("app.routers.auth.settings") as mock_settings:
+        with patch("app.services.local_auth.settings") as mock_settings:
             mock_settings.admin_email = "owner@test.local"
             mock_settings.admin_password = alt_pwd
             bootstrap_admin_from_env(db)
@@ -66,7 +66,7 @@ def test_bootstrap_creates_admin_only_when_database_empty():
     try:
         assert not has_admin_user(db)
         init_pwd = "SecurePass123!"
-        with patch("app.routers.auth.settings") as mock_settings:
+        with patch("app.services.local_auth.settings") as mock_settings:
             mock_settings.admin_email = "newadmin@test.local"
             mock_settings.admin_password = init_pwd
             bootstrap_admin_from_env(db)

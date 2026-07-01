@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 IGNORE_DIRS = {".git", "node_modules", ".venv", "private", "__pycache__", ".next", "artifacts", ".local", "docs/archive"}
-SKIP_FILES = {"google-oauth-client.json", "LOCAL-CREDENTIALS.private.md"}
+SKIP_FILES = {"google-oauth-client.json", "LOCAL-CREDENTIALS.private.md", ".env.local"}
 SKIP_NAME_PATTERNS = [
     re.compile(r"keys.*secrets", re.I),
     re.compile(r"\.zip$", re.I),

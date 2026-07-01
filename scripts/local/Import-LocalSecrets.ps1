@@ -1,12 +1,12 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Load Aarohan runtime secrets from canonical local file or SecretStore (dot-source).
+  Load Aarohan runtime configuration from repo .env.local or optional SecretStore.
 #>
 param(
-    [ValidateSet("LocalFile", "SecretStore")]
-    [string]$SecretsMode = "LocalFile",
-    [string]$LocalSecretsPath = "C:\AarohanSecrets\aarohan.local.env"
+    [ValidateSet("RepoEnvLocal", "SecretStore", "LegacyFile")]
+    [string]$Mode = "RepoEnvLocal",
+    [string]$LocalPath = ""
 )
 
 $script:RequiredSecretNames = @(
@@ -33,13 +33,15 @@ $script:OptionalSecretNames = @(
     "JOOBLE_API_KEY",
     "USAJOBS_API_KEY",
     "USAJOBS_USER_EMAIL",
-    "E2E_TEST_PASSWORD"
+    "E2E_TEST_PASSWORD",
+    "LOCAL_DEV_AUTH_BYPASS",
+    "APP_ENV"
 )
 
 function Import-AarohanLocalEnvFile {
     param([string]$Path)
     if (-not (Test-Path $Path)) {
-        throw "Local secrets file not found: $Path`nRun: pwsh scripts/local/Initialize-LocalSecrets.ps1"
+        throw "Env file not found: $Path`nCopy .env.local.example to .env.local and fill in required values."
     }
     Get-Content $Path | Where-Object { $_ -match '^\s*[^#;]' -and $_ -match '=' } | ForEach-Object {
         $n, $v = $_ -split '=', 2
@@ -61,17 +63,26 @@ function Get-AarohanSecretStoreValue {
 
 function Import-AarohanSecrets {
     param(
-        [ValidateSet("LocalFile", "SecretStore")]
-        [string]$Mode = "LocalFile",
-        [string]$LocalPath = "C:\AarohanSecrets\aarohan.local.env"
+        [ValidateSet("RepoEnvLocal", "SecretStore", "LegacyFile")]
+        [string]$Mode = "RepoEnvLocal",
+        [string]$LocalPath = ""
     )
-    if ($Mode -eq "LocalFile") {
-        Import-AarohanLocalEnvFile -Path $LocalPath
-    } else {
+    $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+    if (-not $LocalPath) {
+        if ($Mode -eq "LegacyFile") {
+            $LocalPath = "C:\AarohanSecrets\aarohan.local.env"
+        } else {
+            $LocalPath = Join-Path $root ".env.local"
+        }
+    }
+
+    if ($Mode -eq "SecretStore") {
         foreach ($name in ($script:RequiredSecretNames + $script:OptionalSecretNames)) {
             $val = Get-AarohanSecretStoreValue -Name $name
             if ($val) { Set-Item -Path "env:$name" -Value $val }
         }
+    } else {
+        Import-AarohanLocalEnvFile -Path $LocalPath
     }
 
     $missing = @()
@@ -80,7 +91,7 @@ function Import-AarohanSecrets {
         if ([string]::IsNullOrWhiteSpace($val)) { $missing += $name }
     }
     if ($missing.Count -gt 0) {
-        throw "Missing required secrets: $($missing -join ', ').`nMode=$Mode. Run scripts/local/Initialize-LocalSecrets.ps1"
+        throw "Missing required values: $($missing -join ', '). Mode=$Mode Path=$LocalPath"
     }
 
     if ([string]::IsNullOrWhiteSpace($env:AI_API_KEY) -and $env:OPENAI_API_KEY) {
@@ -91,9 +102,9 @@ function Import-AarohanSecrets {
         $env:GOOGLE_OAUTH_CLIENT_JSON_PATH = "C:\AarohanSecrets\google-oauth-client.json"
     }
     $hostOAuthJson = $env:GOOGLE_OAUTH_CLIENT_JSON_PATH
-    $env:GOOGLE_OAUTH_SECRETS_DIR = (Split-Path -Parent $hostOAuthJson) -replace '\\', '/'
-    $env:GOOGLE_OAUTH_CLIENT_JSON_PATH = "/run/secrets/google-oauth-client.json"
-
+    if ($hostOAuthJson -and -not $hostOAuthJson.StartsWith("/")) {
+        $env:GOOGLE_OAUTH_SECRETS_DIR = (Split-Path -Parent $hostOAuthJson) -replace '\\', '/'
+    }
     if ($env:GOOGLE_DRIVE_ROOT_FOLDER_ID) {
         $env:GOOGLE_DRIVE_FOLDER_ID = $env:GOOGLE_DRIVE_ROOT_FOLDER_ID
     }
@@ -102,9 +113,10 @@ function Import-AarohanSecrets {
     }
     if (-not $env:ENABLE_EXTERNAL_EMAIL_SEND) { $env:ENABLE_EXTERNAL_EMAIL_SEND = "false" }
     if (-not $env:CORS_ORIGINS) { $env:CORS_ORIGINS = "http://localhost:3000" }
-    if (-not $env:APP_ENV) { $env:APP_ENV = "development" }
+    if (-not $env:APP_ENV) { $env:APP_ENV = "local" }
+    if (-not $env:LOCAL_DEV_AUTH_BYPASS) { $env:LOCAL_DEV_AUTH_BYPASS = "true" }
     if (-not $env:SCHEDULING_ENABLED) { $env:SCHEDULING_ENABLED = "false" }
-    if (-not $env:OAUTH_FIXTURE_MODE) { $env:OAUTH_FIXTURE_MODE = "true" }
+    if (-not $env:OAUTH_FIXTURE_MODE) { $env:OAUTH_FIXTURE_MODE = "false" }
 
     $env:DATABASE_URL = "postgresql+psycopg://career_os:$($env:POSTGRES_PASSWORD)@localhost:5432/career_os"
 }

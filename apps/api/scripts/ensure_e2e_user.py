@@ -13,12 +13,14 @@ E2E_EMAIL = "e2e@test.local"
 
 def main() -> int:
     if not is_e2e_database():
-        print(
-            "Refusing to create E2E user on owner database. "
-            "Use Start-Aarohan-E2E.ps1 (career_os_e2e on ports 8001/3001).",
-            file=sys.stderr,
-        )
-        return 1
+        allow_owner = os.environ.get("ALLOW_E2E_LOGIN_ON_OWNER", "").lower() in {"1", "true", "yes"}
+        if not allow_owner:
+            print(
+                "Refusing to create E2E user on owner database. "
+                "Use Start-Aarohan-E2E.ps1 (career_os_e2e on ports 8001/3001).",
+                file=sys.stderr,
+            )
+            return 1
     e2e_password = os.environ.get("E2E_TEST_PASSWORD")
     if not e2e_password:
         print("E2E_TEST_PASSWORD environment variable is required", file=sys.stderr)
