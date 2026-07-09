@@ -1,19 +1,38 @@
-# Canonical Fresh Jobs discovery policy (Workflow Lock 01).
+# Canonical Fresh Jobs discovery policy (Workflow Lock 01 correction).
 # Authoritative for freshness, geography, role eligibility, and source campaigns.
 
 freshness:
-  max_age_hours: 48
-  new_hours: 24
-  unknown_timestamp_action: quarantine
-  # Automated sources without a reliable timestamp are quarantined.
-  # Manual/user-forwarded jobs may use discovered_at as effective freshness.
+  # Visibility tiers (hours)
+  today_hours: 24
+  fresh_hours: 72
+  recent_hours: 168  # 7 days
+  # Default owner Fresh Jobs includes TODAY + FRESH; RECENT optional below.
+  default_visible_tiers:
+    - TODAY
+    - FRESH
+    - RECENT
+  unknown_timestamp_action: owner_review
+  # States that must never age out of owner visibility solely due to freshness.
+  never_age_out_states:
+    - SHORTLISTED
+    - PACKET_READY
+    - PACKET_GENERATING
+    - NEEDS_EDIT
+    - APPROVED_FOR_SUBMISSION
+    - SUBMITTED
+    - FOLLOW_UP_DUE
+    - RECRUITER_SIGNAL
+    - INTERVIEW_SIGNAL
+    - INTERVIEW_SCHEDULED
+    - OFFER
 
 geography:
   country: US
   remote_us: accept
-  remote_unspecified: quarantine
+  remote_unspecified: owner_review
   foreign_only: reject
   relocation_required: reject
+  unknown: owner_review
   local_hybrid:
     - Harrisburg
     - Enola
@@ -52,7 +71,6 @@ sources:
   greenhouse:
     enabled: true
     provider_id: greenhouse
-    # Company-board connectors only — never a default public feed.
     approved_boards: []
   lever:
     enabled: true
@@ -76,32 +94,41 @@ role_profiles:
       - technical delivery manager
       - platform program manager
       - engineering delivery lead
-      - program manager
-      - delivery manager
   - id: qe_manager
     label: Quality Engineering Management
     eligibility: primary
     title_patterns:
       - quality engineering manager
       - senior quality engineering manager
-      - senior manager, quality engineering
       - senior manager quality engineering
+      - manager quality engineering
       - test engineering manager
       - software quality engineering manager
       - quality platform manager
       - qe manager
+      - qa engineering manager
+      - qa manager
+      - connected vehicle quality engineering manager
   - id: director_qe
     label: Director / Head of Quality
     eligibility: primary
     title_patterns:
       - director of quality engineering
-      - director, software quality
-      - head of quality engineering
-      - quality engineering director
-      - director, test engineering
       - director quality engineering
+      - director software quality
+      - head of quality engineering
+      - head of quality assurance
+      - quality engineering director
+      - director test engineering
       - qe transformation director
       - head of qe
+      - senior director quality engineering
+      - head of observability and quality engineering
+      - head of observability quality engineering
+      - head of quality assurance and technical enablement
+      - senior director engineering quality
+      - senior director quality engineering and observability
+      - director quality engineering and platform reliability
   - id: platform_architect
     label: Principal / Staff / Architecture
     eligibility: primary
@@ -113,8 +140,6 @@ role_profiles:
       - test automation architect
       - qe platform architect
       - test platform architect
-      - solution architect
-      - developer productivity
       - quality platform architect
   - id: ai_enabled_qe
     label: AI Quality / Evaluation
@@ -123,7 +148,7 @@ role_profiles:
       - ai quality
       - llm evaluation
       - agent quality
-      - ai-enabled quality
+      - ai enabled quality
       - responsible ai testing
       - ai platform quality
       - genai quality
@@ -135,14 +160,13 @@ role_profiles:
       - performance engineering
       - performance test architect
       - reliability test
-      - quality/performance
       - performance platform
   - id: secondary_em
     label: Engineering Manager (quality/platform scope)
     eligibility: secondary
     title_patterns:
       - engineering manager
-      - manager, engineering
+      - manager engineering
     require_any:
       - quality
       - platform
@@ -150,6 +174,7 @@ role_profiles:
       - test
       - automation
       - reliability
+      - observability
   - id: secondary_sdet
     label: Senior SDET (advancement scope)
     eligibility: secondary
@@ -173,23 +198,30 @@ role_reject_patterns:
   - customer success
   - sales engineer
   - account executive
+  - new business account executive
+  - commercial account executive
+  - renewals manager
   - marketing manager
   - product manager
   - product owner
+  - people business partner
+  - people partner
+  - human resources
+  - recruiter
 
-minimums:
-  owner_visible_fit_score: 55
-  published_salary_max_usd: 170000
+salary:
+  target_max_usd: 200000
+  strong_max_usd: 170000
+  # Below strong is REVIEW ranking signal — never hard reject on salary alone.
 
 ingest:
-  # Fixture/test provenance never appears in owner Fresh Jobs.
   exclude_provenance:
     - fixture
     - test
-  # States hidden from default Fresh Jobs list.
   exclude_states:
     - REJECTED
     - CLOSED
   quarantine_state: SECONDARY_REVIEW
+  owner_review_state: SECONDARY_REVIEW
   reject_state: REJECTED
   archive_state: CLOSED

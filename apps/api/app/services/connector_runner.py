@@ -15,6 +15,8 @@ from app.services.ingestion import ingest_job_with_decision
 from app.services.job_eligibility import (
     DECISION_ACCEPT,
     DECISION_DUPLICATE,
+    DECISION_HISTORICAL,
+    DECISION_OWNER_REVIEW,
     DECISION_QUARANTINE,
     DECISION_REJECT,
     DECISION_SECONDARY,
@@ -217,9 +219,10 @@ def run_connector(
             job_ids.append(outcome.job.id)
 
     accepted = counts[DECISION_ACCEPT]
-    secondary = counts[DECISION_SECONDARY]
+    secondary = counts[DECISION_SECONDARY] + counts[DECISION_OWNER_REVIEW]
+    owner_review = counts[DECISION_OWNER_REVIEW] + counts[DECISION_SECONDARY]
     quarantined = counts[DECISION_QUARANTINE]
-    rejected = counts[DECISION_REJECT]
+    rejected = counts[DECISION_REJECT] + counts[DECISION_HISTORICAL]
     duplicates = counts[DECISION_DUPLICATE]
     fetched = len(result.jobs)
     latency_ms = int((time.perf_counter() - t0) * 1000)
@@ -278,6 +281,7 @@ def run_connector(
         "ingested": accepted + secondary + quarantined,
         "fetched": fetched,
         "accepted": accepted,
+        "owner_review": owner_review,
         "secondary_review": secondary,
         "quarantined": quarantined,
         "rejected": rejected,

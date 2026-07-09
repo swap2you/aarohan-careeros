@@ -1,7 +1,7 @@
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-FRESH_JOBS_MAX_AGE_HOURS = 48
+FRESH_JOBS_MAX_AGE_HOURS = 168  # TODAY+FRESH+RECENT default visibility window
 
 
 class Settings(BaseSettings):

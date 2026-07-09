@@ -26,6 +26,14 @@ os.environ.setdefault("OAUTH_FIXTURE_MODE", "true")
 os.environ.setdefault("GENERATED_ROOT", str(_API_ROOT / "generated"))
 os.environ.setdefault("CONFIG_ROOT", str(_REPO_ROOT / "config"))
 os.environ.setdefault("CAREER_VAULT_ROOT", str(_REPO_ROOT / "career_vault"))
+# Force deterministic connector/auth defaults — host .env.local must not leak into unit tests.
+os.environ["ADZUNA_APP_ID"] = ""
+os.environ["ADZUNA_APP_KEY"] = ""
+os.environ["JOOBLE_API_KEY"] = ""
+os.environ["USAJOBS_API_KEY"] = ""
+os.environ["USAJOBS_USER_EMAIL"] = ""
+os.environ["LOCAL_DEV_AUTH_BYPASS"] = "false"
+os.environ["CONNECTOR_FIXTURE_MODE"] = "false"
 
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402

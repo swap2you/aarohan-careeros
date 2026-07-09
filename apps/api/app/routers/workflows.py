@@ -33,11 +33,15 @@ class WorkflowResult(BaseModel):
     # Extended discovery stats (UI ignores unknown fields safely via JSON)
     fetched: int = 0
     accepted: int = 0
+    owner_review: int = 0
     secondary_review: int = 0
     quarantined: int = 0
     rejected: int = 0
     duplicates: int = 0
     sources: list[dict] = []
+    sources_attempted: list[dict] = []
+    sources_skipped: list[dict] = []
+    source_errors: list[dict] = []
     message: str | None = None
 
 
@@ -106,11 +110,15 @@ def workflow_ingest_public(
         details=result.get("sources") or [],
         fetched=int(result.get("fetched") or 0),
         accepted=int(result.get("accepted") or 0),
+        owner_review=int(result.get("owner_review") or 0),
         secondary_review=int(result.get("secondary_review") or 0),
         quarantined=int(result.get("quarantined") or 0),
         rejected=int(result.get("rejected") or 0),
         duplicates=int(result.get("duplicates") or 0),
         sources=result.get("sources") or [],
+        sources_attempted=result.get("sources_attempted") or [],
+        sources_skipped=result.get("sources_skipped") or [],
+        source_errors=result.get("source_errors") or [],
         message=result.get("message"),
     )
 
@@ -121,21 +129,77 @@ def workflow_import_url(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> WorkflowResult:
+    """URL-only import returns NEEDS_CONFIRMATION — never auto-accept as a Fresh Job."""
+    from app.services.gmail_alert_parsers import canonical_job_url
+    from app.services.ingestion import ingest_job_with_decision
+
+    url = canonical_job_url(payload.url) if payload.url else payload.url
+    existing = (
+        db.query(Job)
+        .filter(Job.source == "user_forwarded_links", Job.external_id == url)
+        .one_or_none()
+    )
+    if existing is None and url:
+        existing = db.query(Job).filter(Job.canonical_url == url).one_or_none()
+    if existing is not None:
+        return WorkflowResult(
+            action="import_url",
+            success=0,
+            details=[
+                {
+                    "job_id": existing.id,
+                    "url": url,
+                    "status": "DUPLICATE",
+                    "decision": existing.ingest_decision,
+                    "message": "Existing job returned for duplicate URL import",
+                }
+            ],
+            message=f"Duplicate URL — existing job_id={existing.id}",
+        )
+
+    title_provided = bool((payload.title or "").strip())
+    company_provided = bool((payload.company or "").strip())
+    if not title_provided or not company_provided:
+        return WorkflowResult(
+            action="import_url",
+            success=0,
+            details=[
+                {
+                    "url": url,
+                    "status": "NEEDS_CONFIRMATION",
+                    "decision": "NEEDS_CONFIRMATION",
+                    "message": "URL-only import requires owner confirmation of title and company",
+                }
+            ],
+            message="NEEDS_CONFIRMATION: provide title and company, or use New Opportunity confirm flow",
+        )
+
     item = {
         "source": "user_forwarded_links",
-        "external_id": payload.url,
-        "title": payload.title or "Forwarded Role",
-        "company": payload.company or "Unknown Company",
-        "url": payload.url,
+        "external_id": url,
+        "title": payload.title,
+        "company": payload.company,
+        "url": url,
+        "canonical_url": url,
         "description_html": "",
-        "description_text": "User forwarded job link. Review manually.",
+        "description_text": "User forwarded job link. Owner-confirmed title/company.",
+        "owner_confirmed": True,
+        "manual_confirmed": True,
         "discovered_at": None,
     }
-    job = ingest_job(db, item, actor=current_user.email)
+    outcome = ingest_job_with_decision(db, item, actor=current_user.email, allow_discovered_at=True)
+    job = outcome.job
     return WorkflowResult(
         action="import_url",
-        success=1,
-        details=[{"job_id": job.id, "url": payload.url, "status": "ok", "decision": job.ingest_decision}],
+        success=1 if job else 0,
+        details=[
+            {
+                "job_id": job.id if job else None,
+                "url": url,
+                "status": "ok" if job else "rejected",
+                "decision": outcome.decision,
+            }
+        ],
     )
 
 

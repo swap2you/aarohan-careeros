@@ -163,7 +163,9 @@ class GreenhouseProvider(JobProvider):
         url = f"https://boards-api.greenhouse.io/v1/boards/{board_token}/jobs"
         payload = _http_get(url, params={"content": "true"})
         jobs = []
+        fetched_at = datetime.utcnow().isoformat()
         for item in payload.get("jobs", []):
+            posted = item.get("first_published") or item.get("updated_at")
             jobs.append(
                 {
                     "source": self.source_name,
@@ -171,9 +173,12 @@ class GreenhouseProvider(JobProvider):
                     "title": item.get("title", ""),
                     "company": board_token,
                     "location": (item.get("location") or {}).get("name"),
+                    "location_source": "greenhouse.location.name",
                     "description_html": item.get("content", ""),
                     "url": item.get("absolute_url", ""),
-                    "posted_at": item.get("updated_at"),
+                    "posted_at": posted,
+                    "provider_posted_at": posted,
+                    "connector_fetched_at": fetched_at,
                     "ats_job_id": str(item["id"]),
                 }
             )
@@ -321,7 +326,9 @@ class RemotiveProvider(JobProvider):
         url = "https://remotive.com/api/remote-jobs"
         payload = _http_get(url, params={"category": category})
         jobs = []
+        fetched_at = datetime.utcnow().isoformat()
         for item in payload.get("jobs", [])[:50]:
+            pub = item.get("publication_date")
             jobs.append(
                 {
                     "source": self.source_name,
@@ -329,10 +336,14 @@ class RemotiveProvider(JobProvider):
                     "title": item.get("title", ""),
                     "company": item.get("company_name", "Remotive"),
                     "location": item.get("candidate_required_location", "Remote"),
+                    "location_source": "remotive.candidate_required_location",
                     "description_html": item.get("description", ""),
                     "description_text": item.get("description", ""),
                     "url": item.get("url", ""),
-                    "posted_at": item.get("publication_date"),
+                    "posted_at": pub,
+                    "provider_posted_at": pub,
+                    "publication_date": pub,
+                    "connector_fetched_at": fetched_at,
                     "salary_min": _parse_int(item.get("salary_min")),
                     "salary_max": _parse_int(item.get("salary_max")),
                 }
@@ -366,9 +377,11 @@ class RemoteOkProvider(JobProvider):
         url = "https://remoteok.com/api"
         payload = _http_get(url, headers={"User-Agent": "AarohanCareOS/1.0 (personal use)"})
         jobs = []
+        fetched_at = datetime.utcnow().isoformat()
         for item in payload[1:51] if isinstance(payload, list) else []:
             if not isinstance(item, dict):
                 continue
+            posted = item.get("date") or item.get("epoch")
             jobs.append(
                 {
                     "source": self.source_name,
@@ -376,10 +389,13 @@ class RemoteOkProvider(JobProvider):
                     "title": item.get("position", ""),
                     "company": item.get("company", "Remote OK"),
                     "location": item.get("location", "Remote"),
+                    "location_source": "remote_ok.location",
                     "description_html": item.get("description", ""),
                     "description_text": item.get("description", ""),
                     "url": item.get("url") or f"https://remoteok.com/remote-jobs/{item.get('id')}",
-                    "posted_at": item.get("date"),
+                    "posted_at": posted,
+                    "provider_posted_at": posted,
+                    "connector_fetched_at": fetched_at,
                 }
             )
         return FetchResult(jobs=jobs, provenance={"provider": self.provider_id})
@@ -476,16 +492,25 @@ class AdzunaProvider(JobProvider):
             },
         )
         jobs = []
+        fetched_at = datetime.utcnow().isoformat()
         for item in payload.get("results", []):
+            loc = item.get("location") or {}
+            area = loc.get("area") or []
+            display = loc.get("display_name") or ", ".join(str(a) for a in area if a)
+            created = item.get("created")
             jobs.append(
                 {
                     "source": self.source_name,
                     "external_id": str(item.get("id", "")),
                     "title": item.get("title", ""),
                     "company": item.get("company", {}).get("display_name", "Adzuna"),
-                    "location": item.get("location", {}).get("display_name"),
+                    "location": display,
+                    "location_source": "adzuna.location.display_name",
                     "description_text": item.get("description", ""),
                     "url": item.get("redirect_url", ""),
+                    "posted_at": created,
+                    "provider_posted_at": created,
+                    "connector_fetched_at": fetched_at,
                     "salary_min": _parse_int((item.get("salary_min"))),
                     "salary_max": _parse_int((item.get("salary_max"))),
                 }
@@ -526,7 +551,10 @@ class JoobleProvider(JobProvider):
         url = f"https://jooble.org/api/{settings.jooble_api_key}"
         payload = _http_post(url, json_body={"keywords": keywords, "page": "1"})
         jobs = []
+        fetched_at = datetime.utcnow().isoformat()
         for item in payload.get("jobs", [])[:20]:
+            posted = item.get("updated") or item.get("date")
+            # Jooble often omits dates — connector fetched_at is low-trust fallback
             jobs.append(
                 {
                     "source": self.source_name,
@@ -534,8 +562,12 @@ class JoobleProvider(JobProvider):
                     "title": item.get("title", ""),
                     "company": item.get("company", "Jooble"),
                     "location": item.get("location"),
+                    "location_source": "jooble.location",
                     "description_text": item.get("snippet", ""),
                     "url": item.get("link", ""),
+                    "posted_at": posted,
+                    "provider_posted_at": posted,
+                    "connector_fetched_at": fetched_at,
                 }
             )
         return FetchResult(jobs=jobs, provenance={"provider": self.provider_id, "keywords": keywords})
@@ -582,8 +614,10 @@ class UsajobsProvider(JobProvider):
             response.raise_for_status()
             payload = response.json()
         jobs = []
+        fetched_at = datetime.utcnow().isoformat()
         for item in payload.get("SearchResult", {}).get("SearchResultItems", []):
             meta = item.get("MatchedObjectDescriptor", {})
+            pub_start = _usajobs_publication_start(meta)
             jobs.append(
                 {
                     "source": self.source_name,
@@ -591,8 +625,14 @@ class UsajobsProvider(JobProvider):
                     "title": meta.get("PositionTitle", ""),
                     "company": meta.get("OrganizationName", "US Government"),
                     "location": _usajobs_location(meta),
+                    "location_source": "usajobs.PositionLocation",
+                    "country_code": "US",
                     "description_text": meta.get("UserArea", {}).get("Details", {}).get("MajorDuties", [""])[0],
                     "url": meta.get("PositionURI", ""),
+                    "posted_at": pub_start,
+                    "provider_posted_at": pub_start,
+                    "application_close_date": _usajobs_close_date(meta),
+                    "connector_fetched_at": fetched_at,
                     "requisition_id": meta.get("PositionID"),
                 }
             )
@@ -638,10 +678,51 @@ def _parse_int(value: Any) -> int | None:
 
 
 def _usajobs_location(meta: dict) -> str | None:
-    locations = meta.get("PositionLocationDisplay", [])
-    if locations:
-        return locations[0]
+    """Join full USAJOBS location strings — never truncate to a single character."""
+    display = meta.get("PositionLocationDisplay")
+    if isinstance(display, str) and len(display.strip()) > 1:
+        return display.strip()
+    if isinstance(display, list):
+        parts = [str(p).strip() for p in display if p and str(p).strip() and len(str(p).strip()) > 1]
+        if parts:
+            return "; ".join(parts)
+    structured = meta.get("PositionLocation") or []
+    if isinstance(structured, list) and structured:
+        parts = []
+        for loc in structured:
+            if not isinstance(loc, dict):
+                continue
+            city = (loc.get("CityName") or "").strip()
+            state = (loc.get("CountrySubDivisionCode") or loc.get("StateCode") or "").strip()
+            country = (loc.get("CountryCode") or "").strip()
+            chunk = ", ".join(p for p in [city, state, country] if p)
+            if chunk and len(chunk) > 1:
+                parts.append(chunk)
+        if parts:
+            return "; ".join(parts)
     return None
+
+
+def _usajobs_publication_start(meta: dict) -> str | None:
+    for key in ("PublicationStartDate", "PositionStartDate", "ApplicationCloseDate"):
+        val = meta.get(key)
+        if val:
+            return str(val)
+    user_area = (meta.get("UserArea") or {}).get("Details") or {}
+    for key in ("PublicationStartDate", "ApplicationCloseDate"):
+        val = user_area.get(key)
+        if val:
+            return str(val)
+    return None
+
+
+def _usajobs_close_date(meta: dict) -> str | None:
+    val = meta.get("ApplicationCloseDate")
+    if val:
+        return str(val)
+    user_area = (meta.get("UserArea") or {}).get("Details") or {}
+    val = user_area.get("ApplicationCloseDate")
+    return str(val) if val else None
 
 
 PROVIDER_REGISTRY: dict[str, JobProvider] = {

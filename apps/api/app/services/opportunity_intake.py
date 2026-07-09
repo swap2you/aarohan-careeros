@@ -151,21 +151,36 @@ def parse_job_fields(
 
 
 def recommend_profiles(title: str, description: str) -> list[dict]:
-    haystack = f"{title} {description}".lower()
-    ranked: list[tuple[int, str]] = []
-    for profile_id, keywords in PROFILE_KEYWORDS.items():
-        score = sum(2 if kw in haystack else 0 for kw in keywords)
-        if score:
-            ranked.append((score, profile_id))
-    ranked.sort(key=lambda item: item[0], reverse=True)
+    """Recommend resume profiles using the same normalized title matching as eligibility."""
+    from app.services.job_eligibility import score_role_profiles
+
+    role_elig, role_reason, recommended, scores, matched, _norm = score_role_profiles(
+        {"title": title or "", "description_text": description or ""}
+    )
+    ranked: list[tuple[float, str]] = []
+    if recommended and scores.get(recommended, 0) > 0:
+        ranked.append((scores[recommended], recommended))
+    for pid, score in sorted(scores.items(), key=lambda item: item[1], reverse=True):
+        if score > 0 and pid != recommended:
+            ranked.append((score, pid))
+    # Fallback keyword scan for qe_leadership-style profiles not in discovery policy
     if not ranked:
-        ranked = [(1, "qe_leadership")]
+        from app.services.title_normalization import pattern_in_title
+
+        for profile_id, keywords in PROFILE_KEYWORDS.items():
+            score = sum(2 for kw in keywords if pattern_in_title(kw, title or ""))
+            if score:
+                ranked.append((float(score), profile_id))
+    if not ranked:
+        ranked = [(1.0, "qe_leadership")]
 
     results: list[dict] = []
     for score, profile_id in ranked[:3]:
         try:
             profile = load_resume_profile(profile_id)
-            reason = f"Matched {score // 2} role keyword(s) for {profile.get('name', profile_id)}."
+            reason = role_reason if profile_id == recommended else f"Matched normalized title for {profile.get('name', profile_id)}."
+            if matched and profile_id == recommended:
+                reason = f"Matched title pattern(s): {', '.join(matched[:3])}"
         except ValueError:
             profile = {"id": profile_id, "name": profile_id}
             reason = "Default profile recommendation."
@@ -175,6 +190,7 @@ def recommend_profiles(title: str, description: str) -> list[dict]:
                 "profile_name": profile.get("name", profile_id),
                 "reason": reason,
                 "score": score,
+                "role_eligibility": role_elig,
             }
         )
     return results
@@ -228,9 +244,15 @@ def confirm_opportunity(
 ) -> dict:
     payload = dict(fields)
     payload["data_provenance"] = PROVENANCE_MANUAL
+    payload["owner_confirmed"] = True
+    payload["manual_confirmed"] = True
+    if not payload.get("source"):
+        payload["source"] = "manual_opportunity"
+    if not payload.get("external_id"):
+        payload["external_id"] = payload.get("url") or payload.get("title") or "manual"
     if not payload.get("description_text"):
         raise ValueError("Description text is required after owner review.")
-    job = ingest_job(db, payload, actor=actor)
+    job = ingest_job(db, payload, actor=actor, allow_discovered_at=True)
     score_job(db, job)
     result: dict = {"job_id": job.id, "title": job.title, "company": job.company, "state": job.state}
     if generate_packet and resume_profile:

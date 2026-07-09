@@ -11,9 +11,9 @@
 
 Make Fresh Jobs trustworthy by enforcing:
 
-- 48-hour effective freshness
-- US / Central Pennsylvania geography eligibility
-- Target role-family gates
+- Freshness tiers: TODAY (0–24h), FRESH (24–72h), RECENT (72h–7d), HISTORICAL (>7d)
+- US / Central Pennsylvania geography eligibility (unknown → OWNER_REVIEW, not foreign)
+- Normalized title role-family gates (title-only matching)
 - Policy-driven discovery (no hardcoded GitLab public feed)
 - Gmail alert received-time propagation and digest normalization
 - Connector run persistence and honest health states
@@ -29,17 +29,17 @@ Canonical file: `config/job-discovery-policy.yml`
 
 | Gate | Rule |
 |------|------|
-| Freshness | `max_age_hours: 48`; unknown automated timestamp → quarantine |
-| Geography | US remote / US location / Harrisburg–Central PA hybrid accept; foreign-only reject; unspecified remote quarantine |
-| Roles | Primary TPM / QE manager / Director QE / Architect / AI-QE / Performance; secondary EM/SDET; generic eng/PM reject |
-| Salary | Published max below `$170,000` reject |
+| Freshness | TODAY/FRESH/RECENT visible by default; HISTORICAL hidden; unknown timestamp → OWNER_REVIEW for strong roles; never age out SHORTLISTED/PACKET_READY/SUBMITTED/INTERVIEW/OFFER/manual |
+| Geography | US remote / US city+state / Harrisburg–Central PA hybrid accept; foreign-only reject; unspecified remote → OWNER_REVIEW |
+| Roles | Normalized title patterns for TPM / QE manager / Director QE / Architect / AI-QE / Performance; reject sales/CS/people/backend-only/PM-only |
+| Salary | Ranking bands TARGET/STRONG/REVIEW/UNKNOWN — never hard reject on compensation alone |
 | Sources | Adzuna/Jooble/USAJOBS/Remotive/Remote OK/RSS when configured; Greenhouse/Lever/Ashby only with explicit `approved_boards` (default empty) |
 
 Effective freshness timestamp order:
 
-1. `provider_posted_at` / `posted_at`
+1. `provider_posted_at` / `posted_at` / publication date
 2. else `source_received_at` (Gmail)
-3. else `discovered_at` only for manual/user-forwarded jobs
+3. else connector `fetched_at` / `discovered_at` as LOW_TRUST (`FRESHNESS_FALLBACK_USED`)
 
 ---
 
@@ -47,14 +47,14 @@ Effective freshness timestamp order:
 
 | Source | Mode | Notes |
 |--------|------|-------|
-| LinkedIn / Indeed alerts | Gmail labels | One digest entry → one job; `received_at` → `source_received_at` |
-| Adzuna / Jooble / USAJOBS | API campaign | Included when keys configured |
-| Remotive / Remote OK | Public API | US eligibility required |
+| LinkedIn / Indeed alerts | Gmail labels | One `/jobs/view/<id>` → one job; `received_at` → `source_received_at`; never "LinkedIn job alert" titles |
+| Adzuna / Jooble / USAJOBS | API campaign | Created/updated/PublicationStartDate + full location hierarchy |
+| Remotive / Remote OK | Public API | publication_date / date-epoch; US eligibility required |
 | RSS | Configured feeds | Policy gates applied |
 | Greenhouse / Lever / Ashby | Company boards | **Not** default public feed; require `approved_boards` |
 | Fixture | Test only | Hidden from owner Fresh Jobs |
 
-`POST /api/workflows/ingest/public` now runs `discover_fresh_jobs` internally (UI button path preserved).
+`POST /api/workflows/ingest/public` now runs `discover_fresh_jobs` internally (UI button path preserved). Status text reports sources attempted/skipped, fetched, accepted, owner_review, quarantined, rejected, duplicates, source errors.
 
 ---
 
@@ -62,10 +62,13 @@ Effective freshness timestamp order:
 
 Focused suites:
 
-- `tests/test_fresh_jobs_eligibility.py` — geography, freshness, roles, URLs
-- `tests/test_gmail_fresh_jobs.py` — digest split + received_at
+- `tests/test_fresh_jobs_eligibility.py` — geography, freshness tiers, roles, salary, GitLab false positives
+- `tests/test_gmail_fresh_jobs.py` — digest split + received_at + idempotent sync
+- `tests/test_manual_url_import.py` — NEEDS_CONFIRMATION + owner-confirmed opportunities
+- `tests/test_connector_field_mapping.py` — USAJOBS location/timestamp mapping
 - `tests/test_connector_runs.py` — persistence + discovery endpoint
 - `tests/test_jobs_list.py` — Fresh Jobs defaults + no GitLab hardcode
+- `tests/test_audit_fresh_jobs.py` — dry-run never writes
 
 Full API suite run as part of lock validation (see CI).
 

@@ -40,24 +40,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const refreshSession = useCallback(async () => {
-    const response = await fetch(`${API_BASE}/api/auth/session`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      redirectToLogin("session_expired");
-      return;
-    }
-    const data = await response.json();
-    if (!data.authenticated) {
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/session`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        redirectToLogin("session_expired");
+        return;
+      }
+      const data = await response.json();
+      if (!data.authenticated) {
+        redirectToLogin(pathname === "/login" ? undefined : "session_expired");
+        return;
+      }
+      setUser(data.user);
+      setStatus("authenticated");
+      if (pathname === "/login") {
+        const returnTo = searchParams.get("returnTo") || "/";
+        router.replace(returnTo.startsWith("/") ? returnTo : "/");
+      }
+    } catch {
       redirectToLogin(pathname === "/login" ? undefined : "session_expired");
-      return;
-    }
-    setUser(data.user);
-    setStatus("authenticated");
-    if (pathname === "/login") {
-      const returnTo = searchParams.get("returnTo") || "/";
-      router.replace(returnTo.startsWith("/") ? returnTo : "/");
     }
   }, [pathname, redirectToLogin, router, searchParams]);
 

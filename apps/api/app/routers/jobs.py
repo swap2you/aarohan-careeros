@@ -36,7 +36,7 @@ def _apply_fresh_jobs_defaults(
     country_eligibility: str | None,
     relax_fresh_defaults: bool,
 ):
-    """Owner Fresh Jobs defaults: eligible, <=48h, not archived/expired/quarantined."""
+    """Owner Fresh Jobs defaults: eligible, TODAY/FRESH/RECENT (<=7d), not archived/quarantined."""
     if not relax_fresh_defaults:
         query = query.filter(Job.eligible_for_owner.is_(True))
         query = query.filter(Job.is_archived.is_(False))
@@ -44,9 +44,28 @@ def _apply_fresh_jobs_defaults(
         query = query.filter(~Job.state.in_([WorkflowState.REJECTED.value, WorkflowState.CLOSED.value]))
         age_hours = max_age_hours if max_age_hours is not None else freshness_max_age_hours()
         cutoff = datetime.utcnow() - timedelta(hours=age_hours)
+        # Protected workflow states never age out solely due to freshness.
+        protected = [
+            WorkflowState.SHORTLISTED.value,
+            WorkflowState.PACKET_READY.value,
+            WorkflowState.PACKET_GENERATING.value,
+            WorkflowState.NEEDS_EDIT.value,
+            WorkflowState.APPROVED_FOR_SUBMISSION.value,
+            WorkflowState.SUBMITTED.value,
+            WorkflowState.FOLLOW_UP_DUE.value,
+            WorkflowState.RECRUITER_SIGNAL.value,
+            WorkflowState.INTERVIEW_SIGNAL.value,
+            WorkflowState.INTERVIEW_SCHEDULED.value,
+            WorkflowState.OFFER.value,
+        ]
         query = query.filter(
-            Job.effective_freshness_at.isnot(None),
-            Job.effective_freshness_at >= cutoff,
+            or_(
+                Job.state.in_(protected),
+                and_(
+                    Job.effective_freshness_at.isnot(None),
+                    Job.effective_freshness_at >= cutoff,
+                ),
+            )
         )
         if not include_quarantined:
             query = query.filter(

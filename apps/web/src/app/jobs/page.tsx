@@ -122,8 +122,23 @@ export default function JobsPage() {
       method: "POST",
       body: body ? JSON.stringify(body) : undefined,
     });
-    const data: WorkflowResult = await response.json();
-    setStatus(`${data.action}: success=${data.success}, failed=${data.failed}`);
+    const data: WorkflowResult & {
+      message?: string;
+      fetched?: number;
+      accepted?: number;
+      owner_review?: number;
+      quarantined?: number;
+      rejected?: number;
+      duplicates?: number;
+      sources_attempted?: unknown[];
+      sources_skipped?: unknown[];
+      source_errors?: unknown[];
+    } = await response.json();
+    if (data.message) {
+      setStatus(`${data.action}: ${data.message}`);
+    } else {
+      setStatus(`${data.action}: success=${data.success}, failed=${data.failed}`);
+    }
     await load();
   }
 

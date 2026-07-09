@@ -17,11 +17,20 @@ def clear_discovery_policy_cache() -> None:
 
 
 def freshness_max_age_hours() -> int:
-    return int(job_discovery_policy().get("freshness", {}).get("max_age_hours", 48))
+    """Default Fresh Jobs visibility window (TODAY+FRESH+RECENT = 7 days)."""
+    freshness = job_discovery_policy().get("freshness", {})
+    if "recent_hours" in freshness:
+        return int(freshness["recent_hours"])
+    return int(freshness.get("max_age_hours", 168))
+
+
+def salary_strong_usd() -> int:
+    return int(job_discovery_policy().get("salary", {}).get("strong_max_usd", 170000))
 
 
 def salary_minimum_usd() -> int:
-    return int(job_discovery_policy().get("minimums", {}).get("published_salary_max_usd", 170000))
+    # Legacy alias — compensation is ranking-only; strong band is the preference floor.
+    return salary_strong_usd()
 
 
 def owner_visible_fit_score() -> float:

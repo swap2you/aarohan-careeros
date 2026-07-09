@@ -1,26 +1,34 @@
-"""Workflow Lock 01 — Fresh Jobs eligibility, freshness, geography, and role gates."""
+"""Workflow Lock 01 correction — eligibility, freshness tiers, geography, roles, salary."""
 
 from datetime import datetime, timedelta
 
 from app.services.job_eligibility import (
     AMBIGUOUS,
+    COMPENSATION_REVIEW,
     DECISION_ACCEPT,
+    DECISION_HISTORICAL,
+    DECISION_OWNER_REVIEW,
     DECISION_QUARANTINE,
     DECISION_REJECT,
-    DECISION_SECONDARY,
     ELIGIBLE_LOCAL,
     ELIGIBLE_US,
     FOREIGN_ONLY,
     INELIGIBLE_FOREIGN,
     REMOTE_ELIGIBILITY_AMBIGUOUS,
     ROLE_OUT_OF_SCOPE,
+    SALARY_REVIEW,
     SAVED_SEARCH_URL_NOT_JOB_URL,
-    STALE_OVER_48_HOURS,
+    STALE_HISTORICAL,
     TIMESTAMP_UNKNOWN,
+    TIER_FRESH,
+    TIER_HISTORICAL,
+    TIER_RECENT,
+    TIER_TODAY,
     evaluate_eligibility,
     evaluate_location,
     is_saved_search_url,
 )
+from app.services.title_normalization import normalize_title, pattern_in_title
 
 
 def _base(**overrides):
@@ -36,6 +44,102 @@ def _base(**overrides):
     }
     payload.update(overrides)
     return payload
+
+
+# --- 1. GitLab false positives must fail owner eligibility ---
+GITLAB_FALSE_POSITIVES = [
+    "Commercial Account Executive - Nordics",
+    "Customer Success Engineer, India",
+    "Customer Success Manager - Australia",
+    "New Business Account Executive - Nordics",
+    "Renewals Manager - Australia",
+    "Senior Professional Services Engineer - Japan",
+    "People Business Partner Leader",
+    "Backend Engineer",
+]
+
+
+def test_gitlab_false_positives_rejected():
+    for title in GITLAB_FALSE_POSITIVES:
+        result = evaluate_eligibility(
+            _base(
+                title=title,
+                company="GitLab",
+                source="greenhouse_public_get",
+                location="Remote",
+                description_text="Join GitLab. Quality engineering culture. Program managers welcome.",
+            )
+        )
+        assert result.decision == DECISION_REJECT, f"{title} -> {result.decision} {result.reason_codes}"
+        assert result.owner_visible is False
+        assert ROLE_OUT_OF_SCOPE in result.reason_codes or FOREIGN_ONLY in result.reason_codes
+
+
+def test_gitlab_foreign_roles_rejected_by_geography():
+    for title, loc in [
+        ("Customer Success Engineer, India", "India"),
+        ("Customer Success Manager - Australia", "Australia"),
+        ("Senior Professional Services Engineer - Japan", "Japan"),
+        ("Commercial Account Executive - Nordics", "Nordics / EMEA"),
+    ]:
+        result = evaluate_eligibility(_base(title=title, location=loc, company="GitLab"))
+        assert result.decision == DECISION_REJECT
+        assert result.owner_visible is False
+
+
+# --- 2 & 3. Target titles + punctuation ---
+TARGET_TITLES = [
+    ("Director, Quality Engineering", "director_qe"),
+    ("Director Quality Engineering - Digital Products", "director_qe"),
+    ("Director, Quality Engineering & Platform Reliability", "director_qe"),
+    ("Senior Manager, Quality Engineering", "qe_manager"),
+    ("Manager, Quality Engineering (Automation)", "qe_manager"),
+    ("QA Engineering Manager", "qe_manager"),
+    ("Head of Observability & Quality Engineering", "director_qe"),
+    ("Head of Quality Assurance and Technical Enablement", "director_qe"),
+    ("Principal Quality Engineer", "platform_architect"),
+    ("Remote Senior Manager, ACAS Quality Engineering", "qe_manager"),
+]
+
+
+def test_target_titles_match_profiles():
+    for title, profile in TARGET_TITLES:
+        result = evaluate_eligibility(_base(title=title))
+        assert result.decision == DECISION_ACCEPT, f"{title} -> {result.decision} {result.reasons}"
+        assert result.recommended_profile == profile, f"{title} -> {result.recommended_profile}"
+        assert result.normalized_title
+
+
+def test_punctuation_does_not_break_role_matching():
+    assert pattern_in_title("director quality engineering", "Director, Quality Engineering")
+    assert pattern_in_title(
+        "director quality engineering",
+        "Director, Quality Engineering & Platform Reliability",
+    )
+    assert pattern_in_title("manager quality engineering", "Manager, Quality Engineering (Automation)")
+    assert normalize_title("Head of Observability & Quality Engineering") == (
+        "head of observability and quality engineering"
+    )
+
+
+# --- 4 & 5. Geography ---
+def test_atlanta_and_northford_classify_as_us():
+    for loc in ["Atlanta, Fulton County, GA", "Atlanta, GA", "Northford, New Haven County, CT", "Northford, CT"]:
+        loc_elig, reason, country, state, _ = evaluate_location({"title": "QE Manager", "location": loc})
+        assert loc_elig == ELIGIBLE_US, f"{loc} -> {loc_elig} {reason}"
+        assert country == "US"
+        result = evaluate_eligibility(_base(title="Quality Engineering Manager", location=loc))
+        assert result.decision == DECISION_ACCEPT
+        assert FOREIGN_ONLY not in result.reason_codes
+
+
+def test_foreign_india_japan_australia_nordics_emea_rejected():
+    for loc in ["Bangalore, India", "Tokyo, Japan", "Sydney, Australia", "Stockholm, Nordics", "EMEA Remote"]:
+        result = evaluate_eligibility(
+            _base(title="Quality Engineering Manager", location=loc, description_text=f"Role based in {loc}")
+        )
+        assert result.decision == DECISION_REJECT
+        assert FOREIGN_ONLY in result.reason_codes
 
 
 def test_us_remote_accepted():
@@ -57,64 +161,16 @@ def test_pennsylvania_hybrid_accepted():
     assert result.location_eligibility in {ELIGIBLE_LOCAL, ELIGIBLE_US}
 
 
-def test_canada_only_remote_rejected():
-    result = evaluate_eligibility(
-        _base(location="Remote, Canada", description_text="Remote Canada only. Must work in Canada.")
-    )
-    assert result.decision == DECISION_REJECT
-    assert FOREIGN_ONLY in result.reason_codes
-    assert result.location_eligibility == INELIGIBLE_FOREIGN
-
-
-def test_bangalore_only_rejected():
-    result = evaluate_eligibility(_base(location="Bangalore, India", description_text="Onsite Bangalore"))
-    assert result.decision == DECISION_REJECT
-    assert FOREIGN_ONLY in result.reason_codes
-
-
-def test_france_only_rejected():
-    result = evaluate_eligibility(_base(location="Paris, France", description_text="Europe only"))
-    assert result.decision == DECISION_REJECT
-
-
-def test_unspecified_remote_quarantined():
+def test_unspecified_remote_owner_review():
     result = evaluate_eligibility(
         _base(location="Remote", description_text="Fully remote role. Work from anywhere.")
     )
-    assert result.decision == DECISION_QUARANTINE
+    assert result.decision == DECISION_OWNER_REVIEW
     assert REMOTE_ELIGIBILITY_AMBIGUOUS in result.reason_codes
     assert result.location_eligibility == AMBIGUOUS
 
 
-def test_24h_job_accepted():
-    posted = datetime.utcnow() - timedelta(hours=12)
-    result = evaluate_eligibility(_base(posted_at=posted.isoformat()))
-    assert result.decision == DECISION_ACCEPT
-    assert result.freshness_bucket == "NEW"
-
-
-def test_48h_boundary_accepted():
-    posted = datetime.utcnow() - timedelta(hours=47, minutes=30)
-    result = evaluate_eligibility(_base(posted_at=posted.isoformat()))
-    assert result.decision == DECISION_ACCEPT
-    assert result.freshness_bucket == "RECENT"
-
-
-def test_older_than_48h_rejected():
-    posted = datetime.utcnow() - timedelta(hours=60)
-    result = evaluate_eligibility(_base(posted_at=posted.isoformat()))
-    assert result.decision == DECISION_REJECT
-    assert STALE_OVER_48_HOURS in result.reason_codes
-
-
-def test_missing_automated_timestamp_quarantined():
-    payload = _base()
-    payload.pop("posted_at")
-    result = evaluate_eligibility(payload)
-    assert result.decision == DECISION_QUARANTINE
-    assert TIMESTAMP_UNKNOWN in result.reason_codes
-
-
+# --- 7–12. Freshness tiers ---
 def test_gmail_received_at_becomes_effective_freshness():
     received = datetime.utcnow() - timedelta(hours=6)
     payload = _base()
@@ -124,7 +180,93 @@ def test_gmail_received_at_becomes_effective_freshness():
     result = evaluate_eligibility(payload)
     assert result.decision == DECISION_ACCEPT
     assert result.freshness_source == "source_received_at"
-    assert result.effective_freshness_at is not None
+    assert result.freshness_tier == TIER_TODAY
+
+
+def test_today_tier_0_24h():
+    posted = datetime.utcnow() - timedelta(hours=12)
+    result = evaluate_eligibility(_base(posted_at=posted.isoformat()))
+    assert result.decision == DECISION_ACCEPT
+    assert result.freshness_tier == TIER_TODAY
+    assert result.owner_visible is True
+
+
+def test_fresh_tier_25_72h():
+    posted = datetime.utcnow() - timedelta(hours=36)
+    result = evaluate_eligibility(_base(posted_at=posted.isoformat()))
+    assert result.decision == DECISION_ACCEPT
+    assert result.freshness_tier == TIER_FRESH
+    assert result.owner_visible is True
+
+
+def test_recent_tier_3_7_days():
+    posted = datetime.utcnow() - timedelta(days=4)
+    result = evaluate_eligibility(_base(posted_at=posted.isoformat()))
+    assert result.decision == DECISION_ACCEPT
+    assert result.freshness_tier == TIER_RECENT
+    assert result.owner_visible is True
+
+
+def test_historical_over_seven_days():
+    posted = datetime.utcnow() - timedelta(days=8)
+    result = evaluate_eligibility(_base(posted_at=posted.isoformat()))
+    assert result.decision == DECISION_HISTORICAL
+    assert result.freshness_tier == TIER_HISTORICAL
+    assert STALE_HISTORICAL in result.reason_codes
+    assert result.owner_visible is False
+
+
+def test_shortlisted_never_hidden_by_age():
+    posted = datetime.utcnow() - timedelta(days=30)
+    result = evaluate_eligibility(
+        _base(posted_at=posted.isoformat(), state="SHORTLISTED", title="Director, Quality Engineering")
+    )
+    assert result.freshness_tier == TIER_HISTORICAL
+    assert result.decision == DECISION_ACCEPT
+    assert result.owner_visible is True
+    assert STALE_HISTORICAL not in result.reason_codes
+
+
+def test_packet_ready_never_hidden_by_age():
+    posted = datetime.utcnow() - timedelta(days=20)
+    result = evaluate_eligibility(
+        _base(posted_at=posted.isoformat(), state="PACKET_READY", title="QA Engineering Manager")
+    )
+    assert result.decision == DECISION_ACCEPT
+    assert result.owner_visible is True
+    assert STALE_HISTORICAL not in result.reason_codes
+
+
+def test_timestamp_unknown_strong_role_owner_review():
+    payload = _base(title="Senior Director, Quality Engineering & Observability")
+    payload.pop("posted_at")
+    result = evaluate_eligibility(payload)
+    assert result.decision == DECISION_OWNER_REVIEW
+    assert TIMESTAMP_UNKNOWN in result.reason_codes
+    assert result.recommended_profile == "director_qe"
+
+
+# --- 13. Salary ---
+def test_salary_below_170k_is_review_not_reject():
+    result = evaluate_eligibility(
+        _base(title="Director, Quality Engineering", salary_max=150000, salary_min=140000)
+    )
+    assert result.decision == DECISION_ACCEPT
+    assert result.salary_tier == SALARY_REVIEW
+    assert COMPENSATION_REVIEW in result.reason_codes
+    assert result.owner_visible is True
+
+
+# --- 14. Audit/live identical ---
+def test_audit_and_live_identical_decisions():
+    payload = _base(title="Director, Quality Engineering", location="Atlanta, GA")
+    a = evaluate_eligibility(payload)
+    b = evaluate_eligibility(dict(payload))
+    assert a.decision == b.decision
+    assert a.reason_codes == b.reason_codes
+    assert a.recommended_profile == b.recommended_profile
+    assert a.freshness_tier == b.freshness_tier
+    assert a.salary_tier == b.salary_tier
 
 
 def test_linkedin_saved_search_url_rejected():
@@ -134,30 +276,6 @@ def test_linkedin_saved_search_url_rejected():
     )
     assert result.decision == DECISION_REJECT
     assert SAVED_SEARCH_URL_NOT_JOB_URL in result.reason_codes
-
-
-def test_target_tpm_accepted():
-    result = evaluate_eligibility(_base(title="Senior Technical Program Manager"))
-    assert result.decision == DECISION_ACCEPT
-    assert result.recommended_profile == "tpm_delivery"
-
-
-def test_target_qe_manager_accepted():
-    result = evaluate_eligibility(_base(title="Senior Manager, Quality Engineering"))
-    assert result.decision == DECISION_ACCEPT
-    assert result.recommended_profile == "qe_manager"
-
-
-def test_director_qe_accepted():
-    result = evaluate_eligibility(_base(title="Director of Quality Engineering"))
-    assert result.decision == DECISION_ACCEPT
-    assert result.recommended_profile == "director_qe"
-
-
-def test_principal_architect_accepted():
-    result = evaluate_eligibility(_base(title="Quality Engineering Architect"))
-    assert result.decision == DECISION_ACCEPT
-    assert result.recommended_profile == "platform_architect"
 
 
 def test_generic_backend_engineer_rejected():
@@ -179,7 +297,7 @@ def test_profile_scores_generated():
 
 
 def test_foreign_remote_ok_style_rejected():
-    loc, _ = evaluate_location(
+    loc, reason, *_ = evaluate_location(
         {
             "title": "Remote Software Engineer",
             "location": "Remote (India)",

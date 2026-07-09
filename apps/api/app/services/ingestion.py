@@ -16,6 +16,8 @@ from app.services.job_eligibility import (
     CLOSED_POSTING,
     DECISION_ACCEPT,
     DECISION_DUPLICATE,
+    DECISION_HISTORICAL,
+    DECISION_OWNER_REVIEW,
     DECISION_QUARANTINE,
     DECISION_REJECT,
     DECISION_SECONDARY,
@@ -51,10 +53,10 @@ class IngestOutcome:
 def _decision_to_state(decision: str) -> str:
     if decision == DECISION_ACCEPT:
         return WorkflowState.NORMALIZED.value
-    if decision == DECISION_SECONDARY:
+    if decision in {DECISION_SECONDARY, DECISION_QUARANTINE, DECISION_OWNER_REVIEW}:
         return WorkflowState.SECONDARY_REVIEW.value
-    if decision == DECISION_QUARANTINE:
-        return WorkflowState.SECONDARY_REVIEW.value
+    if decision == DECISION_HISTORICAL:
+        return WorkflowState.CLOSED.value
     if decision == DECISION_REJECT:
         return WorkflowState.REJECTED.value
     return WorkflowState.NORMALIZED.value
@@ -141,7 +143,8 @@ def ingest_job_with_decision(
         eligibility = EligibilityResult(decision=DECISION_ACCEPT)
         eligibility.freshness_source = "discovered_at"
         eligibility.effective_freshness_at = datetime.utcnow()
-        eligibility.freshness_bucket = "NEW"
+        eligibility.freshness_bucket = "TODAY"
+        eligibility.freshness_tier = "TODAY"
         eligibility.freshness_hours = 0.0
         eligibility.location_eligibility = "ELIGIBLE_US"
         eligibility.role_eligibility = "primary"
@@ -183,13 +186,22 @@ def ingest_job_with_decision(
             posted_at = raw_posted
 
     provenance = infer_provenance(source, explicit=payload.get("data_provenance"), payload=payload)
-    eligible_for_owner = decision == DECISION_ACCEPT and provenance not in {"fixture", "test"}
+    owner_confirmed = bool(payload.get("owner_confirmed") or payload.get("manual_confirmed"))
+    eligible_for_owner = (
+        decision == DECISION_ACCEPT and provenance not in {"fixture", "test"}
+    ) or (
+        owner_confirmed
+        and decision not in {DECISION_REJECT, DECISION_DUPLICATE}
+        and provenance not in {"fixture", "test"}
+    )
     if decision == DECISION_DUPLICATE:
         eligible_for_owner = False
         state = WorkflowState.SECONDARY_REVIEW.value
     else:
         state = _decision_to_state(decision)
-    is_archived = decision == DECISION_REJECT and CLOSED_POSTING in (eligibility.reason_codes or [])
+    is_archived = decision in {DECISION_REJECT, DECISION_HISTORICAL} and (
+        CLOSED_POSTING in (eligibility.reason_codes or []) or decision == DECISION_HISTORICAL
+    )
 
     job = Job(
         source=source,
@@ -268,7 +280,13 @@ def ingest_job_with_decision(
     )
 
 
-def ingest_job(db: Session, payload: dict, *, actor: str = "system") -> Job:
+def ingest_job(
+    db: Session,
+    payload: dict,
+    *,
+    actor: str = "system",
+    allow_discovered_at: bool = False,
+) -> Job:
     """Backward-compatible ingest used by existing callers.
 
     Fixture/test provenance skips Fresh Jobs gates so controlled tests still work.
@@ -281,7 +299,9 @@ def ingest_job(db: Session, payload: dict, *, actor: str = "system") -> Job:
         payload,
         actor=actor,
         skip_eligibility=skip,
-        allow_discovered_at=payload.get("source") == "user_forwarded_links",
+        allow_discovered_at=allow_discovered_at
+        or payload.get("source") in {"user_forwarded_links", "manual_opportunity"}
+        or bool(payload.get("owner_confirmed")),
         persist_rejects=True,
     )
     if outcome.job is None:
