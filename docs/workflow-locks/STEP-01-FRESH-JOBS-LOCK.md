@@ -152,6 +152,7 @@ Exact owner DB before/after counts come from the audit dry-run report.
 - UI lock commit (preserved, no redesign in Lock 01): `c08d60890d1ed7301eb21c8b79f81886de93ae6b`
 - Lock 01 discovery tip (pre audit-runner fix): `3b36209cf16ad01a76df9ef378039b8b7ce66cb2`
 - Prior green CI: https://github.com/swap2you/aarohan-careeros/actions/runs/29030690427
-- Audit-runner repair commit / CI: _(filled after push)_
+- Audit-runner repair commit: `ba52702420dc72258d82df0145fbe57c9b61100a`
+- Audit-runner CI: https://github.com/swap2you/aarohan-careeros/actions/runs/29037979044
 
 **Status remains READY_FOR_OWNER_VALIDATION. Do not mark LOCKED until owner checklist is complete.**
