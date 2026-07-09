@@ -437,11 +437,27 @@ pwsh .\scripts\validation\Verify-Full-R2.ps1 -SkipPlaywright
 
 ### Layer 3 — PostgreSQL integration tests (Docker)
 
-Local pytest skips 8 tests without PostgreSQL. Run in container:
+Local pytest skips 8 tests without PostgreSQL. **Never run these against the owner
+`career_os` database** — they reset the public schema. Use the isolated E2E DB:
 
 ```powershell
-docker compose exec -T api pytest tests/test_migrations.py tests/test_duplicate_risk_postgres.py -q
+# Ensure career_os_e2e exists (Start-Aarohan-E2E.ps1 creates it)
+docker compose exec -T postgres psql -U career_os -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='career_os_e2e'" | findstr 1
+if ($LASTEXITCODE -ne 0) {
+  docker compose exec -T postgres psql -U career_os -d postgres -c "CREATE DATABASE career_os_e2e OWNER career_os;"
+}
+
+docker compose exec -T `
+  -e DATABASE_URL=postgresql+psycopg://career_os:${env:POSTGRES_PASSWORD}@postgres:5432/career_os_e2e `
+  api pytest tests/test_migrations.py tests/test_duplicate_risk_postgres.py -q
 ```
+
+Schema-reset helpers refuse `career_os` unless the URL is the CI ephemeral
+`testpass` service database.
+
+**Do not** run `docker compose exec -T api pytest tests/test_migrations.py
+tests/test_duplicate_risk_postgres.py` against the owner API container — that
+container’s `DATABASE_URL` points at owner `career_os` and will wipe it.
 
 ### Layer 4 — Playwright E2E
 
