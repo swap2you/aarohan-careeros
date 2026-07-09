@@ -250,10 +250,10 @@ class LeverProvider(JobProvider):
             {
                 "source": self.source_name,
                 "external_id": "lever-fixture-1",
-                "title": "Director QE",
+                "title": "Director of Quality Engineering",
                 "company": "fixture-co",
-                "location": "Remote, US",
-                "description_text": "Lever fixture job",
+                "location": "Remote, United States",
+                "description_text": "Lever fixture job for US quality leadership.",
                 "url": "https://example.com/lever/fixture",
                 "posted_at": datetime.utcnow().isoformat(),
             }

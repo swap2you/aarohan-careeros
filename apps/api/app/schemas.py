@@ -29,8 +29,12 @@ class JobIngestRequest(BaseModel):
     description_html: str = ""
     description_text: str | None = None
     posted_at: datetime | str | None = None
+    source_received_at: datetime | str | None = None
+    received_at: datetime | str | None = None
+    provider_posted_at: datetime | str | None = None
     requisition_id: str | None = None
     ats_job_id: str | None = None
+    data_provenance: str | None = None
 
 
 class JobScoreOut(BaseModel):
@@ -76,6 +80,13 @@ class JobOut(BaseModel):
     source_verified: bool = False
     match_summary: str | None = None
     data_provenance: str = "live"
+    eligible_for_owner: bool = False
+    ingest_decision: str | None = None
+    location_eligibility: str | None = None
+    recommended_profile: str | None = None
+    effective_freshness_at: datetime | None = None
+    freshness_source: str | None = None
+    freshness_bucket: str | None = None
     score: JobScoreOut | None = None
 
     model_config = {"from_attributes": True}
@@ -151,6 +162,8 @@ class InterviewPackOut(BaseModel):
 
 class AnalyticsOut(BaseModel):
     total_jobs: int
+    fresh_jobs: int = 0
+    historical_jobs: int = 0
     shortlisted_jobs: int
     applications_ready: int
     submitted_applications: int

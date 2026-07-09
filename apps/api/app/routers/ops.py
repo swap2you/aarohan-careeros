@@ -32,8 +32,28 @@ def deployment_environment(_: User = Depends(get_current_user)) -> dict:
 
 @router.get("/analytics", response_model=AnalyticsOut)
 def analytics(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> AnalyticsOut:
+    from datetime import datetime, timedelta
+
+    from app.services.discovery_policy import freshness_max_age_hours
+    from app.services.provenance import OWNER_EXCLUDED
+
+    owner_jobs = db.query(Job).filter(~Job.data_provenance.in_(OWNER_EXCLUDED))
+    total_historical = owner_jobs.count()
+    cutoff = datetime.utcnow() - timedelta(hours=freshness_max_age_hours())
+    fresh = (
+        owner_jobs.filter(
+            Job.eligible_for_owner.is_(True),
+            Job.is_archived.is_(False),
+            Job.is_expired.is_(False),
+            Job.effective_freshness_at.isnot(None),
+            Job.effective_freshness_at >= cutoff,
+            Job.ingest_decision == "ACCEPT",
+        ).count()
+    )
     return AnalyticsOut(
-        total_jobs=db.query(Job).count(),
+        total_jobs=fresh,
+        fresh_jobs=fresh,
+        historical_jobs=total_historical,
         shortlisted_jobs=db.query(Job).filter(Job.state == WorkflowState.SHORTLISTED.value).count(),
         applications_ready=db.query(Application)
         .filter(Application.state == WorkflowState.PACKET_READY.value)

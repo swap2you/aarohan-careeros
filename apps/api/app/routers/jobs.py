@@ -1,5 +1,7 @@
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import asc, desc
+from sqlalchemy import and_, asc, desc, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -7,6 +9,7 @@ from app.dependencies import get_current_user
 from app.integrations.job_sources import FixtureFeedAdapter, GreenhouseAdapter, LeverAdapter
 from app.models import Job, JobScore, User, WorkflowState
 from app.schemas import JobIngestRequest, JobOut
+from app.services.discovery_policy import freshness_max_age_hours
 from app.services.job_detail import build_job_detail
 from app.services.ingestion import ingest_job
 from app.services.provenance import OWNER_EXCLUDED, infer_provenance
@@ -19,6 +22,56 @@ def _owner_jobs_query(db: Session, *, include_fixture: bool = False):
     query = db.query(Job)
     if not include_fixture:
         query = query.filter(~Job.data_provenance.in_(OWNER_EXCLUDED))
+    return query
+
+
+def _apply_fresh_jobs_defaults(
+    query,
+    *,
+    max_age_hours: int | None,
+    eligibility: str | None,
+    include_archived: bool,
+    include_quarantined: bool,
+    recommended_profile: str | None,
+    country_eligibility: str | None,
+    relax_fresh_defaults: bool,
+):
+    """Owner Fresh Jobs defaults: eligible, <=48h, not archived/expired/quarantined."""
+    if not relax_fresh_defaults:
+        query = query.filter(Job.eligible_for_owner.is_(True))
+        query = query.filter(Job.is_archived.is_(False))
+        query = query.filter(Job.is_expired.is_(False))
+        query = query.filter(~Job.state.in_([WorkflowState.REJECTED.value, WorkflowState.CLOSED.value]))
+        age_hours = max_age_hours if max_age_hours is not None else freshness_max_age_hours()
+        cutoff = datetime.utcnow() - timedelta(hours=age_hours)
+        query = query.filter(
+            Job.effective_freshness_at.isnot(None),
+            Job.effective_freshness_at >= cutoff,
+        )
+        if not include_quarantined:
+            query = query.filter(
+                or_(
+                    Job.ingest_decision == "ACCEPT",
+                    Job.ingest_decision.is_(None),
+                )
+            )
+    else:
+        if max_age_hours is not None:
+            cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+            query = query.filter(
+                or_(Job.effective_freshness_at.is_(None), Job.effective_freshness_at >= cutoff)
+            )
+        if not include_archived:
+            query = query.filter(Job.is_archived.is_(False))
+        if eligibility == "eligible":
+            query = query.filter(Job.eligible_for_owner.is_(True))
+        elif eligibility == "ineligible":
+            query = query.filter(Job.eligible_for_owner.is_(False))
+
+    if recommended_profile:
+        query = query.filter(Job.recommended_profile == recommended_profile)
+    if country_eligibility:
+        query = query.filter(Job.location_eligibility == country_eligibility)
     return query
 
 
@@ -36,10 +89,29 @@ def list_jobs(
     sort_by: str = Query("newest", pattern="^(newest|fit|trust|salary|company|title)$"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     include_fixture: bool = False,
+    max_age_hours: int | None = Query(None, ge=1, le=8760),
+    eligibility: str | None = Query(None, pattern="^(eligible|ineligible|all)$"),
+    include_archived: bool = False,
+    include_quarantined: bool = False,
+    recommended_profile: str | None = None,
+    country_eligibility: str | None = None,
+    # Diagnostics / history: set true to bypass Fresh Jobs defaults (tests & audit).
+    include_all: bool = False,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> dict:
     query = _owner_jobs_query(db, include_fixture=include_fixture)
+    relax = include_all or include_fixture
+    query = _apply_fresh_jobs_defaults(
+        query,
+        max_age_hours=max_age_hours,
+        eligibility=eligibility,
+        include_archived=include_archived or relax,
+        include_quarantined=include_quarantined or relax,
+        recommended_profile=recommended_profile,
+        country_eligibility=country_eligibility,
+        relax_fresh_defaults=relax,
+    )
     if state:
         query = query.filter(Job.state == state)
     if search:
@@ -66,17 +138,34 @@ def list_jobs(
     if sort_by in {"fit", "trust", "salary"}:
         query = query.outerjoin(JobScore, JobScore.job_id == Job.id)
         if sort_by == "fit":
-            query = query.order_by(score_order(JobScore.total_score).nulls_last(), desc(Job.discovered_at))
+            query = query.order_by(
+                score_order(JobScore.total_score).nulls_last(),
+                desc(Job.effective_freshness_at).nulls_last(),
+                desc(Job.discovered_at),
+            )
         elif sort_by == "trust":
-            query = query.order_by(score_order(JobScore.trust_score).nulls_last(), desc(Job.discovered_at))
+            query = query.order_by(
+                score_order(JobScore.trust_score).nulls_last(),
+                desc(Job.effective_freshness_at).nulls_last(),
+                desc(Job.discovered_at),
+            )
         else:
-            query = query.order_by(job_order(Job.salary_max).nulls_last(), desc(Job.discovered_at))
+            query = query.order_by(
+                job_order(Job.salary_max).nulls_last(),
+                desc(Job.effective_freshness_at).nulls_last(),
+                desc(Job.discovered_at),
+            )
     elif sort_by == "company":
-        query = query.order_by(asc(Job.company), desc(Job.discovered_at))
+        query = query.order_by(asc(Job.company), desc(Job.effective_freshness_at).nulls_last())
     elif sort_by == "title":
-        query = query.order_by(asc(Job.title), desc(Job.discovered_at))
+        query = query.order_by(asc(Job.title), desc(Job.effective_freshness_at).nulls_last())
     else:
-        query = query.order_by(desc(Job.discovered_at))
+        # Default: effective freshness desc, then fit desc
+        query = query.outerjoin(JobScore, JobScore.job_id == Job.id).order_by(
+            desc(Job.effective_freshness_at).nulls_last(),
+            desc(JobScore.total_score).nulls_last(),
+            desc(Job.discovered_at),
+        )
 
     rows = query.options(joinedload(Job.score)).offset((page - 1) * page_size).limit(page_size).all()
     return {

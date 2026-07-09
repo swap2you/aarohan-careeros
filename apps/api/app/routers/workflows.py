@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, HttpUrl
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.integrations.job_sources import FixtureFeedAdapter, GreenhouseAdapter
+from app.integrations.job_sources import FixtureFeedAdapter
 from app.models import Job, User, WorkflowState
 from app.services.audit import write_audit
+from app.services.fresh_jobs_discovery import discover_fresh_jobs
 from app.services.ingestion import ingest_job
 from app.services.scoring import score_job
 
@@ -29,6 +30,15 @@ class WorkflowResult(BaseModel):
     success: int = 0
     failed: int = 0
     details: list[dict] = []
+    # Extended discovery stats (UI ignores unknown fields safely via JSON)
+    fetched: int = 0
+    accepted: int = 0
+    secondary_review: int = 0
+    quarantined: int = 0
+    rejected: int = 0
+    duplicates: int = 0
+    sources: list[dict] = []
+    message: str | None = None
 
 
 @router.post("/ingest/fixture", response_model=WorkflowResult)
@@ -46,23 +56,63 @@ def workflow_ingest_fixture(
     return WorkflowResult(action="ingest_fixture", success=len(details), details=details)
 
 
+@router.post("/discover-fresh-jobs")
+def workflow_discover_fresh_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    result = discover_fresh_jobs(db, actor=current_user.email)
+    write_audit(
+        db,
+        event_type="workflow.discover_fresh_jobs",
+        actor=current_user.email,
+        details={
+            "fetched": result.get("fetched"),
+            "accepted": result.get("accepted"),
+            "rejected": result.get("rejected"),
+            "quarantined": result.get("quarantined"),
+            "duplicates": result.get("duplicates"),
+        },
+    )
+    return result
+
+
 @router.post("/ingest/public", response_model=WorkflowResult)
 def workflow_ingest_public(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> WorkflowResult:
-    adapter = GreenhouseAdapter("gitlab")
-    details = []
-    failed = 0
-    try:
-        for item in adapter.fetch_jobs():
-            job = ingest_job(db, item, actor=current_user.email)
-            details.append({"job_id": job.id, "title": job.title, "company": job.company, "status": "ok"})
-    except Exception as exc:
-        failed = 1
-        details.append({"status": "error", "message": str(exc)})
-    write_audit(db, event_type="workflow.ingest_public", actor=current_user.email, details={"count": len(details)})
-    return WorkflowResult(action="ingest_public", success=len(details), failed=failed, details=details)
+    """Backward-compatible path used by the locked Fresh Jobs UI button.
+
+    Internally runs the policy-driven discovery campaign — never a hardcoded
+    single-company Greenhouse board.
+    """
+    result = discover_fresh_jobs(db, actor=current_user.email)
+    write_audit(
+        db,
+        event_type="workflow.ingest_public",
+        actor=current_user.email,
+        details={
+            "action": "discover_fresh_jobs",
+            "fetched": result.get("fetched"),
+            "accepted": result.get("accepted"),
+            "rejected": result.get("rejected"),
+        },
+    )
+    return WorkflowResult(
+        action="discover_fresh_jobs",
+        success=int(result.get("accepted") or 0),
+        failed=int(result.get("rejected") or 0),
+        details=result.get("sources") or [],
+        fetched=int(result.get("fetched") or 0),
+        accepted=int(result.get("accepted") or 0),
+        secondary_review=int(result.get("secondary_review") or 0),
+        quarantined=int(result.get("quarantined") or 0),
+        rejected=int(result.get("rejected") or 0),
+        duplicates=int(result.get("duplicates") or 0),
+        sources=result.get("sources") or [],
+        message=result.get("message"),
+    )
 
 
 @router.post("/import-url", response_model=WorkflowResult)
@@ -79,12 +129,13 @@ def workflow_import_url(
         "url": payload.url,
         "description_html": "",
         "description_text": "User forwarded job link. Review manually.",
+        "discovered_at": None,
     }
     job = ingest_job(db, item, actor=current_user.email)
     return WorkflowResult(
         action="import_url",
         success=1,
-        details=[{"job_id": job.id, "url": payload.url, "status": "ok"}],
+        details=[{"job_id": job.id, "url": payload.url, "status": "ok", "decision": job.ingest_decision}],
     )
 
 
