@@ -30,35 +30,43 @@ def test_match_card_endpoint(client: TestClient, auth_headers):
 
 
 def test_hard_filter_rejects_low_salary(client: TestClient, auth_headers):
+    from datetime import datetime
+
     payload = {
         "source": "approved_remote_feeds",
         "external_id": "trust-low-salary",
         "title": "Director of Quality Engineering",
         "company": "Low Pay Corp",
-        "location": "Remote, US",
+        "location": "Remote, United States",
         "url": "https://example.com/jobs/low-pay",
         "description_text": "Quality leadership role",
         "salary_min": 120000,
         "salary_max": 140000,
+        "posted_at": datetime.utcnow().isoformat(),
     }
     job = client.post("/api/jobs/ingest", headers=auth_headers, json=payload).json()
+    assert job.get("score") is not None
     assert job["score"]["hard_filter_passed"] is False
     assert job["state"] == "REJECTED"
 
 
 def test_hard_filter_rejects_relocation(client: TestClient, auth_headers):
+    from datetime import datetime
+
     payload = {
         "source": "approved_remote_feeds",
         "external_id": "trust-reloc",
-        "title": "QE Director",
+        "title": "Director of Quality Engineering",
         "company": "Relocate Co",
         "location": "Austin, TX - relocation required",
         "url": "https://example.com/jobs/reloc",
-        "description_text": "Must relocate to Austin. No remote work.",
+        "description_text": "Must relocate to Austin. No remote work. United States.",
         "salary_min": 200000,
         "salary_max": 230000,
+        "posted_at": datetime.utcnow().isoformat(),
     }
     job = client.post("/api/jobs/ingest", headers=auth_headers, json=payload).json()
+    assert job.get("score") is not None
     assert job["score"]["hard_filter_passed"] is False
 
 

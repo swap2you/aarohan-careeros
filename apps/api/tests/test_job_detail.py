@@ -31,20 +31,32 @@ def test_job_detail_not_found(client: TestClient, auth_headers):
 
 
 def test_jobs_list_excludes_fixture_by_default(client: TestClient, auth_headers):
+    from datetime import datetime
+
     client.post("/api/jobs/ingest/fixture", headers=auth_headers)
     client.post(
         "/api/jobs/ingest",
         headers=auth_headers,
         json={
-            "source": "manual",
+            "source": "user_forwarded_links",
             "external_id": "owner-visible-job",
-            "title": "Owner Job",
+            "title": "Director of Quality Engineering",
             "company": "Real Co",
             "url": "https://jobs.lever.co/real/abc",
-            "description_text": "Real description",
+            "location": "Remote, United States",
+            "description_text": (
+                "Director of Quality Engineering leading automation platforms, "
+                "CI/CD, API testing, and engineering leadership for a US remote team."
+            ),
+            "salary_min": 200000,
+            "salary_max": 230000,
+            "posted_at": datetime.utcnow().isoformat(),
         },
     )
     listed = client.get("/api/jobs", headers=auth_headers).json()
     titles = [item["title"] for item in listed["items"]]
-    assert "Owner Job" in titles
+    assert "Director of Quality Engineering" in titles
     assert all(item.get("data_provenance") not in {"fixture", "test"} for item in listed["items"])
+    # Fixture feed remains hidden from owner Fresh Jobs defaults
+    history = client.get("/api/jobs?include_all=true&include_fixture=true", headers=auth_headers).json()
+    assert any(item.get("data_provenance") == "fixture" for item in history["items"])

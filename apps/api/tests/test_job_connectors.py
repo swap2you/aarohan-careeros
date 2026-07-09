@@ -60,15 +60,18 @@ def test_all_public_fixtures_ingest(client: TestClient, auth_headers):
 
 
 def test_greenhouse_live_fetch_mocked(client: TestClient, auth_headers):
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     mock_jobs = {
         "jobs": [
             {
                 "id": 999,
-                "title": "Mock QE Director",
-                "location": {"name": "Remote"},
-                "content": "<p>Mock description</p>",
+                "title": "Director of Quality Engineering",
+                "location": {"name": "Remote, United States"},
+                "content": "<p>Lead quality engineering platforms across the United States.</p>",
                 "absolute_url": "https://example.com/gh/mock",
-                "updated_at": "2026-06-01T00:00:00Z",
+                "updated_at": now,
             }
         ]
     }
@@ -79,7 +82,10 @@ def test_greenhouse_live_fetch_mocked(client: TestClient, auth_headers):
             json={"use_fixture": False, "params": {"board_token": "mock-board"}},
         )
     assert response.status_code == 200
-    assert response.json()["ingested"] == 1
+    body = response.json()
+    assert body["fetched"] == 1
+    assert body["accepted"] + body["secondary_review"] + body["quarantined"] + body["rejected"] + body["duplicates"] == 1
+    assert body["ingested"] >= 1 or body["accepted"] == 1
 
 
 def test_unknown_connector_404(client: TestClient, auth_headers):

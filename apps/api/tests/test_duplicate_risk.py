@@ -5,16 +5,19 @@ from app.services.duplicate_risk import ApplicationMode, reject_autonomous_submi
 
 
 def _ingest(client: TestClient, auth_headers: dict, **extra) -> dict:
+    from datetime import datetime
+
     payload = {
         "source": "approved_remote_feeds",
         "external_id": extra.pop("external_id", "r21-test-1"),
         "title": extra.pop("title", "Director of Quality Engineering"),
         "company": extra.pop("company", "Example Health Tech"),
-        "location": "Remote, US",
+        "location": "Remote, United States",
         "url": extra.pop("url", "https://example.com/jobs/director-qe"),
         "description_text": extra.pop("description_text", "Automation platform leadership"),
         "salary_min": 200000,
         "salary_max": 220000,
+        "posted_at": datetime.utcnow().isoformat(),
         **extra,
     }
     response = client.post("/api/jobs/ingest", headers=auth_headers, json=payload)
