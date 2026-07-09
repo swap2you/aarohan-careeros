@@ -183,7 +183,12 @@ def run_audit(
             )
         )
 
-        if result.owner_visible and result.decision == DECISION_ACCEPT:
+        visible_tiers = {"TODAY", "FRESH", "RECENT"}
+        if (
+            result.decision == DECISION_ACCEPT
+            and result.owner_visible
+            and (result.freshness_tier or result.freshness_bucket) in visible_tiers
+        ):
             propose_fresh.append(entry)
         elif result.decision in {DECISION_OWNER_REVIEW, DECISION_SECONDARY}:
             propose_owner_review.append(entry)
