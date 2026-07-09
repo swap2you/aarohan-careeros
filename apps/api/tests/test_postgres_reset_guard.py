@@ -24,7 +24,15 @@ def test_ci_ephemeral_testpass_career_os_is_allowed():
     url = assert_safe_to_reset_database(
         "postgresql+psycopg://career_os:testpass@localhost:5432/career_os"
     )
-    assert "testpass@" in url
+    assert url.endswith("/career_os")
+
+
+def test_redacted_engine_url_still_blocked_without_env():
+    # SQLAlchemy often stringifies passwords as *** — must not allow wipe via that alone.
+    with pytest.raises(RuntimeError, match="Refusing to reset"):
+        assert_safe_to_reset_database(
+            "postgresql+psycopg://career_os:***@localhost:5432/career_os"
+        )
 
 
 def test_named_test_database_is_allowed():
