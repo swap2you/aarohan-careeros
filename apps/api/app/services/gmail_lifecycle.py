@@ -272,7 +272,12 @@ def process_gmail_message(
             return None
         last_job = None
         for alert in confident:
-            payload = parsed_job_to_ingest_payload(alert, gmail_message_id=message_id)
+            payload = parsed_job_to_ingest_payload(
+                alert,
+                gmail_message_id=message_id,
+                source_received_at=message.get("received_at"),
+                gmail_thread_id=thread_id,
+            )
             payload["data_provenance"] = "gmail"
             last_job = ingest_job(db, payload, actor=actor)
             confidence = max(confidence, alert.confidence)

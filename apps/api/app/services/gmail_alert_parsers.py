@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from email.utils import parseaddr
 from urllib.parse import parse_qs, unquote, urlparse, urlunparse
 
@@ -80,20 +81,24 @@ def _linkedin_entries(message: dict) -> list[ParsedJobAlert]:
             window,
             re.I,
         )
-        title = title_match.group(1).strip() if title_match else "LinkedIn role"
-        company = title_match.group(2).strip() if title_match else "Unknown employer"
+        title = title_match.group(1).strip() if title_match else ""
+        company = title_match.group(2).strip() if title_match else ""
+        if not title or title.lower() in {"linkedin job alert", "job alert", "your job alert"}:
+            title = ""
+            company = company or ""
         loc_match = re.search(r"(?:location|in)\s*:\s*([^\n|]+)", window, re.I)
         snippet = window.strip()[:1200]
+        confidence = 0.88 if title_match and title else 0.45
         alerts.append(
             ParsedJobAlert(
                 source="linkedin_alert_emails",
                 external_id=external_id[:255],
-                title=title[:512],
-                company=company[:255],
+                title=(title or "UNPARSED_LINKEDIN_ENTRY")[:512],
+                company=(company or "Unknown employer")[:255],
                 location=loc_match.group(1).strip()[:255] if loc_match else None,
                 url=url[:1024],
                 description_text=snippet,
-                confidence=0.88 if title_match else 0.62,
+                confidence=confidence,
                 provider_job_id=external_id,
             )
         )
@@ -249,7 +254,13 @@ def parse_job_alert(message: dict, *, label: str | None = None) -> ParsedJobAler
     return alerts[0] if alerts else None
 
 
-def parsed_job_to_ingest_payload(alert: ParsedJobAlert, *, gmail_message_id: str | None = None) -> dict:
+def parsed_job_to_ingest_payload(
+    alert: ParsedJobAlert,
+    *,
+    gmail_message_id: str | None = None,
+    source_received_at: str | datetime | None = None,
+    gmail_thread_id: str | None = None,
+) -> dict:
     payload = {
         "source": alert.source,
         "external_id": alert.external_id,
@@ -261,6 +272,18 @@ def parsed_job_to_ingest_payload(alert: ParsedJobAlert, *, gmail_message_id: str
         "description_html": f"<p>{alert.description_text[:2000]}</p>",
         "requisition_id": alert.provider_job_id,
     }
+    if source_received_at is not None:
+        if isinstance(source_received_at, datetime):
+            payload["source_received_at"] = source_received_at.isoformat()
+            payload["received_at"] = source_received_at.isoformat()
+        else:
+            payload["source_received_at"] = source_received_at
+            payload["received_at"] = source_received_at
+    raw: dict = {}
     if gmail_message_id:
-        payload["raw_payload"] = {"gmail_message_id": gmail_message_id}
+        raw["gmail_message_id"] = gmail_message_id
+    if gmail_thread_id:
+        raw["gmail_thread_id"] = gmail_thread_id
+    if raw:
+        payload["raw_payload"] = raw
     return payload
