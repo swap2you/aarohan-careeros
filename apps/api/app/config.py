@@ -1,6 +1,8 @@
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+FRESH_JOBS_MAX_AGE_HOURS = 48
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

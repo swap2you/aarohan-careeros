@@ -37,5 +37,13 @@ def budget_policy() -> dict:
     return load_yaml("config/budget-policy.yml")
 
 
+def search_profiles() -> dict:
+    return load_yaml("config/search-profiles.yml")
+
+
+def job_discovery_policy() -> dict:
+    return load_yaml("config/job-discovery-policy.yml")
+
+
 def candidate_profile() -> dict:
     return load_yaml("config/candidate-profile.yml")

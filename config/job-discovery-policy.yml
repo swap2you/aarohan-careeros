@@ -1,0 +1,195 @@
+# Canonical Fresh Jobs discovery policy (Workflow Lock 01).
+# Authoritative for freshness, geography, role eligibility, and source campaigns.
+
+freshness:
+  max_age_hours: 48
+  new_hours: 24
+  unknown_timestamp_action: quarantine
+  # Automated sources without a reliable timestamp are quarantined.
+  # Manual/user-forwarded jobs may use discovered_at as effective freshness.
+
+geography:
+  country: US
+  remote_us: accept
+  remote_unspecified: quarantine
+  foreign_only: reject
+  relocation_required: reject
+  local_hybrid:
+    - Harrisburg
+    - Enola
+    - Mechanicsburg
+    - Camp Hill
+    - Carlisle
+    - York
+    - Lancaster
+    - Central Pennsylvania
+    - Pennsylvania
+    - PA
+
+sources:
+  linkedin_alert_emails:
+    enabled: true
+  indeed_alert_emails:
+    enabled: true
+  adzuna:
+    enabled: true
+    provider_id: adzuna
+  jooble:
+    enabled: true
+    provider_id: jooble
+  usajobs:
+    enabled: true
+    provider_id: usajobs
+  remotive:
+    enabled: true
+    provider_id: remotive
+  remote_ok:
+    enabled: true
+    provider_id: remote_ok
+  rss:
+    enabled: true
+    provider_id: rss
+  greenhouse:
+    enabled: true
+    provider_id: greenhouse
+    # Company-board connectors only — never a default public feed.
+    approved_boards: []
+  lever:
+    enabled: true
+    provider_id: lever
+    approved_boards: []
+  ashby:
+    enabled: true
+    provider_id: ashby
+    approved_boards: []
+
+role_profiles:
+  - id: tpm_delivery
+    label: Technical Program / Project Leadership
+    eligibility: primary
+    title_patterns:
+      - technical project manager
+      - senior technical project manager
+      - technical program manager
+      - senior technical program manager
+      - engineering program manager
+      - technical delivery manager
+      - platform program manager
+      - engineering delivery lead
+      - program manager
+      - delivery manager
+  - id: qe_manager
+    label: Quality Engineering Management
+    eligibility: primary
+    title_patterns:
+      - quality engineering manager
+      - senior quality engineering manager
+      - senior manager, quality engineering
+      - senior manager quality engineering
+      - test engineering manager
+      - software quality engineering manager
+      - quality platform manager
+      - qe manager
+  - id: director_qe
+    label: Director / Head of Quality
+    eligibility: primary
+    title_patterns:
+      - director of quality engineering
+      - director, software quality
+      - head of quality engineering
+      - quality engineering director
+      - director, test engineering
+      - director quality engineering
+      - qe transformation director
+      - head of qe
+  - id: platform_architect
+    label: Principal / Staff / Architecture
+    eligibility: primary
+    title_patterns:
+      - principal quality engineer
+      - staff quality engineer
+      - principal sdet
+      - quality engineering architect
+      - test automation architect
+      - qe platform architect
+      - test platform architect
+      - solution architect
+      - developer productivity
+      - quality platform architect
+  - id: ai_enabled_qe
+    label: AI Quality / Evaluation
+    eligibility: primary
+    title_patterns:
+      - ai quality
+      - llm evaluation
+      - agent quality
+      - ai-enabled quality
+      - responsible ai testing
+      - ai platform quality
+      - genai quality
+      - agentic ai quality
+  - id: performance_quality
+    label: Performance / Reliability Quality
+    eligibility: primary
+    title_patterns:
+      - performance engineering
+      - performance test architect
+      - reliability test
+      - quality/performance
+      - performance platform
+  - id: secondary_em
+    label: Engineering Manager (quality/platform scope)
+    eligibility: secondary
+    title_patterns:
+      - engineering manager
+      - manager, engineering
+    require_any:
+      - quality
+      - platform
+      - developer productivity
+      - test
+      - automation
+      - reliability
+  - id: secondary_sdet
+    label: Senior SDET (advancement scope)
+    eligibility: secondary
+    title_patterns:
+      - senior sdet
+      - staff sdet
+      - principal sdet
+      - lead sdet
+
+role_reject_patterns:
+  - backend engineer
+  - frontend engineer
+  - full stack engineer
+  - fullstack engineer
+  - software engineer i
+  - software engineer ii
+  - junior
+  - associate qa
+  - manual tester
+  - qa analyst
+  - customer success
+  - sales engineer
+  - account executive
+  - marketing manager
+  - product manager
+  - product owner
+
+minimums:
+  owner_visible_fit_score: 55
+  published_salary_max_usd: 170000
+
+ingest:
+  # Fixture/test provenance never appears in owner Fresh Jobs.
+  exclude_provenance:
+    - fixture
+    - test
+  # States hidden from default Fresh Jobs list.
+  exclude_states:
+    - REJECTED
+    - CLOSED
+  quarantine_state: SECONDARY_REVIEW
+  reject_state: REJECTED
+  archive_state: CLOSED

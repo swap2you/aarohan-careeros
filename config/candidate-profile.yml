@@ -11,7 +11,7 @@ candidate:
   relocation_now: false
   limited_travel_or_office: acceptable
   freshness_preferred_hours: 24
-  freshness_fallback_hours: 72
+  freshness_fallback_hours: 48
   work_authorization_public_statement: TODO_VERIFY
 positioning:
   primary:
