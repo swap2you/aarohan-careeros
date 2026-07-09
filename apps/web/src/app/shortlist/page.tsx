@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { API_BASE, authFetch } from "@/lib/api";
+import { authFetch } from "@/lib/api";
 
 type Job = {
   id: number;
@@ -28,8 +29,9 @@ export default function ShortlistPage() {
     <div>
       <h1>Shortlist</h1>
       <p>Jobs shortlisted for packet generation (score ≥ 75 or SHORTLISTED state).</p>
-      <div className="card">
-        <table>
+      <div className="card table-card">
+        <div className="table-scroll">
+        <table className="data-table">
           <thead>
             <tr>
               <th>Company</th>
@@ -43,7 +45,9 @@ export default function ShortlistPage() {
               <tr key={job.id}>
                 <td>{job.company}</td>
                 <td>
-                  <a href={`/jobs/${job.id}`}>{job.title}</a>
+                  <Link href={`/jobs/${job.id}`} className="job-title-link">
+                    {job.title}
+                  </Link>
                 </td>
                 <td>{job.state}</td>
                 <td>{job.score?.total_score ?? "—"}</td>
@@ -51,6 +55,7 @@ export default function ShortlistPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

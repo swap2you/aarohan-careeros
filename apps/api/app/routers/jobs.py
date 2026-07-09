@@ -34,6 +34,7 @@ def list_jobs(
     workplace_type: str | None = None,
     application_state: str | None = None,
     sort_by: str = Query("newest", pattern="^(newest|fit|trust|salary|company|title)$"),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     include_fixture: bool = False,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
@@ -59,14 +60,17 @@ def list_jobs(
 
     total = query.count()
 
+    score_order = asc if sort_dir == "asc" else desc
+    job_order = asc if sort_dir == "asc" else desc
+
     if sort_by in {"fit", "trust", "salary"}:
         query = query.outerjoin(JobScore, JobScore.job_id == Job.id)
         if sort_by == "fit":
-            query = query.order_by(desc(JobScore.total_score), desc(Job.discovered_at))
+            query = query.order_by(score_order(JobScore.total_score).nulls_last(), desc(Job.discovered_at))
         elif sort_by == "trust":
-            query = query.order_by(desc(JobScore.trust_score), desc(Job.discovered_at))
+            query = query.order_by(score_order(JobScore.trust_score).nulls_last(), desc(Job.discovered_at))
         else:
-            query = query.order_by(desc(Job.salary_max), desc(Job.discovered_at))
+            query = query.order_by(job_order(Job.salary_max).nulls_last(), desc(Job.discovered_at))
     elif sort_by == "company":
         query = query.order_by(asc(Job.company), desc(Job.discovered_at))
     elif sort_by == "title":

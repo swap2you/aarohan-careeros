@@ -16,13 +16,26 @@ if (-not $PSScriptRoot) {
 
 $script:AarohanRepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 
+function Import-AarohanLegacySecretsFile {
+    param([string]$Path = "C:\AarohanSecrets\aarohan.local.env")
+    if (-not (Test-Path $Path)) { return }
+    Get-Content $Path | Where-Object { $_ -match '^\s*[^#;]' -and $_ -match '=' } | ForEach-Object {
+        $n, $v = $_ -split '=', 2
+        $name = $n.Trim()
+        $value = $v.Trim().Trim('"').Trim("'")
+        if ($name -and [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+            Set-Item -Path "env:$name" -Value $value
+        }
+    }
+}
+
 function Import-AarohanRepoEnvLocal {
     param([string]$Root = $script:AarohanRepoRoot)
     $path = Join-Path $Root ".env.local"
     if (-not (Test-Path $path)) {
         $example = Join-Path $Root ".env.local.example"
         if (Test-Path $example) {
-            throw ".env.local not found. Copy .env.local.example to .env.local and fill in required values."
+            throw ".env.local not found. Run: pwsh scripts/local/Sync-EnvLocal.ps1"
         }
         throw ".env.local not found at $path"
     }
@@ -32,6 +45,7 @@ function Import-AarohanRepoEnvLocal {
         $value = $v.Trim().Trim('"').Trim("'")
         if ($name) { Set-Item -Path "env:$name" -Value $value }
     }
+    Import-AarohanLegacySecretsFile
     if ([string]::IsNullOrWhiteSpace($env:APP_ENV)) { $env:APP_ENV = "local" }
     if ([string]::IsNullOrWhiteSpace($env:LOCAL_DEV_AUTH_BYPASS)) { $env:LOCAL_DEV_AUTH_BYPASS = "true" }
     if ([string]::IsNullOrWhiteSpace($env:OAUTH_FIXTURE_MODE)) { $env:OAUTH_FIXTURE_MODE = "false" }
@@ -71,7 +85,17 @@ function Invoke-AarohanCompose {
         }
     }
     if ($missing.Count -gt 0) {
-        throw "Missing required values in .env.local: $($missing -join ', ')"
+        throw @"
+Missing required values in .env.local: $($missing -join ', ')
+
+Fix (pick one):
+  pwsh scripts/local/Sync-EnvLocal.ps1
+  pwsh scripts/local/Sync-EnvLocal.ps1 -GenerateMissing
+  pwsh scripts/local/Sync-EnvLocal.ps1 -UseSecretStore -GenerateMissing
+
+Then start again:
+  pwsh scripts/local/Start-Aarohan.ps1 -Detached
+"@
     }
     & docker compose --env-file $envFile @Args
     if ($LASTEXITCODE -ne 0) {

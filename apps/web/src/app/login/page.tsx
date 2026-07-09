@@ -94,6 +94,7 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <div className="login card">
+        <p className="eyebrow">Aarohan CareerOS</p>
         <h1>{isSetup ? "First-run administrator setup" : "Sign in to Aarohan CareerOS"}</h1>
         {reason === "session_expired" && (
           <p className="warn">Your session expired. Sign in again to continue.</p>

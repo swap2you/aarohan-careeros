@@ -33,7 +33,15 @@ type Job = {
 
 type WorkflowResult = { action: string; success: number; failed: number; details: unknown[] };
 
-const PAGE_SIZES = [25, 50, 100];
+const PAGE_SIZES = [10, 25, 50, 100];
+
+type ColumnSortField = "salary" | "fit";
+type ColumnSort = { field: ColumnSortField; dir: "asc" | "desc" } | null;
+
+function sortIndicator(active: ColumnSort, field: ColumnSortField) {
+  if (active?.field !== field) return "↕";
+  return active.dir === "asc" ? "↑" : "↓";
+}
 
 function formatSalary(job: Job) {
   if (!job.salary_min && !job.salary_max) return "Not disclosed";
@@ -44,28 +52,38 @@ function formatSalary(job: Job) {
   return value ? `$${value.toLocaleString()}` : "Not disclosed";
 }
 
+function truncateTitle(title: string, max = 72) {
+  const t = title.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const [pageCount, setPageCount] = useState(1);
   const [search, setSearch] = useState("");
   const [source, setSource] = useState("");
   const [company, setCompany] = useState("");
   const [roleFamily, setRoleFamily] = useState("");
   const [workplaceType, setWorkplaceType] = useState("");
-  const [sortBy, setSortBy] = useState("newest");
+  const [filterSort, setFilterSort] = useState("newest");
+  const [columnSort, setColumnSort] = useState<ColumnSort>(null);
   const [status, setStatus] = useState<string>("");
   const [forwardUrl, setForwardUrl] = useState("");
   const [profile, setProfile] = useState("tpm_delivery");
   const { showFixtureControls } = useDeploymentEnvironment();
 
   const load = useCallback(async () => {
+    const apiSortBy = columnSort?.field ?? filterSort;
+    const apiSortDir = columnSort?.dir ?? "desc";
     const params = new URLSearchParams({
       page: String(page),
       page_size: String(pageSize),
-      sort_by: sortBy,
+      sort_by: apiSortBy,
+      sort_dir: apiSortDir,
     });
     if (search) params.set("search", search);
     if (source) params.set("source", source);
@@ -77,11 +95,26 @@ export default function JobsPage() {
     setJobs(data.items || data);
     setTotal(data.total ?? (data.items || data).length);
     setPageCount(data.page_count || 1);
-  }, [page, pageSize, search, source, company, roleFamily, workplaceType, sortBy]);
+  }, [page, pageSize, search, source, company, roleFamily, workplaceType, filterSort, columnSort]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  function cycleColumnSort(field: ColumnSortField) {
+    setPage(1);
+    setColumnSort((current) => {
+      if (current?.field !== field) return { field, dir: "asc" };
+      if (current.dir === "asc") return { field, dir: "desc" };
+      return null;
+    });
+  }
+
+  function onFilterSortChange(value: string) {
+    setFilterSort(value);
+    setColumnSort(null);
+    setPage(1);
+  }
 
   async function runWorkflow(path: string, body?: unknown) {
     setStatus("Running...");
@@ -119,7 +152,9 @@ export default function JobsPage() {
         <button onClick={() => runWorkflow("/api/workflows/ingest/public")}>Ingest Public Feed</button>
         <button onClick={() => runWorkflow("/api/workflows/score-all")}>Score All New Jobs</button>
         <button onClick={generateSelected}>Generate Selected Packets</button>
-        <Link href="/opportunities/new">New Opportunity</Link>
+        <Link href="/opportunities/new" className="inline-link">
+          New Opportunity
+        </Link>
       </div>
       <div className="card">
         <div className="filters-grid">
@@ -133,11 +168,9 @@ export default function JobsPage() {
             <option value="hybrid">Hybrid</option>
             <option value="fully_remote_us">Fully remote (US)</option>
           </select>
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+          <select value={filterSort} onChange={(e) => onFilterSortChange(e.target.value)}>
             <option value="newest">Newest</option>
-            <option value="fit">Highest fit</option>
             <option value="trust">Highest trust</option>
-            <option value="salary">Highest salary</option>
             <option value="company">Company</option>
             <option value="title">Title</option>
           </select>
@@ -173,32 +206,76 @@ export default function JobsPage() {
         </div>
         {status && <p className="status">{status}</p>}
       </div>
-      <div className="card">
+      <div className="card table-card">
         <p>{total} jobs (fixture/test data hidden in owner mode)</p>
-        <table>
-          <thead>
-            <tr>
-              <th></th>
-              <th>Job</th>
-              <th>Source</th>
-              <th>Salary</th>
-              <th>Family</th>
-              <th>Fit</th>
-              <th>Trust</th>
-              <th>Filter</th>
-              <th>State</th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map((job) => (
-              <tr key={job.id}>
-                <td><input type="checkbox" checked={!!job.selected} onChange={() => toggleSelect(job.id)} /></td>
-                <td>
-                  <Link href={`/jobs/${job.id}`}>{job.title}</Link>
-                  <br />
-                  <small>{job.company}{job.location ? ` · ${job.location}` : ""}{job.is_expired ? " · expired" : ""}</small>
-                  {job.match_summary && <p><small>{job.match_summary}</small></p>}
-                </td>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th className="col-check"></th>
+                <th className="col-job">Job</th>
+                <th>Source</th>
+                <th>
+                  <button
+                    type="button"
+                    className={`th-sort${columnSort?.field === "salary" ? " active" : ""}`}
+                    onClick={() => cycleColumnSort("salary")}
+                    aria-sort={
+                      columnSort?.field === "salary"
+                        ? columnSort.dir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                  >
+                    Salary
+                    <span className="th-sort-indicator" aria-hidden="true">
+                      {sortIndicator(columnSort, "salary")}
+                    </span>
+                  </button>
+                </th>
+                <th>Family</th>
+                <th>
+                  <button
+                    type="button"
+                    className={`th-sort${columnSort?.field === "fit" ? " active" : ""}`}
+                    onClick={() => cycleColumnSort("fit")}
+                    aria-sort={
+                      columnSort?.field === "fit"
+                        ? columnSort.dir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                  >
+                    Fit
+                    <span className="th-sort-indicator" aria-hidden="true">
+                      {sortIndicator(columnSort, "fit")}
+                    </span>
+                  </button>
+                </th>
+                <th>Trust</th>
+                <th>Filter</th>
+                <th>State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map((job) => (
+                <tr key={job.id}>
+                  <td>
+                    <input type="checkbox" checked={!!job.selected} onChange={() => toggleSelect(job.id)} />
+                  </td>
+                  <td className="job-cell">
+                    <Link href={`/jobs/${job.id}`} className="job-title-link">
+                      {truncateTitle(job.title)}
+                    </Link>
+                    <div className="job-meta">
+                      {job.company}
+                      {job.location ? ` · ${job.location}` : ""}
+                      {job.is_expired ? " · expired" : ""}
+                    </div>
+                    {job.match_summary && <p className="job-summary">{job.match_summary}</p>}
+                  </td>
                 <td>{job.source || "—"}</td>
                 <td>{formatSalary(job)}</td>
                 <td>{job.role_family ?? "—"}</td>
@@ -210,6 +287,7 @@ export default function JobsPage() {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="pagination">
           <span>
             Page {page} of {pageCount}

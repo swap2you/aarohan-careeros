@@ -130,7 +130,8 @@ export default function GmailReviewsPage() {
           <p>No quarantined Gmail messages.</p>
         ) : (
           <>
-            <table>
+            <div className="table-scroll">
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>When</th>
@@ -188,6 +189,7 @@ export default function GmailReviewsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
             <div className="pagination">
               <span>
                 {total} total · page {page} of {pageCount}

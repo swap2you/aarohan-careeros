@@ -57,6 +57,7 @@ class Settings(BaseSettings):
 
     ask_aarohan_sql_mode: str = "read_only"
     ask_aarohan_allow_mutations: bool = False
+    ask_aarohan_model: str = "gpt-4o-mini"
     openai_tts_model: str = "tts-1"
     allow_legacy_jwt_auth: bool = False
     expose_session_token_in_login_response: bool = False

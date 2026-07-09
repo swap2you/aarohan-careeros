@@ -259,7 +259,7 @@ export default function JobDetailPage() {
         <p>
           {applyReady.message}{" "}
           {applyReady.can_open_apply && job.url ? (
-            <a href={job.url} target="_blank" rel="noreferrer">
+            <a href={job.url} target="_blank" rel="noreferrer" className="inline-link external">
               Open official application
             </a>
           ) : (

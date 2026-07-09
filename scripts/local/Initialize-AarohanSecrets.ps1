@@ -40,13 +40,17 @@ Set-Location $Root
 $localSecrets = "C:\AarohanSecrets\aarohan.local.env"
 
 if (-not $UseSecretStore) {
-    Write-Host "Aarohan CareerOS — Initialize secrets (local file mode)"
-    Write-Host "Target: $localSecrets"
-    $args = @()
-    if ($Force) { $args += "-Force" }
-    & (Join-Path $PSScriptRoot "Initialize-LocalSecrets.ps1") @args
+    Write-Host "Aarohan CareerOS — Initialize secrets (repo .env.local)"
+    Write-Host "Target: $(Join-Path $Root '.env.local')"
+    $syncArgs = @()
+    if ($Force) { $syncArgs += "-GenerateMissing" }
+    & (Join-Path $PSScriptRoot "Sync-EnvLocal.ps1") @syncArgs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host ""
+        Write-Host "Legacy file (optional merge source): $localSecrets"
+        Write-Host "If that file has values, Sync-EnvLocal copies them into .env.local automatically."
+    }
     Write-Host ""
-    Write-Host "Edit any empty required keys in $localSecrets if warned above."
     Write-Host "Start stack: pwsh scripts/local/Start-Aarohan.ps1 -Detached"
     exit $LASTEXITCODE
 }

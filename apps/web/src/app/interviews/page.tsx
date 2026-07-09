@@ -49,7 +49,7 @@ export default function InterviewsPage() {
       <input id="job-id" value={jobId} onChange={(e) => setJobId(e.target.value)} />
       <div className="actions">
         <button type="button" onClick={generate}>Generate pack</button>
-        {pack && <Link href={`/jobs/${jobId}`}>View job</Link>}
+        {pack && <Link href={`/jobs/${jobId}`} className="inline-link">View job</Link>}
       </div>
       {message && <p className="status">{message}</p>}
 

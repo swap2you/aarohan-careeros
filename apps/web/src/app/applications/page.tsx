@@ -199,7 +199,8 @@ export default function ApplicationsPage() {
           <p>No applications yet. Generate a packet from a job detail page.</p>
         ) : (
           <>
-            <table>
+            <div className="table-scroll">
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>Application</th>
@@ -231,6 +232,7 @@ export default function ApplicationsPage() {
                 ))}
               </tbody>
             </table>
+            </div>
             <div className="pagination">
               <span>
                 {total} total · page {page} of {pageCount}
@@ -280,17 +282,17 @@ export default function ApplicationsPage() {
                 Duplicate risk: {selected.duplicate_risk || "—"} · Validation:{" "}
                 {validationLabel(selected.validation_status)}
               </p>
-              <p>
-                <Link href={`/jobs/${selected.job_id}`}>View job detail</Link> ·{" "}
-                <Link href="/approvals">Approval queue</Link>
+              <p className="link-row">
+                <Link href={`/jobs/${selected.job_id}`} className="inline-link">
+                  View job detail
+                </Link>
+                <Link href="/approvals" className="inline-link">
+                  Approval queue
+                </Link>
                 {selected.official_url && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <a href={selected.official_url} target="_blank" rel="noreferrer">
-                      Open official application
-                    </a>
-                  </>
+                  <a href={selected.official_url} target="_blank" rel="noreferrer" className="inline-link external">
+                    Open official application ↗
+                  </a>
                 )}
               </p>
 
@@ -366,8 +368,10 @@ export default function ApplicationsPage() {
                     {selected.official_url && (
                       <p>
                         Application URL:{" "}
-                        <a href={selected.official_url} target="_blank" rel="noreferrer">
-                          {selected.official_url}
+                        <a href={selected.official_url} target="_blank" rel="noreferrer" className="inline-link external">
+                          {selected.official_url.length > 64
+                            ? `${selected.official_url.slice(0, 64)}…`
+                            : selected.official_url}
                         </a>
                       </p>
                     )}

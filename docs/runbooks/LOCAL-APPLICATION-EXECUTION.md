@@ -2,7 +2,7 @@
 
 **Canonical guide** for running, testing, and troubleshooting Aarohan CareerOS on Windows.  
 **Repository:** `C:\Development\Workspace\aarohan-careeros`  
-**Last updated:** 2026-06-29 (R2.13 RC validation phase)
+**Last updated:** 2026-07-01 (local `.env.local` runtime + admin bypass)
 
 ---
 
@@ -11,30 +11,76 @@
 | Goal | Command |
 |------|---------|
 | First-time machine setup | `pwsh .\scripts\local\Bootstrap-Aarohan.ps1` |
-| Initialize secrets (once) | `pwsh .\scripts\local\Initialize-AarohanSecrets.ps1` |
+| **Sync / fix secrets in `.env.local`** | `pwsh .\scripts\local\Sync-EnvLocal.ps1` |
+| Generate missing crypto keys only | `pwsh .\scripts\local\Sync-EnvLocal.ps1 -GenerateMissing` |
 | **Start app (Docker)** | `pwsh .\scripts\local\Start-Aarohan.ps1 -Detached` |
 | **Stop app** | `pwsh .\scripts\local\Stop-Aarohan.ps1` |
 | **Cold restart (test)** | `pwsh .\scripts\local\Restart-Aarohan.ps1` |
+| Local admin status | `pwsh .\scripts\local\Show-LocalAdminStatus.ps1` |
 | Light validation | `pwsh .\scripts\local\Test-Aarohan.ps1` |
 | Full R2 gate | `pwsh .\scripts\validation\Verify-Full-R2.ps1` |
 | Live OAuth/Gmail checks | `pwsh .\scripts\validation\Live-RC-Validation.ps1` |
 | Backup DB | `pwsh .\scripts\local\Backup-Aarohan.ps1` |
 | Restore DB | `pwsh .\scripts\local\Restore-Aarohan.ps1 -BackupFile <path>` |
-| Reset admin password | `pwsh .\scripts\local\Reset-LocalAdmin.ps1` |
-| Ensure E2E test user | `pwsh .\scripts\local\Ensure-E2ETestUser.ps1` |
+| Reset admin password | `pwsh .\scripts\local\Reset-LocalAdmin.ps1 -Force -UseConfiguredPassword` |
+| E2E stack (isolated DB) | `pwsh .\scripts\local\Start-Aarohan-E2E.ps1 -Detached` |
 | Playwright E2E | `cd apps\web; npm run test:e2e` |
 
 **URLs after start:**
 
 | Service | URL |
 |---------|-----|
-| Dashboard | http://localhost:3000 |
-| Login | http://localhost:3000/login |
-| Settings (Google) | http://localhost:3000/settings |
-| API health | http://localhost:8000/health |
-| API ready | http://localhost:8000/ready |
-| API docs | http://localhost:8000/docs |
-| n8n | http://localhost:5678 |
+| Dashboard | http://127.0.0.1:3000 |
+| Login | http://127.0.0.1:3000/login |
+| Settings (Google) | http://127.0.0.1:3000/settings |
+| API health | http://127.0.0.1:8000/health |
+| API ready | http://127.0.0.1:8000/ready |
+| API docs | http://127.0.0.1:8000/docs |
+| n8n | http://127.0.0.1:5678 |
+| E2E web (isolated) | http://127.0.0.1:3001 |
+
+---
+
+## 0. Exact start sequence (copy/paste)
+
+Run these **in order** from repo root (`C:\Development\Workspace\aarohan-careeros`):
+
+```powershell
+cd C:\Development\Workspace\aarohan-careeros
+
+# 1) One-time: tools + npm/pip (skip if already done)
+pwsh .\scripts\local\Bootstrap-Aarohan.ps1
+
+# 2) Ensure .env.local has all required secrets (merges from C:\AarohanSecrets\aarohan.local.env if present)
+pwsh .\scripts\local\Sync-EnvLocal.ps1
+
+# If step 2 reports missing APP_SECRET / POSTGRES_PASSWORD / TOKEN_ENCRYPTION_KEY:
+pwsh .\scripts\local\Sync-EnvLocal.ps1 -GenerateMissing
+
+# 3) Start Docker stack (postgres + api + web)
+pwsh .\scripts\local\Start-Aarohan.ps1 -Detached
+
+# 4) Verify (use --env-file so compose sees POSTGRES_PASSWORD)
+docker compose --env-file .env.local ps
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+Open **http://127.0.0.1:3000** — click **Enter Local Admin** (when `LOCAL_DEV_AUTH_BYPASS=true`) or sign in with `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env.local`.
+
+**Common error:** `Missing required values in .env.local: APP_SECRET, POSTGRES_PASSWORD, TOKEN_ENCRYPTION_KEY`  
+→ Run step 2 again. `Sync-EnvLocal.ps1` copies values from `C:\AarohanSecrets\aarohan.local.env` into repo `.env.local`, or generates crypto keys with `-GenerateMissing`.
+
+### Daily workflow (you do not repeat Section 0 every time)
+
+| Situation | Command |
+|-----------|---------|
+| App already running | Use http://127.0.0.1:3000 — nothing else |
+| After git pull or code/UI changes | `pwsh .\scripts\local\Start-Aarohan.ps1 -Detached` |
+| Stack was stopped | `pwsh .\scripts\local\Start-Aarohan.ps1 -Detached` |
+| Secrets changed | `pwsh .\scripts\local\Sync-EnvLocal.ps1` then restart |
+| Cold restart | `pwsh .\scripts\local\Restart-Aarohan.ps1` |
+
+Plain `docker compose ps` fails without env — use `docker compose --env-file .env.local ps`.
 
 ---
 
@@ -66,41 +112,47 @@ Verify before bootstrap:
 
 | Item | Location |
 |------|----------|
-| Secret vault | PowerShell SecretStore vault `AarohanLocal` |
+| **Primary runtime config (required)** | `.env.local` in repo root (copy from `.env.local.example`) |
+| Legacy secrets file (optional merge source) | `C:\AarohanSecrets\aarohan.local.env` |
 | Google OAuth client JSON | `C:\AarohanSecrets\google-oauth-client.json` |
-| Non-secret local config | `.env.local` (gitignored, copy from `.env.example`) |
+| SecretStore vault (optional legacy) | PowerShell vault `AarohanLocal` |
 
 ---
 
 ## 2. Configuration model
 
-### Secrets → SecretStore only
+### Single file: `.env.local` (repo root)
 
-Never put these in `.env.local`, Git, or Cursor chat:
+All Docker services read **`.env.local`** via `Start-Aarohan.ps1` → `Invoke-AarohanCompose.ps1`.
 
-- `APP_SECRET`, `POSTGRES_PASSWORD`, `TOKEN_ENCRYPTION_KEY`
-- `ADMIN_EMAIL`, `ADMIN_PASSWORD`
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (optional if JSON file used)
-- `AI_API_KEY`, `N8N_ENCRYPTION_KEY`
+**Required keys** (must be non-empty):
 
-Initialize:
+| Variable | Purpose |
+|----------|---------|
+| `APP_ENV` | Set to `local` |
+| `LOCAL_DEV_AUTH_BYPASS` | Set to `true` for one-click local admin login |
+| `APP_SECRET` | Session/crypto secret (32+ chars) |
+| `POSTGRES_PASSWORD` | Postgres password for Docker |
+| `TOKEN_ENCRYPTION_KEY` | OAuth token encryption key |
+| `ADMIN_EMAIL` | Your login email |
+| `ADMIN_PASSWORD` | Your login password (12+ chars) |
 
-```powershell
-cd C:\Development\Workspace\aarohan-careeros
-pwsh .\scripts\local\Initialize-AarohanSecrets.ps1
-```
+**Never commit `.env.local`.** It is gitignored.
 
-Re-prompt a value: add `-Force`.
-
-### Non-secrets → `.env.local`
-
-Copy template:
+Create or repair:
 
 ```powershell
-Copy-Item .env.example .env.local   # if missing
+Copy-Item .env.local.example .env.local   # if missing
+pwsh .\scripts\local\Sync-EnvLocal.ps1
 ```
 
-Typical `.env.local` entries (no secret values):
+`Sync-EnvLocal.ps1`:
+
+1. Merges missing required keys from `C:\AarohanSecrets\aarohan.local.env` (legacy)
+2. Optionally pulls from SecretStore: `-UseSecretStore`
+3. Generates crypto keys only: `-GenerateMissing`
+
+### Optional non-secrets in `.env.local`
 
 ```env
 OAUTH_FIXTURE_MODE=false
@@ -108,30 +160,18 @@ CAREER_GMAIL_ADDRESS=your-career@gmail.com
 GOOGLE_DRIVE_ROOT_FOLDER_ID=<your-drive-root-id>
 GOOGLE_OAUTH_CLIENT_JSON_PATH=C:\AarohanSecrets\google-oauth-client.json
 ENABLE_EXTERNAL_EMAIL_SEND=false
-# Optional connector keys: ADZUNA_*, JOOBLE_*, USAJOBS_*, RSS_FEED_URLS
+# Connector keys: ADZUNA_*, JOOBLE_*, USAJOBS_*, OPENAI_API_KEY / AI_API_KEY
 ```
 
-**Important:** `Start-Aarohan.ps1` loads **SecretStore** into the shell environment but does **not** automatically read `.env.local`. For live Google and connector keys in `.env.local`, either:
+### Legacy SecretStore (optional)
 
-**Option A — export before start (recommended for live mode):**
+If you still use PowerShell SecretStore:
 
 ```powershell
-# Load non-secrets from .env.local into current session
-Get-Content .env.local | Where-Object { $_ -match '^\s*[^#]' -and $_ -match '=' } | ForEach-Object {
-    $n, $v = $_ -split '=', 2
-    Set-Item -Path "env:$($n.Trim())" -Value $v.Trim()
-}
-pwsh .\scripts\local\Start-Aarohan.ps1 -Detached
+pwsh .\scripts\local\Sync-EnvLocal.ps1 -UseSecretStore -GenerateMissing
+# or start with vault directly:
+pwsh .\scripts\local\Start-Aarohan.ps1 -Detached -UseSecretStore
 ```
-
-**Option B — compose env file (after exporting secrets via Start-Aarohan pattern):**
-
-```powershell
-# After SecretStore vars are in $env:, also pass .env.local to compose:
-docker compose --env-file .env.local up --build -d
-```
-
-If `OAUTH_FIXTURE_MODE` is unset, Docker defaults to **`true`** (fixture Gmail/Drive).
 
 ---
 
@@ -145,11 +185,17 @@ pwsh .\scripts\local\Bootstrap-Aarohan.ps1
 Bootstrap:
 
 1. Verifies Git, Python 3.12+, Node 20+, npm, pwsh, Docker (warns if missing)
-2. Creates `.env.local` from `.env.example` if absent
+2. Creates `.env.local` from `.env.local.example` if absent
 3. Warns if OAuth JSON path missing
-4. Runs `Initialize-AarohanSecrets.ps1`
-5. Creates `apps/api/.venv` and installs Python deps
-6. Runs `npm install` in `apps/web`
+4. Creates `apps/api/.venv` and installs Python deps
+5. Runs `npm install` in `apps/web`
+
+Then run:
+
+```powershell
+pwsh .\scripts\local\Sync-EnvLocal.ps1
+pwsh .\scripts\local\Start-Aarohan.ps1 -Detached
+```
 
 Skip Docker check (direct-dev path only):
 
@@ -170,17 +216,19 @@ pwsh .\scripts\local\Start-Aarohan.ps1 -Detached # background
 
 `Start-Aarohan.ps1`:
 
-- Loads required secrets from SecretStore
-- Sets `SCHEDULING_ENABLED=false`, `ENABLE_EXTERNAL_EMAIL_SEND=false`
-- Bind-mounts `C:\AarohanSecrets` → `/run/secrets` in API container
+- Runs `Sync-EnvLocal.ps1` (ensures `.env.local` is complete)
+- Loads `.env.local` and passes it to `docker compose --env-file .env.local`
+- Binds services to **127.0.0.1** (3000, 8000, 5432)
+- Sets `SCHEDULING_ENABLED=false`, `ENABLE_EXTERNAL_EMAIL_SEND=false` when unset
+- Bind-mounts `C:\AarohanSecrets` → `/run/secrets` in API container (OAuth JSON)
 - Runs `docker compose up --build`
 
 ### Confirm healthy
 
 ```powershell
 docker compose ps
-Invoke-RestMethod http://localhost:8000/health
-Invoke-RestMethod http://localhost:8000/ready
+Invoke-RestMethod http://127.0.0.1:8000/health
+Invoke-RestMethod http://127.0.0.1:8000/ready
 ```
 
 All services should show `healthy` within ~1–2 minutes on first build.
@@ -222,12 +270,12 @@ Use this when you want to prove the app survives a **full stop and start** (sess
 
 ### Standard cold restart (recommended)
 
-From repo root. **Unlock your SecretStore vault** when `Start-Aarohan.ps1` prompts (required for `APP_SECRET`, `POSTGRES_PASSWORD`, etc.).
+From repo root. **No SecretStore unlock required** when using `.env.local`.
 
 ```powershell
 cd C:\Development\Workspace\aarohan-careeros
 
-# One command: stop all containers, then start with secrets + .env.local
+# One command: stop all containers, then start with .env.local
 pwsh .\scripts\local\Restart-Aarohan.ps1
 ```
 
@@ -240,13 +288,13 @@ pwsh .\scripts\local\Stop-Aarohan.ps1
 # 2. Confirm nothing is running (optional)
 docker compose ps
 
-# 3. Start again (loads SecretStore + .env.local, rebuilds if needed)
+# 3. Start again (syncs .env.local, rebuilds if needed)
 pwsh .\scripts\local\Start-Aarohan.ps1 -Detached
 
 # 4. Wait ~30–90s on first build, then verify
 docker compose ps
-Invoke-RestMethod http://localhost:8000/health
-Invoke-RestMethod http://localhost:8000/ready
+Invoke-RestMethod http://127.0.0.1:8000/health
+Invoke-RestMethod http://127.0.0.1:8000/ready
 ```
 
 ### Post-restart smoke test

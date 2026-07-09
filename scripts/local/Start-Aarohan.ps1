@@ -16,6 +16,10 @@ if ($UseSecretStore) {
     . (Join-Path $PSScriptRoot "Import-LocalSecrets.ps1")
     Import-AarohanSecrets -Mode SecretStore
 } else {
+    $syncArgs = @("-NoProfile", "-File", (Join-Path $PSScriptRoot "Sync-EnvLocal.ps1"))
+    if ($env:AAROHAN_GENERATE_MISSING_SECRETS -eq "true") { $syncArgs += "-GenerateMissing" }
+    & pwsh @syncArgs
+    if ($LASTEXITCODE -ne 0) { throw "Cannot start — fix .env.local first (see Sync-EnvLocal.ps1 output)." }
     Import-AarohanRepoEnvLocal -Root $Root
 }
 

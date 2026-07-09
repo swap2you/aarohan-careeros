@@ -88,9 +88,10 @@ export default function CompaniesPage() {
           Search
         </button>
       </div>
-      <div className="card">
+      <div className="card table-card">
         <h3>Registered companies ({total})</h3>
-        <table>
+        <div className="table-scroll">
+        <table className="data-table">
           <thead>
             <tr>
               <th>Company</th>
@@ -106,6 +107,7 @@ export default function CompaniesPage() {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="pagination">
           <span>
             page {page} of {pageCount}
@@ -118,13 +120,14 @@ export default function CompaniesPage() {
           </button>
         </div>
       </div>
-      <div className="card">
+      <div className="card table-card">
         <h3>Application ledger ({ledgerTotal})</h3>
         {ledger.length === 0 ? (
           <p>No ledger entries yet.</p>
         ) : (
           <>
-            <table>
+            <div className="table-scroll">
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>Company</th>
@@ -141,11 +144,12 @@ export default function CompaniesPage() {
                     <td>{row.normalized_title ?? "—"}</td>
                     <td>{row.status}</td>
                     <td>{row.submitted_at ? new Date(row.submitted_at).toLocaleDateString() : "—"}</td>
-                    <td>{row.job_id ? <Link href={`/jobs/${row.job_id}`}>View job</Link> : "—"}</td>
+                    <td>{row.job_id ? <Link href={`/jobs/${row.job_id}`} className="inline-link">View job</Link> : "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
             <div className="pagination">
               <span>
                 page {ledgerPage} of {ledgerPageCount}

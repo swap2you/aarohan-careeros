@@ -60,9 +60,10 @@ export default function AiUsagePage() {
           <p className="muted">{budget.percent_of_hard_cap}% of hard cap used</p>
         </div>
       )}
-      <div className="card">
+      <div className="card table-card">
         <h3>Recent usage ({total})</h3>
-        <table>
+        <div className="table-scroll">
+        <table className="data-table">
           <thead>
             <tr>
               <th>Operation</th>
@@ -86,6 +87,7 @@ export default function AiUsagePage() {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="pagination">
           <span>
             page {page} of {pageCount}

@@ -16,6 +16,7 @@ router = APIRouter(tags=["ask"])
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
+    context: dict | None = None
 
 
 class TtsRequest(BaseModel):
@@ -29,7 +30,9 @@ def ask_aarohan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    return answer_question(db, payload.question, actor=current_user.email)
+    return answer_question(
+        db, payload.question, actor=current_user.email, context=payload.context
+    )
 
 
 @router.post("/tts")

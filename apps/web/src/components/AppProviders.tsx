@@ -2,9 +2,9 @@
 
 import { usePathname } from "next/navigation";
 
-import { AskDrawer } from "@/components/AskDrawer";
 import { EnvironmentBadge } from "@/components/EnvironmentBadge";
 import { Nav } from "@/components/Nav";
+import { AskProvider } from "@/lib/askContext";
 import { AuthProvider, useAuth } from "@/lib/auth";
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -21,12 +21,13 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="layout">
-      <div className="env-banner">
+      <header className="top-bar">
         <EnvironmentBadge />
-      </div>
+      </header>
       <Nav />
-      <main>{children}</main>
-      <AskDrawer />
+      <main className="main-content">
+        <div className="main-inner page-enter">{children}</div>
+      </main>
     </div>
   );
 }
@@ -34,7 +35,9 @@ function Shell({ children }: { children: React.ReactNode }) {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <Shell>{children}</Shell>
+      <AskProvider>
+        <Shell>{children}</Shell>
+      </AskProvider>
     </AuthProvider>
   );
 }

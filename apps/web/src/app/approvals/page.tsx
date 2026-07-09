@@ -222,7 +222,7 @@ export default function ApprovalsPage() {
                     Reject
                   </button>
                   {item.official_url && (
-                    <a href={item.official_url} target="_blank" rel="noreferrer">
+                    <a href={item.official_url} target="_blank" rel="noreferrer" className="inline-link external">
                       Open official application
                     </a>
                   )}
@@ -233,7 +233,9 @@ export default function ApprovalsPage() {
                   >
                     Mark Submitted
                   </button>
-                  <Link href={`/applications`}>Full review</Link>
+                  <Link href="/applications" className="inline-link">
+                    Full review
+                  </Link>
                 </div>
               </div>
             ))}
