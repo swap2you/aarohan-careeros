@@ -53,7 +53,7 @@ test.describe("R2.6.1 auth session lifecycle", () => {
 
   test("logout returns to login and blocks protected routes", async ({ page }) => {
     await uiLogin(page);
-    await page.getByRole("button", { name: "Logout" }).click();
+    await page.getByRole("button", { name: /Sign out|Logout/i }).click();
     await expect(page.getByRole("heading", { name: /Sign in to Aarohan CareerOS/ })).toBeVisible({
       timeout: 15000,
     });
