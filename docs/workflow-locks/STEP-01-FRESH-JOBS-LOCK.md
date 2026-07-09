@@ -138,8 +138,10 @@ Exact owner DB before/after counts come from the audit dry-run report.
 
 ## 9. Commit / CI
 
-- Starting commit (pre Lock 01 logic): recorded in execution report
-- Final commit SHA: _(filled after push)_
-- CI run: _(filled after push)_
+- Starting commit (pre Lock 01 logic): `812fe70ede865b2f3a9a5eb88ef6f7ddc23b583d`
+- UI lock commit (preserved, no redesign in Lock 01): `c08d60890d1ed7301eb21c8b79f81886de93ae6b`
+- Final commit SHA: `631511a` (includes discovery + e2e label fix)
+- Discovery tip commit: `57e1905198b2de3fc00a8f2fde21889a36979de2`
+- CI run (green): https://github.com/swap2you/aarohan-careeros/actions/runs/29030690427
 
 **Do not mark LOCKED until owner checklist is complete.**
