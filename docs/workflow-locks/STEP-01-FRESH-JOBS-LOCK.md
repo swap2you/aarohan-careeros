@@ -97,6 +97,16 @@ Execute (owner-approved only):
 pwsh .\scripts\local\Audit-FreshJobsData.ps1 -Execute -ConfirmationText "ARCHIVE STALE AND INELIGIBLE JOBS"
 ```
 
+### Audit runner note (owner attempt before this fix)
+
+Repository HEAD before the audit-runner repair was `3b36209`.
+
+The first owner dry-run / execute attempts failed **before any database access** because `Audit-FreshJobsData.ps1` invoked host Python without a usable `DATABASE_URL` (`sqlalchemy.exc.ArgumentError: Could not parse SQLAlchemy URL from string ''`).
+
+**No owner data was changed** by those failed attempts (the process never opened PostgreSQL).
+
+The repair runs the audit **inside the API container** via `docker compose exec` (same `.env.local` compose wrapper as `Start-Aarohan.ps1`), so `DATABASE_URL` and the `postgres` hostname are valid. Host Python is not used.
+
 ---
 
 ## 6. Before / after
@@ -140,8 +150,8 @@ Exact owner DB before/after counts come from the audit dry-run report.
 
 - Starting commit (pre Lock 01 logic): `812fe70ede865b2f3a9a5eb88ef6f7ddc23b583d`
 - UI lock commit (preserved, no redesign in Lock 01): `c08d60890d1ed7301eb21c8b79f81886de93ae6b`
-- Final commit SHA: `631511a` (includes discovery + e2e label fix)
-- Discovery tip commit: `57e1905198b2de3fc00a8f2fde21889a36979de2`
-- CI run (green): https://github.com/swap2you/aarohan-careeros/actions/runs/29030690427
+- Lock 01 discovery tip (pre audit-runner fix): `3b36209cf16ad01a76df9ef378039b8b7ce66cb2`
+- Prior green CI: https://github.com/swap2you/aarohan-careeros/actions/runs/29030690427
+- Audit-runner repair commit / CI: _(filled after push)_
 
-**Do not mark LOCKED until owner checklist is complete.**
+**Status remains READY_FOR_OWNER_VALIDATION. Do not mark LOCKED until owner checklist is complete.**
