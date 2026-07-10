@@ -10,6 +10,7 @@ from tests.postgres_utils import assert_safe_to_reset_database
 def test_owner_career_os_url_is_rejected(monkeypatch):
     monkeypatch.delenv("AAROHAN_DB_IDENTITY_PURPOSE", raising=False)
     monkeypatch.delenv("AAROHAN_DB_IDENTITY_UUID", raising=False)
+    monkeypatch.setattr("app.services.database_identity.settings.aarohan_db_identity_purpose", "")
     with pytest.raises(RuntimeError, match="Refusing to reset"):
         assert_safe_to_reset_database(
             "postgresql+psycopg://career_os:secret@postgres:5432/career_os"
@@ -45,6 +46,7 @@ def test_ci_bootstrap_credentials_are_rejected(monkeypatch):
 def test_redacted_engine_url_still_blocked_without_env(monkeypatch):
     monkeypatch.delenv("AAROHAN_DB_IDENTITY_PURPOSE", raising=False)
     monkeypatch.delenv("AAROHAN_DB_IDENTITY_UUID", raising=False)
+    monkeypatch.setattr("app.services.database_identity.settings.aarohan_db_identity_purpose", "")
     # SQLAlchemy often stringifies passwords as *** — must not allow wipe via that alone.
     with pytest.raises(RuntimeError, match="Refusing to reset"):
         assert_safe_to_reset_database(
