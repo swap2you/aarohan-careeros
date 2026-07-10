@@ -11,6 +11,8 @@ def test_e2e_login_blocked_on_owner_stack(client: TestClient):
 
     if settings.database_url and "career_os_e2e" in settings.database_url:
         pytest.skip("SQLite/E2E DB in test harness")
+    if (settings.aarohan_db_identity_purpose or "").upper() == "CI":
+        pytest.skip("CI identity database is not the owner stack")
     with pytest.raises(PermissionError):
         assert_e2e_user_allowed(E2E_TEST_EMAIL)
 
@@ -20,6 +22,8 @@ def test_login_rejects_e2e_on_owner(client: TestClient):
 
     if settings.database_url and "career_os_e2e" in settings.database_url:
         pytest.skip("E2E database")
+    if (settings.aarohan_db_identity_purpose or "").upper() == "CI":
+        pytest.skip("CI identity database is not the owner stack")
     response = client.post(
         "/api/auth/login",
         json={"email": E2E_TEST_EMAIL, "password": "wrong-password-but-checked-after-email"},
