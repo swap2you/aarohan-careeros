@@ -86,11 +86,28 @@ if ($confirm -ne "DELETE-FIXTURE-DATA") {
 }
 
 if (-not $SkipBackup) {
-    $backupDir = Join-Path $Root "artifacts/backups"
-    New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
-    $backupFile = Join-Path $backupDir "pre_cleanup_$stamp.sql"
-    docker compose exec -T postgres pg_dump -U career_os career_os | Set-Content -Path $backupFile -Encoding utf8
-    Log "Backup written: $backupFile"
+    $backup = & pwsh -NoProfile -File (Join-Path $PSScriptRoot "Invoke-VerifiedOwnerBackup.ps1")
+    if (-not $backup.Verified) {
+        throw "Verified backup gate failed before execute."
+    }
+    Log "Verified backup written: $($backup.DumpPath) ($($backup.SizeBytes) bytes)"
+    Log "Verified backup SHA-256: $($backup.Sha256)"
+    Log "Verified backup manifest: $($backup.ManifestPath)"
+    $env:AAROHAN_SAME_RUN_BACKUP_PATH = $backup.DumpPath
+    $env:AAROHAN_SAME_RUN_BACKUP_SHA256 = $backup.Sha256
+    $env:AAROHAN_SAME_RUN_BACKUP_MANIFEST = $backup.ManifestPath
+} else {
+    throw "Execute requires a same-run backup. Remove -SkipBackup."
+}
+
+. (Join-Path $PSScriptRoot "Invoke-AarohanCompose.ps1")
+Import-AarohanRepoEnvLocal -Root $Root
+if ([string]::IsNullOrWhiteSpace($env:AAROHAN_DESTRUCTIVE_TOKEN)) {
+    throw "AAROHAN_DESTRUCTIVE_TOKEN must be set in .env.local for destructive owner operations."
+}
+$tokenConfirm = Read-Host "Enter AAROHAN_DESTRUCTIVE_TOKEN to confirm destructive cleanup"
+if ($tokenConfirm -ne $env:AAROHAN_DESTRUCTIVE_TOKEN) {
+    throw "Destructive token mismatch; cleanup cancelled."
 }
 
 $deleteSql = @"
