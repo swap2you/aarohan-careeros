@@ -1,0 +1,31 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf-2.0-0 \
+    libffi-dev shared-mime-info \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-owner.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini .
+COPY scripts ./scripts
+COPY entrypoint-owner.sh ./entrypoint.sh
+
+RUN sed -i 's/\r$//' entrypoint.sh \
+    && chmod +x entrypoint.sh \
+    && printf '%s\n' '#!/bin/sh' \
+       'echo "ERROR: pytest is blocked on the owner runtime image (AAROHAN_RUNTIME_PROFILE=owner)."' \
+       'echo "Use scripts/local/Run-Aarohan-Tests.ps1 against the isolated test stack."' \
+       'exit 1' > /usr/local/bin/pytest \
+    && chmod +x /usr/local/bin/pytest
+
+ENV PYTHONPATH=/app
+ENV AAROHAN_RUNTIME_PROFILE=owner
+EXPOSE 8000
+
+CMD ["./entrypoint.sh"]

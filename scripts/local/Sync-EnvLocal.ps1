@@ -114,12 +114,28 @@ function Write-EnvFileMap {
 
 function New-RandomSecret {
     param([int]$Length = 48)
-    $bytes = New-Object byte[] $Length
-    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-    return [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', 'x').Replace('/', 'y').Substring(0, [Math]::Min(48, $Length + 12))
+    $raw = ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N'))
+    if ($raw.Length -lt $Length) {
+        $raw += [guid]::NewGuid().ToString('N')
+    }
+    return $raw.Substring(0, [Math]::Min($Length, $raw.Length))
+}
+
+function New-UuidV4 {
+    return [guid]::NewGuid().ToString()
 }
 
 $required = @("APP_SECRET", "POSTGRES_PASSWORD", "TOKEN_ENCRYPTION_KEY", "ADMIN_EMAIL", "ADMIN_PASSWORD")
+$isolationKeys = @(
+    "E2E_POSTGRES_PASSWORD",
+    "E2E_MIGRATE_PASSWORD",
+    "E2E_RUNTIME_PASSWORD",
+    "POSTGRES_MIGRATE_PASSWORD",
+    "POSTGRES_RUNTIME_PASSWORD",
+    "AAROHAN_OWNER_DB_IDENTITY_UUID",
+    "AAROHAN_E2E_DB_IDENTITY_UUID",
+    "AAROHAN_DESTRUCTIVE_TOKEN"
+)
 $defaults = @{
     APP_ENV                 = "local"
     LOCAL_DEV_AUTH_BYPASS   = "true"
@@ -163,13 +179,45 @@ if ($GenerateMissing) {
         $targetMap.TOKEN_ENCRYPTION_KEY = New-RandomSecret -Length 32
         Write-Host "Generated TOKEN_ENCRYPTION_KEY"
     }
+    if ([string]::IsNullOrWhiteSpace($targetMap.E2E_POSTGRES_PASSWORD)) {
+        $targetMap.E2E_POSTGRES_PASSWORD = New-RandomSecret -Length 32
+        Write-Host "Generated E2E_POSTGRES_PASSWORD"
+    }
+    if ([string]::IsNullOrWhiteSpace($targetMap.POSTGRES_MIGRATE_PASSWORD)) {
+        $targetMap.POSTGRES_MIGRATE_PASSWORD = New-RandomSecret -Length 32
+        Write-Host "Generated POSTGRES_MIGRATE_PASSWORD"
+    }
+    if ([string]::IsNullOrWhiteSpace($targetMap.POSTGRES_RUNTIME_PASSWORD)) {
+        $targetMap.POSTGRES_RUNTIME_PASSWORD = New-RandomSecret -Length 32
+        Write-Host "Generated POSTGRES_RUNTIME_PASSWORD"
+    }
+    if ([string]::IsNullOrWhiteSpace($targetMap.E2E_MIGRATE_PASSWORD)) {
+        $targetMap.E2E_MIGRATE_PASSWORD = New-RandomSecret -Length 32
+        Write-Host "Generated E2E_MIGRATE_PASSWORD"
+    }
+    if ([string]::IsNullOrWhiteSpace($targetMap.E2E_RUNTIME_PASSWORD)) {
+        $targetMap.E2E_RUNTIME_PASSWORD = New-RandomSecret -Length 32
+        Write-Host "Generated E2E_RUNTIME_PASSWORD"
+    }
+    if ([string]::IsNullOrWhiteSpace($targetMap.AAROHAN_OWNER_DB_IDENTITY_UUID)) {
+        $targetMap.AAROHAN_OWNER_DB_IDENTITY_UUID = New-UuidV4
+        Write-Host "Generated AAROHAN_OWNER_DB_IDENTITY_UUID"
+    }
+    if ([string]::IsNullOrWhiteSpace($targetMap.AAROHAN_E2E_DB_IDENTITY_UUID)) {
+        $targetMap.AAROHAN_E2E_DB_IDENTITY_UUID = New-UuidV4
+        Write-Host "Generated AAROHAN_E2E_DB_IDENTITY_UUID"
+    }
+    if ([string]::IsNullOrWhiteSpace($targetMap.AAROHAN_DESTRUCTIVE_TOKEN)) {
+        $targetMap.AAROHAN_DESTRUCTIVE_TOKEN = New-RandomSecret -Length 24
+        Write-Host "Generated AAROHAN_DESTRUCTIVE_TOKEN"
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($targetMap.AI_API_KEY) -and $targetMap.OPENAI_API_KEY) {
     $targetMap.AI_API_KEY = $targetMap.OPENAI_API_KEY
 }
 
-Write-EnvFileMap -Path $target -Map $targetMap -Order ($required + @("APP_ENV", "LOCAL_DEV_AUTH_BYPASS"))
+Write-EnvFileMap -Path $target -Map $targetMap -Order ($required + @("APP_ENV", "LOCAL_DEV_AUTH_BYPASS") + $isolationKeys)
 
 $missing = @()
 foreach ($name in $required) {

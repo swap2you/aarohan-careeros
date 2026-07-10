@@ -18,18 +18,26 @@ services:
       retries: 5
 
   api:
-    build: ./apps/api
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.owner
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      AAROHAN_RUNTIME_PROFILE: owner
+      AAROHAN_DB_IDENTITY_PURPOSE: OWNER
+      AAROHAN_DB_IDENTITY_UUID: ${AAROHAN_OWNER_DB_IDENTITY_UUID:?AAROHAN_OWNER_DB_IDENTITY_UUID required}
       APP_ENV: ${APP_ENV:-local}
       LOCAL_DEV_AUTH_BYPASS: ${LOCAL_DEV_AUTH_BYPASS:-false}
       APP_SECRET: ${APP_SECRET:?APP_SECRET required}
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?TOKEN_ENCRYPTION_KEY required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      DATABASE_URL: postgresql+psycopg://career_os:${POSTGRES_PASSWORD}@postgres:5432/career_os
+      POSTGRES_MIGRATE_PASSWORD: ${POSTGRES_MIGRATE_PASSWORD:?POSTGRES_MIGRATE_PASSWORD required}
+      POSTGRES_RUNTIME_PASSWORD: ${POSTGRES_RUNTIME_PASSWORD:?POSTGRES_RUNTIME_PASSWORD required}
+      MIGRATION_DATABASE_URL: postgresql+psycopg://career_os_migrate:${POSTGRES_MIGRATE_PASSWORD}@postgres:5432/career_os
+      DATABASE_URL: postgresql+psycopg://career_os_runtime:${POSTGRES_RUNTIME_PASSWORD}@postgres:5432/career_os
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       CORS_ORIGINS: http://localhost:3000
