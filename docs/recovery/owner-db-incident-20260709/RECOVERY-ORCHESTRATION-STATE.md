@@ -29,7 +29,7 @@ Allowed values:
 - Phase 2 identity guard SHA: 81b1034b6bbce9d852996db7992cfee52d2dda25
 - Phase 3 owner candidate SHA: cd344be
 - Phase 3 rework SHA: 3672fdc
-- Phase 3 final SHA: pending commit
+- Phase 3 final SHA: 87b9944
 
 ## Database identities
 
@@ -98,7 +98,7 @@ Immutable marker table: `aarohan_meta.database_identity` (migration `0013`).
 - Evidence root: `artifacts/recovery/incident-20260709/phase3-final-20260710_221530/`
 - Prior rework evidence: `artifacts/recovery/incident-20260709/phase3-rework-20260710_171518/`
 - Codex review: `docs/recovery/owner-db-incident-20260709/reviews/CODEX-PHASE-3-REREVIEW.md` — prior **NO GO**
-- Phase 3 final SHA: pending commit
+- Phase 3 final SHA: 87b9944
 - Validation passed: **true** (0 defects)
 - Cutover rehearsal: **passed** (OWNER marker promotion on disposable DB)
 - Backup restore verification: **passed**
