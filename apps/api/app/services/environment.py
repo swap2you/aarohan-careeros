@@ -52,7 +52,9 @@ def environment_payload() -> dict:
         "is_owner_stack": badge == "OWNER LOCAL",
         "is_e2e_stack": badge == "E2E TEST",
         "show_fixture_controls": badge in {"E2E TEST", "FIXTURE"},
-        "e2e_login_allowed": settings.allow_e2e_login_on_owner or not is_owner_database(),
+        "e2e_login_allowed": settings.allow_e2e_login_on_owner
+        or not is_owner_database()
+        or (settings.aarohan_db_identity_purpose or "").upper() == "CI",
         "local_dev_auth_bypass": settings.local_dev_auth_bypass and settings.app_env == "local",
         "api_port_hint": 8001 if is_e2e_database() else 8000,
         "web_port_hint": 3001 if is_e2e_database() else 3000,
@@ -60,7 +62,13 @@ def environment_payload() -> dict:
 
 
 def assert_e2e_user_allowed(email: str) -> None:
-    if is_e2e_account(email) and is_owner_database() and not settings.allow_e2e_login_on_owner:
+    purpose = (settings.aarohan_db_identity_purpose or "").upper()
+    if (
+        is_e2e_account(email)
+        and is_owner_database()
+        and purpose != "CI"
+        and not settings.allow_e2e_login_on_owner
+    ):
         raise PermissionError(
             "The E2E test account cannot sign in to the owner stack. "
             "Use the isolated E2E app at http://localhost:3001."

@@ -12,7 +12,15 @@ E2E_EMAIL = "e2e@test.local"
 
 
 def main() -> int:
-    if not is_e2e_database():
+    purpose = (
+        os.environ.get("AAROHAN_DB_IDENTITY_PURPOSE")
+        or os.environ.get("AAROHAN_DB_IDENTITY_PURPOSE", "")
+        or ""
+    ).upper()
+    from app.config import settings
+
+    purpose = purpose or (settings.aarohan_db_identity_purpose or "").upper()
+    if not is_e2e_database() and purpose != "CI":
         allow_owner = os.environ.get("ALLOW_E2E_LOGIN_ON_OWNER", "").lower() in {"1", "true", "yes"}
         if not allow_owner:
             print(
