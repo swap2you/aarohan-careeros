@@ -51,7 +51,7 @@ jobs:
           AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
         run: |
           alembic upgrade head
-          python scripts/provision_database_roles.py --stack ci
+          PYTHONPATH=. python scripts/provision_database_roles.py --stack ci
       - name: Assert CI identity marker
         working-directory: apps/api
         env:
@@ -154,7 +154,7 @@ jobs:
           AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
         run: |
           alembic upgrade head
-          python scripts/provision_database_roles.py --stack ci
+          PYTHONPATH=. python scripts/provision_database_roles.py --stack ci
       - name: Assert Playwright is not using OWNER identity
         working-directory: apps/api
         env:
