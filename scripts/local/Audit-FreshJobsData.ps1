@@ -2,16 +2,6 @@
 <#
 .SYNOPSIS
   Fresh Jobs owner-data audit (Workflow Lock 01). Dry-run by default.
-
-.DESCRIPTION
-  Runs analysis inside the Aarohan API container (valid DATABASE_URL / postgres hostname).
-  Does not use host Python. Never deletes records. Never prints secrets.
-
-.EXAMPLE
-  pwsh .\scripts\local\Audit-FreshJobsData.ps1
-
-.EXAMPLE
-  pwsh .\scripts\local\Audit-FreshJobsData.ps1 -Execute -ConfirmationText "ARCHIVE STALE AND INELIGIBLE JOBS"
 #>
 param(
     [switch]$Execute,
@@ -24,6 +14,7 @@ $RepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $RepoRoot
 
 . (Join-Path $PSScriptRoot "Invoke-AarohanCompose.ps1")
+. (Join-Path $PSScriptRoot "Assert-AarohanOwnerDatabaseIdentity.ps1")
 
 $ConfirmationPhrase = "ARCHIVE STALE AND INELIGIBLE JOBS"
 
@@ -72,6 +63,9 @@ if (-not $ReportDir) {
 Write-Host "Aarohan Fresh Jobs audit" -ForegroundColor Cyan
 Write-Host ("Mode: " + $(if ($Execute) { "EXECUTE" } else { "dry-run (default)" }))
 
+$identity = Assert-AarohanOwnerDatabaseIdentity
+Write-Host "Owner identity preflight verified (purpose=$($identity.Purpose), database=$($identity.Database))."
+
 Import-AarohanRepoEnvLocal -Root $RepoRoot
 
 if (-not (Test-ApiServiceRunning) -or -not (Test-ApiContainerHealthy)) {
@@ -80,6 +74,42 @@ if (-not (Test-ApiServiceRunning) -or -not (Test-ApiContainerHealthy)) {
     Write-Host "Start the stack first:" -ForegroundColor Yellow
     Write-Host "  pwsh .\scripts\local\Start-Aarohan.ps1 -Detached" -ForegroundColor White
     exit 1
+}
+
+$sameRunStartedAt = $null
+$backup = $null
+if ($Execute) {
+    $sameRunStartedAt = (Get-Date).ToUniversalTime().ToString('o')
+    $backup = & pwsh -NoProfile -File (Join-Path $PSScriptRoot "Invoke-VerifiedOwnerBackup.ps1")
+    if (-not $backup.Verified) {
+        Write-AuditFailure "Verified backup gate failed before audit execute."
+    }
+    Push-Location (Join-Path $RepoRoot "apps/api")
+    $env:PYTHONPATH = "."
+    $identityPayload = [ordered]@{
+        verified = $true
+        purpose = $identity.Purpose
+        identity_uuid = $identity.IdentityUuid
+        database = $identity.Database
+        compose_project = $identity.ComposeProject
+        postgres_service = $identity.PostgresService
+        postgres_container = $identity.PostgresContainer
+        host = $identity.Host
+        port = $identity.Port
+        privileged_user = $identity.PrivilegedUser
+        identity_fingerprint = $identity.IdentityFingerprint
+        verified_at = $identity.VerifiedAt
+    }
+    $identityJson = ($identityPayload | ConvertTo-Json -Compress)
+    $null = .\.venv\Scripts\python scripts/assert_same_run_backup_manifest.py `
+        --manifest-path $backup.ManifestPath `
+        --dump-path $backup.DumpPath `
+        --same-run-started-at $sameRunStartedAt `
+        --identity-json $identityJson 2>&1 | Out-String
+    Pop-Location
+    if ($LASTEXITCODE -ne 0) {
+        Write-AuditFailure "Same-run backup manifest validation failed before audit execute."
+    }
 }
 
 $hostScript = Join-Path $RepoRoot "apps\api\scripts\audit_fresh_jobs.py"
@@ -97,8 +127,6 @@ if ($Execute) {
 $envFile = Join-Path $RepoRoot ".env.local"
 $scriptText = Get-Content -Raw -Path $hostScript
 
-# Pipe host script into container Python so we do not require an image rebuild
-# and never depend on host DATABASE_URL / host Python packages.
 $pythonOut = $scriptText | & docker compose --env-file $envFile exec -T api python - @($auditArgs.ToArray()) 2>&1 | Out-String
 $exitCode = $LASTEXITCODE
 
@@ -144,6 +172,7 @@ Write-Host ("proposed_reject_count       : {0}" -f $summary.proposed_reject_coun
 Write-Host ("report_path                 : {0}" -f $reportPath)
 if ($Execute -and $summary.mode -eq "execute") {
     Write-Host ("records_updated             : {0}" -f $summary.records_updated)
+    Write-Host ("backup_manifest             : {0}" -f $backup.ManifestPath)
 } elseif ($Execute -and $summary.execute_error) {
     Write-Host ("execute_error               : {0}" -f $summary.execute_error) -ForegroundColor Yellow
     Write-Host "No records were changed." -ForegroundColor Yellow

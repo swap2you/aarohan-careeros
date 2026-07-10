@@ -40,6 +40,8 @@ jobs:
         run: pip install -r requirements.txt
       - name: Owner-stack pytest scan
         run: python scripts/validation/owner_stack_pytest_scan.py
+      - name: Privileged owner helper scan
+        run: python scripts/validation/privileged_owner_helper_scan.py
       - name: Migrate and provision CI database roles
         working-directory: apps/api
         env:
@@ -98,6 +100,8 @@ jobs:
         run: python scripts/validation/prohibited_source_scan.py
       - name: Owner-stack pytest scan
         run: python scripts/validation/owner_stack_pytest_scan.py
+      - name: Privileged owner helper scan
+        run: python scripts/validation/privileged_owner_helper_scan.py
 
   web-build:
     runs-on: ubuntu-latest

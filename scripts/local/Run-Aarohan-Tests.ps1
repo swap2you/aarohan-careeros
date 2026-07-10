@@ -35,6 +35,7 @@ Write-Host "=== Run-Aarohan-Tests (isolated infrastructure) ==="
 Run-Step "Secret scan" { python scripts/validation/secret_scan.py }
 Run-Step "Prohibited source scan" { python scripts/validation/prohibited_source_scan.py }
 Run-Step "Owner-stack pytest scan" { python scripts/validation/owner_stack_pytest_scan.py }
+Run-Step "Privileged owner helper scan" { python scripts/validation/privileged_owner_helper_scan.py }
 
 Push-Location apps/api
 if (-not (Test-Path .venv)) { python -m venv .venv }
@@ -68,7 +69,7 @@ if (-not $SkipPostgresIntegration) {
         $env:AAROHAN_DB_IDENTITY_PURPOSE = "E2E"
         $env:AAROHAN_DB_IDENTITY_UUID = $env:AAROHAN_E2E_DB_IDENTITY_UUID
         $env:AAROHAN_RUNTIME_PROFILE = "test"
-        .\.venv\Scripts\pytest tests/test_duplicate_risk_postgres.py tests/test_postgres_reset_guard.py tests/test_database_identity.py tests/test_database_identity_marker_postgres.py tests/test_database_roles_postgres.py tests/test_verified_backup_gate.py tests/test_migrations.py -q
+        .\.venv\Scripts\pytest tests/test_duplicate_risk_postgres.py tests/test_postgres_reset_guard.py tests/test_database_identity.py tests/test_database_identity_marker_postgres.py tests/test_database_roles_postgres.py tests/test_verified_backup_gate.py tests/test_owner_identity_preflight.py tests/test_migrations.py -q
     }
     Pop-Location
 }

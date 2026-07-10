@@ -14,8 +14,13 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $Root
 
-. (Join-Path $PSScriptRoot "Invoke-AarohanCompose.ps1")
-Import-AarohanRepoEnvLocal -Root $Root
+. (Join-Path $PSScriptRoot "Assert-AarohanOwnerDatabaseIdentity.ps1")
+$identity = Assert-AarohanOwnerDatabaseIdentity `
+    -Database $Database `
+    -ContainerName $ContainerName `
+    -PrivilegedUser $BootstrapUser
+
+$backupStartedAt = (Get-Date).ToUniversalTime().ToString('o')
 
 if (-not $OutputDir) {
     $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -31,7 +36,7 @@ $verifyDb = "backup_verify_${Database}_$((Get-Date -Format 'yyyyMMddHHmmss'))"
 function Invoke-PgAsBootstrap {
     param([Parameter(Mandatory)] [string]$Sql)
     docker exec $ContainerName psql -U $BootstrapUser -d postgres -v ON_ERROR_STOP=1 -c $Sql
-    if ($LASTEXITCODE -ne 0) { throw "psql failed: $Sql" }
+    if ($LASTEXITCODE -ne 0) { throw "psql failed during verified backup operation." }
 }
 
 function Get-CriticalCounts {
@@ -107,8 +112,10 @@ foreach ($key in $sourceCounts.Keys) {
 
 Invoke-PgAsBootstrap "DROP DATABASE IF EXISTS `"$verifyDb`";"
 
+$backupCompletedAt = (Get-Date).ToUniversalTime().ToString('o')
 $manifest = [ordered]@{
     verified = $true
+    verification_result = "restore_verified"
     database = $Database
     dump_path = ($dumpHostPath -replace '\\', '/')
     size_bytes = $size
@@ -116,8 +123,16 @@ $manifest = [ordered]@{
     source_table_count = $sourceTables
     restored_table_count = $restoredTables
     critical_row_counts = $sourceCounts
-    verified_at = (Get-Date).ToUniversalTime().ToString('o')
+    verified_at = $backupCompletedAt
     verification_database = $verifyDb
+    identity_purpose = $identity.Purpose
+    identity_uuid = $identity.IdentityUuid
+    compose_project = $identity.ComposeProject
+    postgres_service = $identity.PostgresService
+    postgres_container = $identity.PostgresContainer
+    identity_fingerprint = $identity.IdentityFingerprint
+    backup_started_at = $backupStartedAt
+    backup_completed_at = $backupCompletedAt
 }
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -Path $manifestPath -Encoding UTF8
 
@@ -128,4 +143,7 @@ return [ordered]@{
     Sha256 = $sha256
     SizeBytes = $size
     CriticalRowCounts = $sourceCounts
+    Identity = $identity
+    BackupStartedAt = $backupStartedAt
+    BackupCompletedAt = $backupCompletedAt
 }

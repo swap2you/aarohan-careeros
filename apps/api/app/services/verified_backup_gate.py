@@ -26,6 +26,15 @@ class VerifiedBackupManifest:
     critical_row_counts: dict[str, int]
     verified_at: str
     verification_database: str
+    identity_purpose: str = ""
+    identity_uuid: str = ""
+    compose_project: str = ""
+    postgres_service: str = ""
+    postgres_container: str = ""
+    identity_fingerprint: str = ""
+    backup_started_at: str = ""
+    backup_completed_at: str = ""
+    verification_result: str = ""
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2, sort_keys=True)
@@ -90,6 +99,15 @@ def load_manifest(path: Path) -> VerifiedBackupManifest:
         critical_row_counts={str(k): int(v) for k, v in payload["critical_row_counts"].items()},
         verified_at=str(payload["verified_at"]),
         verification_database=str(payload["verification_database"]),
+        identity_purpose=str(payload.get("identity_purpose", "")),
+        identity_uuid=str(payload.get("identity_uuid", "")),
+        compose_project=str(payload.get("compose_project", "")),
+        postgres_service=str(payload.get("postgres_service", "")),
+        postgres_container=str(payload.get("postgres_container", "")),
+        identity_fingerprint=str(payload.get("identity_fingerprint", "")),
+        backup_started_at=str(payload.get("backup_started_at", "")),
+        backup_completed_at=str(payload.get("backup_completed_at", "")),
+        verification_result=str(payload.get("verification_result", "")),
     )
 
 

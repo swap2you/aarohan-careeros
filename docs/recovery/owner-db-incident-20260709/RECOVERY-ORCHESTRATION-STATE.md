@@ -67,6 +67,13 @@ Immutable marker table: `aarohan_meta.database_identity` (migration `0013`).
 | CODEX-P2-HIGH-003 | High | **Resolved** — `Invoke-VerifiedOwnerBackup.ps1` performs pg_dump, checksum, header check, disposable restore verification, manifest; cleanup execute path requires verified manifest |
 | CODEX-P2-MEDIUM-001 | Medium | **Resolved** — UUID bound to `aarohan_meta.database_identity` with immutability trigger; runtime role cannot UPDATE/DELETE marker |
 | CODEX-P2-MEDIUM-002 | Medium | **Resolved** — CI generates per-run UUID, provisions roles/marker, asserts CI purpose; Playwright uses CI runtime role and `ALLOW_E2E_LOGIN_ON_OWNER=false` |
+| CODEX-P2-HIGH-004 | High | **Resolved** — canonical `Assert-AarohanOwnerDatabaseIdentity.ps1` required before privileged owner helpers; backup manifests bind identity fingerprint; cleanup/audit execute revalidate marker in transaction |
+
+### Phase 2 final identity guard
+
+- Status: **COMPLETE — awaiting Codex final re-review**
+- Evidence root: `artifacts/recovery/incident-20260709/phase2-final-identity-20260710_150438/`
+- Review: `docs/recovery/owner-db-incident-20260709/reviews/CODEX-PHASE-2-REREVIEW.md` — **NO GO** (prior to this fix)
 
 ## Owner business row counts (unchanged)
 
@@ -88,4 +95,4 @@ Immutable marker table: `aarohan_meta.database_identity` (migration `0013`).
 
 ## Next action
 
-**Codex Phase 2 re-review** — do not start Phase 3 until Codex GO.
+**Codex Phase 2 final re-review** — do not start Phase 3 until Codex GO.

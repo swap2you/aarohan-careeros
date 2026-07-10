@@ -108,6 +108,11 @@ ORDER BY datname;
 
 function Export-DatabaseDump {
     param([Parameter(Mandatory)] [string]$Database)
+    if ($Database -eq "career_os") {
+        $guardScript = Join-Path (Split-Path $PSScriptRoot -Parent) "local/Assert-AarohanOwnerDatabaseIdentity.ps1"
+        . $guardScript
+        $null = Assert-AarohanOwnerDatabaseIdentity -Database $Database -ContainerName $ContainerName -PrivilegedUser $PgUser
+    }
     $containerPath = "/tmp/recovery_dump_${Database}.sql"
     $hostPath = Join-Path $DumpsDir "${Database}.sql"
 

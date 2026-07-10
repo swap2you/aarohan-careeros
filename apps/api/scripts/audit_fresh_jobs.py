@@ -92,6 +92,24 @@ def _entry_from_result(job, result, *, decision_before: str | None) -> dict[str,
     }
 
 
+def _assert_owner_identity(db: Session) -> None:
+    from app.services.owner_database_identity_preflight import (
+        OWNER_DATABASE,
+        expected_owner_identity_purpose,
+        expected_owner_identity_uuid,
+        validate_owner_database_marker,
+    )
+
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    validate_owner_database_marker(
+        db.get_bind(),
+        expected_purpose=expected_owner_identity_purpose(),
+        expected_uuid=expected_owner_identity_uuid(),
+        expected_database=OWNER_DATABASE,
+    )
+
+
 def run_audit(
     db: Session,
     *,
@@ -113,6 +131,7 @@ def run_audit(
     from app.services.provenance import OWNER_EXCLUDED
 
     now = now or datetime.utcnow()
+    _assert_owner_identity(db)
 
     if not execute:
         from sqlalchemy import text
@@ -260,6 +279,16 @@ def run_audit(
             report["execute_error"] = "ConfirmationText mismatch; no changes applied"
             report["mode"] = "execute_blocked"
             return report
+
+        from app.services.owner_database_identity_preflight import (
+            expected_owner_identity_uuid,
+            sql_revalidate_owner_identity_marker,
+        )
+        from sqlalchemy import text
+
+        dialect_name = db.get_bind().dialect.name
+        if dialect_name == "postgresql":
+            db.execute(text(sql_revalidate_owner_identity_marker(expected_owner_identity_uuid())))
 
         changed = 0
         for entry in propose_archive + propose_reject:

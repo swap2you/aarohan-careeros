@@ -5,6 +5,9 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $Root
 
+. (Join-Path $PSScriptRoot "Assert-AarohanOwnerDatabaseIdentity.ps1")
+$null = Assert-AarohanOwnerDatabaseIdentity
+
 $dest = if ($OutputDir) { $OutputDir } else { Join-Path $Root "artifacts\backups" }
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
