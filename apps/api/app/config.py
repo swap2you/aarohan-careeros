@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     local_dev_auth_bypass: bool = False
     gmail_sync_start_date: str = ""
     deployment_mode: str = ""
+    aarohan_runtime_profile: str = ""
+    aarohan_db_identity_purpose: str = ""
+    aarohan_db_identity_uuid: str = ""
+    destructive_operation_token: str = ""
+    migration_database_url: str = ""
 
     @model_validator(mode="after")
     def resolve_runtime_paths(self) -> "Settings":

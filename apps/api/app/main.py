@@ -8,7 +8,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import SessionLocal, engine
+from app.database import SessionLocal, get_engine
+from app.services.database_identity import migration_database_url, should_enforce_identity
 from app.routers import (
     applications,
     ask,
@@ -35,15 +36,26 @@ from app.services.career_vault import sync_evidence_registry
 
 
 def run_migrations() -> None:
+    if runtime_profile() == "owner":
+        return
     cfg = Config("alembic.ini")
-    cfg.set_main_option("sqlalchemy.url", settings.database_url)
+    cfg.set_main_option("sqlalchemy.url", migration_database_url())
     command.upgrade(cfg, "head")
+
+
+def runtime_profile() -> str:
+    from app.services.database_identity import runtime_profile as _runtime_profile
+
+    return _runtime_profile()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if settings.database_url:
-        run_migrations()
+        if should_enforce_identity(settings.database_url):
+            get_engine()
+        if runtime_profile() != "owner":
+            run_migrations()
         db: Session = SessionLocal()
         try:
             bootstrap_admin_from_env(db)
