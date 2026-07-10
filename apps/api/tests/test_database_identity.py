@@ -38,6 +38,16 @@ def test_e2e_identity_rejects_owner_runtime_user_on_e2e_db(monkeypatch):
         )
 
 
+def test_e2e_identity_accepts_bootstrap_user_for_provisioning(monkeypatch):
+    monkeypatch.setenv("AAROHAN_DB_IDENTITY_PURPOSE", "E2E")
+    monkeypatch.setenv("AAROHAN_DB_IDENTITY_UUID", "11111111-1111-4111-8111-111111111111")
+    from app.services.database_identity import E2E_BOOTSTRAP_USER
+
+    assert_connection_matches_identity(
+        f"postgresql+psycopg://{E2E_BOOTSTRAP_USER}:secret@127.0.0.1:5433/career_os_e2e"
+    )
+
+
 def test_e2e_identity_accepts_isolated_stack_url(monkeypatch):
     monkeypatch.setenv("AAROHAN_DB_IDENTITY_PURPOSE", "E2E")
     monkeypatch.setenv("AAROHAN_DB_IDENTITY_UUID", "11111111-1111-4111-8111-111111111111")

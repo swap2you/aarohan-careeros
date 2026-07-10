@@ -11,6 +11,9 @@ from datetime import datetime, timezone
 from sqlalchemy import create_engine, text
 
 from app.services.database_identity import (
+    CANDIDATE_DATABASE,
+    CANDIDATE_MIGRATE_USER,
+    CANDIDATE_RUNTIME_USER,
     E2E_MIGRATE_USER,
     E2E_RUNTIME_USER,
     OWNER_MIGRATE_USER,
@@ -18,6 +21,11 @@ from app.services.database_identity import (
     PURPOSE_CI,
     PURPOSE_E2E,
     PURPOSE_OWNER,
+    PURPOSE_OWNER_CANDIDATE,
+    PURPOSE_RECOVERY,
+    RECOVERY_DATABASE,
+    RECOVERY_MIGRATE_USER,
+    RECOVERY_RUNTIME_USER,
     UUID_PATTERN,
 )
 
@@ -310,9 +318,42 @@ def provision_e2e(
     }
 
 
+def provision_recovery_stack(
+    bootstrap_url: str,
+    database: str,
+    migrate_role: str,
+    runtime_role: str,
+    migrate_password: str,
+    runtime_password: str,
+    purpose: str,
+    identity_uuid: str,
+    bootstrap_role: str = "career_os",
+) -> dict:
+    engine = create_engine(bootstrap_url, pool_pre_ping=True)
+    with engine.connect() as conn:
+        conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+        _ensure_role(conn, migrate_role, migrate_password)
+        _ensure_role(conn, runtime_role, runtime_password)
+        _grant_migrate_privileges(conn, migrate_role, bootstrap_role, database)
+        _grant_runtime_privileges(
+            conn, runtime_role, migrate_role, database, ("public", "aarohan_meta")
+        )
+        _ensure_meta_schema(conn, migrate_role, runtime_role)
+        _ensure_identity_marker(conn, migrate_role, purpose, identity_uuid)
+    return {
+        "stack": database,
+        "migrate_role": migrate_role,
+        "runtime_role": runtime_role,
+        "migrate_attrs": _role_attrs(engine, migrate_role),
+        "runtime_attrs": _role_attrs(engine, runtime_role),
+        "purpose": purpose,
+        "identity_uuid": identity_uuid,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Provision PostgreSQL roles and identity marker")
-    parser.add_argument("--stack", choices=["owner", "e2e", "ci"], required=True)
+    parser.add_argument("--stack", choices=["owner", "e2e", "ci", "recovery", "owner_candidate"], required=True)
     args = parser.parse_args(argv)
 
     if args.stack == "owner":
@@ -333,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:
         result = provision_e2e(
             bootstrap_url, migrate_password, runtime_password, purpose, identity_uuid
         )
-    else:
+    elif args.stack == "ci":
         bootstrap_url = os.environ["BOOTSTRAP_DATABASE_URL"]
         migrate_password = os.environ.get("POSTGRES_MIGRATE_PASSWORD", "testmigrate")
         runtime_password = os.environ.get("POSTGRES_RUNTIME_PASSWORD", "testruntime")
@@ -341,6 +382,38 @@ def main(argv: list[str] | None = None) -> int:
         identity_uuid = os.environ["AAROHAN_DB_IDENTITY_UUID"]
         result = provision_owner(
             bootstrap_url, migrate_password, runtime_password, purpose, identity_uuid
+        )
+    elif args.stack == "recovery":
+        bootstrap_url = os.environ["BOOTSTRAP_DATABASE_URL"]
+        migrate_password = os.environ["RECOVERY_MIGRATE_PASSWORD"]
+        runtime_password = os.environ["RECOVERY_RUNTIME_PASSWORD"]
+        purpose = os.environ.get("AAROHAN_DB_IDENTITY_PURPOSE", PURPOSE_RECOVERY)
+        identity_uuid = os.environ["AAROHAN_DB_IDENTITY_UUID"]
+        result = provision_recovery_stack(
+            bootstrap_url,
+            RECOVERY_DATABASE,
+            RECOVERY_MIGRATE_USER,
+            RECOVERY_RUNTIME_USER,
+            migrate_password,
+            runtime_password,
+            purpose,
+            identity_uuid,
+        )
+    else:
+        bootstrap_url = os.environ["BOOTSTRAP_DATABASE_URL"]
+        migrate_password = os.environ["CANDIDATE_MIGRATE_PASSWORD"]
+        runtime_password = os.environ["CANDIDATE_RUNTIME_PASSWORD"]
+        purpose = os.environ.get("AAROHAN_DB_IDENTITY_PURPOSE", PURPOSE_OWNER_CANDIDATE)
+        identity_uuid = os.environ["AAROHAN_DB_IDENTITY_UUID"]
+        result = provision_recovery_stack(
+            bootstrap_url,
+            CANDIDATE_DATABASE,
+            CANDIDATE_MIGRATE_USER,
+            CANDIDATE_RUNTIME_USER,
+            migrate_password,
+            runtime_password,
+            purpose,
+            identity_uuid,
         )
 
     print(result)

@@ -17,6 +17,7 @@ SCAN_DIRS = [
 
 IGNORE_FILES = {
     "Assert-AarohanOwnerDatabaseIdentity.ps1",
+    "Assert-RecoveryDatabaseIdentity.ps1",
     "Invoke-ProvisionOwnerDatabase.ps1",
     "Invoke-ProvisionE2EDatabase.ps1",
     "Start-Aarohan-E2E.ps1",
@@ -28,6 +29,9 @@ GUARD_MARKERS = (
     "Assert-AarohanOwnerDatabaseIdentity",
     "validate_owner_database_identity",
     "owner_database_identity_preflight",
+    "Assert-RecoveryDatabaseIdentity",
+    "validate_recovery_database_identity",
+    "recovery_database_identity_preflight",
 )
 
 PRIVILEGED_PATTERNS = [

@@ -18,9 +18,11 @@ PURPOSE_OWNER = "OWNER"
 PURPOSE_E2E = "E2E"
 PURPOSE_CI = "CI"
 PURPOSE_RECOVERY = "RECOVERY"
+PURPOSE_OWNER_CANDIDATE = "OWNER_CANDIDATE"
 
 TEST_PURPOSES = {PURPOSE_E2E, PURPOSE_CI}
-ALL_PURPOSES = {PURPOSE_OWNER, PURPOSE_E2E, PURPOSE_CI, PURPOSE_RECOVERY}
+RECOVERY_PURPOSES = {PURPOSE_RECOVERY, PURPOSE_OWNER_CANDIDATE}
+ALL_PURPOSES = {PURPOSE_OWNER, PURPOSE_E2E, PURPOSE_CI, PURPOSE_RECOVERY, PURPOSE_OWNER_CANDIDATE}
 
 UUID_PATTERN = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
@@ -31,7 +33,15 @@ OWNER_RUNTIME_USER = "career_os_runtime"
 OWNER_MIGRATE_USER = "career_os_migrate"
 E2E_RUNTIME_USER = "career_os_e2e_runtime"
 E2E_MIGRATE_USER = "career_os_e2e_migrate"
-MIGRATE_USERS = {OWNER_MIGRATE_USER, E2E_MIGRATE_USER}
+E2E_BOOTSTRAP_USER = "career_os_e2e"
+RECOVERY_RUNTIME_USER = "career_os_recovery_runtime"
+RECOVERY_MIGRATE_USER = "career_os_recovery_migrate"
+CANDIDATE_RUNTIME_USER = "career_os_candidate_runtime"
+CANDIDATE_MIGRATE_USER = "career_os_candidate_migrate"
+MIGRATE_USERS = {OWNER_MIGRATE_USER, E2E_MIGRATE_USER, RECOVERY_MIGRATE_USER, CANDIDATE_MIGRATE_USER}
+
+RECOVERY_DATABASE = "career_os_recovery"
+CANDIDATE_DATABASE = "career_os_owner_candidate"
 
 
 @dataclass(frozen=True)
@@ -121,10 +131,14 @@ def _url_parts(database_url: str) -> tuple[str, str, str, str]:
 
 
 def expected_runtime_user_for_purpose(purpose: str) -> str:
-    if purpose in {PURPOSE_OWNER, PURPOSE_CI, PURPOSE_RECOVERY}:
+    if purpose in {PURPOSE_OWNER, PURPOSE_CI}:
         return OWNER_RUNTIME_USER
     if purpose == PURPOSE_E2E:
         return E2E_RUNTIME_USER
+    if purpose == PURPOSE_RECOVERY:
+        return RECOVERY_RUNTIME_USER
+    if purpose == PURPOSE_OWNER_CANDIDATE:
+        return CANDIDATE_RUNTIME_USER
     raise RuntimeError(f"Unsupported identity purpose {purpose!r}")
 
 
@@ -138,12 +152,27 @@ def assert_connection_matches_identity(database_url: str) -> None:
     db_name, username, _password, host = _url_parts(database_url)
     expected_user = expected_runtime_user_for_purpose(purpose)
 
+    if (
+        purpose == PURPOSE_E2E
+        and db_name in {"career_os_e2e", "career_os_test"}
+        and username in {E2E_MIGRATE_USER, E2E_BOOTSTRAP_USER}
+    ):
+        return
+
     if username in MIGRATE_USERS:
         if purpose == PURPOSE_OWNER and db_name == "career_os" and username == OWNER_MIGRATE_USER:
             return
         if purpose == PURPOSE_CI and db_name == "career_os" and username == OWNER_MIGRATE_USER:
             return
         if purpose == PURPOSE_E2E and db_name in {"career_os_e2e", "career_os_test"} and username == E2E_MIGRATE_USER:
+            return
+        if purpose == PURPOSE_RECOVERY and db_name == RECOVERY_DATABASE and username == RECOVERY_MIGRATE_USER:
+            return
+        if (
+            purpose == PURPOSE_OWNER_CANDIDATE
+            and db_name == CANDIDATE_DATABASE
+            and username == CANDIDATE_MIGRATE_USER
+        ):
             return
         raise RuntimeError(
             f"Migration role {username!r} cannot be used for identity purpose {purpose!r}."
@@ -182,6 +211,25 @@ def assert_connection_matches_identity(database_url: str) -> None:
             raise RuntimeError(
                 "E2E identity cannot use owner postgres host 'postgres'; use postgres-e2e."
             )
+        return
+
+    if purpose == PURPOSE_RECOVERY:
+        if db_name != RECOVERY_DATABASE:
+            raise RuntimeError(f"Recovery identity cannot target database {db_name!r}.")
+        if username != RECOVERY_RUNTIME_USER:
+            raise RuntimeError(
+                f"Recovery runtime must use {RECOVERY_RUNTIME_USER}, not {username!r}."
+            )
+        return
+
+    if purpose == PURPOSE_OWNER_CANDIDATE:
+        if db_name != CANDIDATE_DATABASE:
+            raise RuntimeError(f"Owner candidate identity cannot target database {db_name!r}.")
+        if username != CANDIDATE_RUNTIME_USER:
+            raise RuntimeError(
+                f"Owner candidate runtime must use {CANDIDATE_RUNTIME_USER}, not {username!r}."
+            )
+        return
 
 
 def load_database_identity_record(engine: Engine) -> DatabaseIdentityRecord:
