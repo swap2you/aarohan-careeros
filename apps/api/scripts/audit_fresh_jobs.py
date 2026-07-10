@@ -113,6 +113,14 @@ def run_audit(
     from app.services.provenance import OWNER_EXCLUDED
 
     now = now or datetime.utcnow()
+
+    if not execute:
+        from sqlalchemy import text
+
+        dialect_name = db.get_bind().dialect.name
+        if dialect_name == "postgresql":
+            db.execute(text("SET TRANSACTION READ ONLY"))
+
     jobs = db.query(Job).filter(~Job.data_provenance.in_(OWNER_EXCLUDED)).all()
 
     by_source: Counter = Counter()

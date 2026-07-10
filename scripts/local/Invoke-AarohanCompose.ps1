@@ -79,7 +79,7 @@ function Invoke-AarohanCompose {
     Import-AarohanRepoEnvLocal
     $envFile = Join-Path $script:AarohanRepoRoot ".env.local"
     $missing = @()
-    foreach ($name in @("APP_SECRET", "POSTGRES_PASSWORD", "TOKEN_ENCRYPTION_KEY", "ADMIN_EMAIL", "ADMIN_PASSWORD")) {
+    foreach ($name in @("APP_SECRET", "POSTGRES_PASSWORD", "TOKEN_ENCRYPTION_KEY", "ADMIN_EMAIL", "ADMIN_PASSWORD", "AAROHAN_OWNER_DB_IDENTITY_UUID")) {
         if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
             $missing += $name
         }

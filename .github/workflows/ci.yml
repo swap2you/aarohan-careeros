@@ -5,6 +5,11 @@ on:
     branches: [main, master]
   pull_request:
 
+env:
+  CI_POSTGRES_PASSWORD: testpass
+  CI_MIGRATE_PASSWORD: testmigrate
+  CI_RUNTIME_PASSWORD: testruntime
+
 jobs:
   api-tests:
     runs-on: ubuntu-latest
@@ -27,13 +32,51 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Generate CI database identity UUID
+        id: db_identity
+        run: echo "uuid=$(python -c 'import uuid; print(uuid.uuid4())')" >> "$GITHUB_OUTPUT"
       - name: Install API dependencies
         working-directory: apps/api
         run: pip install -r requirements.txt
+      - name: Owner-stack pytest scan
+        run: python scripts/validation/owner_stack_pytest_scan.py
+      - name: Migrate and provision CI database roles
+        working-directory: apps/api
+        env:
+          BOOTSTRAP_DATABASE_URL: postgresql+psycopg://career_os:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/career_os
+          MIGRATION_DATABASE_URL: postgresql+psycopg://career_os:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/career_os
+          POSTGRES_MIGRATE_PASSWORD: ${{ env.CI_MIGRATE_PASSWORD }}
+          POSTGRES_RUNTIME_PASSWORD: ${{ env.CI_RUNTIME_PASSWORD }}
+          AAROHAN_DB_IDENTITY_PURPOSE: CI
+          AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
+        run: |
+          alembic upgrade head
+          python scripts/provision_database_roles.py --stack ci
+      - name: Assert CI identity marker
+        working-directory: apps/api
+        env:
+          BOOTSTRAP_DATABASE_URL: postgresql+psycopg://career_os:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/career_os
+          AAROHAN_DB_IDENTITY_PURPOSE: CI
+          AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine
+          from app.services.database_identity import load_database_identity_record
+          engine = create_engine(os.environ["BOOTSTRAP_DATABASE_URL"])
+          record = load_database_identity_record(engine)
+          assert record.purpose == "CI"
+          assert record.identity_uuid.lower() == os.environ["AAROHAN_DB_IDENTITY_UUID"].lower()
+          print("CI identity marker verified")
+          PY
       - name: Run pytest
         working-directory: apps/api
         env:
-          DATABASE_URL: postgresql+psycopg://career_os:testpass@localhost:5432/career_os
+          DATABASE_URL: postgresql+psycopg://career_os_runtime:${{ env.CI_RUNTIME_PASSWORD }}@localhost:5432/career_os
+          MIGRATION_DATABASE_URL: postgresql+psycopg://career_os_migrate:${{ env.CI_MIGRATE_PASSWORD }}@localhost:5432/career_os
+          AAROHAN_DB_IDENTITY_PURPOSE: CI
+          AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
+          AAROHAN_RUNTIME_PROFILE: test
           APP_SECRET: ci-test-secret-key-32chars-minimum!
           TOKEN_ENCRYPTION_KEY: ci-test-token-encryption-key-32chars!
           OAUTH_FIXTURE_MODE: "true"
@@ -50,6 +93,8 @@ jobs:
         run: python scripts/validation/secret_scan.py
       - name: Prohibited source scan
         run: python scripts/validation/prohibited_source_scan.py
+      - name: Owner-stack pytest scan
+        run: python scripts/validation/owner_stack_pytest_scan.py
 
   web-build:
     runs-on: ubuntu-latest
@@ -89,12 +134,47 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Generate CI database identity UUID
+        id: db_identity
+        run: echo "uuid=$(python -c 'import uuid; print(uuid.uuid4())')" >> "$GITHUB_OUTPUT"
       - name: Install API dependencies
         working-directory: apps/api
         run: pip install -r requirements.txt
       - name: Install web dependencies
         working-directory: apps/web
         run: npm ci
+      - name: Migrate and provision CI database roles
+        working-directory: apps/api
+        env:
+          BOOTSTRAP_DATABASE_URL: postgresql+psycopg://career_os:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/career_os
+          MIGRATION_DATABASE_URL: postgresql+psycopg://career_os:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/career_os
+          POSTGRES_MIGRATE_PASSWORD: ${{ env.CI_MIGRATE_PASSWORD }}
+          POSTGRES_RUNTIME_PASSWORD: ${{ env.CI_RUNTIME_PASSWORD }}
+          AAROHAN_DB_IDENTITY_PURPOSE: CI
+          AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
+        run: |
+          alembic upgrade head
+          python scripts/provision_database_roles.py --stack ci
+      - name: Assert Playwright is not using OWNER identity
+        working-directory: apps/api
+        env:
+          BOOTSTRAP_DATABASE_URL: postgresql+psycopg://career_os:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/career_os
+          AAROHAN_DB_IDENTITY_PURPOSE: CI
+          AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine
+          from app.services.database_identity import load_database_identity_record
+          purpose = os.environ["AAROHAN_DB_IDENTITY_PURPOSE"]
+          if purpose == "OWNER":
+              raise SystemExit("Playwright CI must not run with OWNER identity")
+          engine = create_engine(os.environ["BOOTSTRAP_DATABASE_URL"])
+          record = load_database_identity_record(engine)
+          assert record.purpose == purpose
+          assert record.identity_uuid.lower() == os.environ["AAROHAN_DB_IDENTITY_UUID"].lower()
+          print("Playwright CI identity verified")
+          PY
       - name: Build web
         working-directory: apps/web
         env:
@@ -103,11 +183,15 @@ jobs:
       - name: Start API (fixture mode)
         working-directory: apps/api
         env:
-          DATABASE_URL: postgresql+psycopg://career_os:testpass@localhost:5432/career_os
+          DATABASE_URL: postgresql+psycopg://career_os_runtime:${{ env.CI_RUNTIME_PASSWORD }}@localhost:5432/career_os
+          MIGRATION_DATABASE_URL: postgresql+psycopg://career_os_migrate:${{ env.CI_MIGRATE_PASSWORD }}@localhost:5432/career_os
+          AAROHAN_DB_IDENTITY_PURPOSE: CI
+          AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
+          AAROHAN_RUNTIME_PROFILE: test
           APP_SECRET: ci-test-secret-key-32chars-minimum!
           TOKEN_ENCRYPTION_KEY: ci-test-token-encryption-key-32chars!
           OAUTH_FIXTURE_MODE: "true"
-          ALLOW_E2E_LOGIN_ON_OWNER: "true"
+          ALLOW_E2E_LOGIN_ON_OWNER: "false"
           GENERATED_ROOT: ${{ github.workspace }}/apps/api/generated
           CONFIG_ROOT: ${{ github.workspace }}/config
           CAREER_VAULT_ROOT: ${{ github.workspace }}/career_vault
@@ -126,11 +210,13 @@ jobs:
         working-directory: apps/api
         env:
           PYTHONPATH: .
-          DATABASE_URL: postgresql+psycopg://career_os:testpass@localhost:5432/career_os
+          DATABASE_URL: postgresql+psycopg://career_os_runtime:${{ env.CI_RUNTIME_PASSWORD }}@localhost:5432/career_os
+          AAROHAN_DB_IDENTITY_PURPOSE: CI
+          AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
           APP_SECRET: ci-test-secret-key-32chars-minimum!
           TOKEN_ENCRYPTION_KEY: ci-test-token-encryption-key-32chars!
           E2E_TEST_PASSWORD: E2eTestPass123!
-          ALLOW_E2E_LOGIN_ON_OWNER: "true"
+          ALLOW_E2E_LOGIN_ON_OWNER: "false"
         run: python scripts/ensure_e2e_user.py
       - name: Install Playwright browsers
         working-directory: apps/web

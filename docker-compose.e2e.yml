@@ -1,55 +1,10 @@
-# E2E-isolated stack overlay (use with docker-compose.yml).
-# Usage: docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d api-e2e web-e2e
-#        $env:PLAYWRIGHT_API_BASE='http://127.0.0.1:8001'; $env:PLAYWRIGHT_WEB_BASE='http://127.0.0.1:3001'
+# DEPRECATED — use docker-compose.test.yml via Start-Aarohan-E2E.ps1 / Run-Aarohan-Tests.ps1.
 #
-# Intentionally does NOT use `extends` — Compose merges parent ports and would steal 8000/3000.
+# This overlay shared owner postgres, credentials, network, and volume with career_os.
+# It is retained only as a migration reference and must not be used for new test runs.
+#
+# Replacement:
+#   pwsh scripts/local/Start-Aarohan-E2E.ps1
+#   pwsh scripts/local/Run-Aarohan-Tests.ps1
 
-services:
-  api-e2e:
-    build: ./apps/api
-    container_name: aarohan-api-e2e
-    env_file:
-      - .env.local
-    environment:
-      DATABASE_URL: postgresql+psycopg://career_os:${POSTGRES_PASSWORD}@postgres:5432/career_os_e2e
-      OAUTH_FIXTURE_MODE: "true"
-      CONNECTOR_FIXTURE_MODE: "true"
-      ALLOW_E2E_LOGIN_ON_OWNER: "true"
-      LOCAL_DEV_AUTH_BYPASS: "false"
-      APP_ENV: test
-      CORS_ORIGINS: "http://127.0.0.1:3001,http://localhost:3001,http://127.0.0.1:3000,http://localhost:3000"
-      CONFIG_ROOT: /app/config
-      CAREER_VAULT_ROOT: /app/career_vault
-      GENERATED_ROOT: /app/generated
-    volumes:
-      - ./config:/app/config:ro
-      - ./career_vault:/app/career_vault:ro
-      - generated_docs:/app/generated
-    ports:
-      - "127.0.0.1:8001:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 20s
-    networks: [career_os]
-
-  web-e2e:
-    build:
-      context: ./apps/web
-      args:
-        NEXT_PUBLIC_API_BASE: http://127.0.0.1:8001
-    container_name: aarohan-web-e2e
-    depends_on:
-      api-e2e:
-        condition: service_healthy
-    environment:
-      NEXT_PUBLIC_API_BASE: http://127.0.0.1:8001
-      NEXT_PUBLIC_DEPLOYMENT_BADGE: E2E TEST
-    ports:
-      - "127.0.0.1:3001:3000"
-    networks: [career_os]
+services: {}

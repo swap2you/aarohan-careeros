@@ -24,11 +24,23 @@ def pg_client():
     from app.services.auth import hash_password
     from app.services.setup import mark_setup_complete
 
-    engine = create_engine(os.environ["DATABASE_URL"])
+    reset_url = os.environ.get("MIGRATION_DATABASE_URL") or os.environ["DATABASE_URL"]
+    reset_engine = create_engine(reset_url)
     from tests.postgres_utils import reset_public_schema
 
-    reset_public_schema(engine)
-    Base.metadata.create_all(bind=engine)
+    reset_public_schema(reset_engine, reset_url)
+    from alembic import command
+    from alembic.config import Config
+    from tests.test_migrations import _reprovision_identity_marker
+
+    cfg = Config("alembic.ini")
+    cfg.set_main_option("sqlalchemy.url", reset_url)
+    command.upgrade(cfg, "head")
+    _reprovision_identity_marker(reset_url)
+    import app.database as database_module
+
+    database_module._engine = None
+    engine = create_engine(os.environ["DATABASE_URL"])
     Session = sessionmaker(bind=engine)
     db = Session()
     db.add(User(email="pg@test.local", hashed_password=hash_password("SecurePass123!"), is_admin=True))

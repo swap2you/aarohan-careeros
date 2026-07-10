@@ -1,47 +1,49 @@
-#Requires -Version 5.1
-<#
-.SYNOPSIS
-  Start isolated E2E API/web stack on ports 8001/3001 with career_os_e2e database.
-#>
-param([switch]$Detached)
-
-$ErrorActionPreference = "Stop"
-$Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-Set-Location $Root
-
-. (Join-Path $PSScriptRoot "Invoke-AarohanCompose.ps1")
-Import-AarohanRepoEnvLocal -Root $Root
-$envFile = Join-Path $Root ".env.local"
-
-docker compose --env-file $envFile up -d postgres
-Start-Sleep -Seconds 3
-
-$exists = docker compose --env-file $envFile exec -T postgres psql -U career_os -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname='career_os_e2e'"
-if (-not ($exists -match "1")) {
-    Write-Host "Creating isolated database career_os_e2e"
-    docker compose --env-file $envFile exec -T postgres psql -U career_os -d postgres -c "CREATE DATABASE career_os_e2e OWNER career_os;"
-}
-
-Write-Host "Running migrations on career_os_e2e"
-docker compose --env-file $envFile run --rm -e "DATABASE_URL=postgresql+psycopg://career_os:$env:POSTGRES_PASSWORD@postgres:5432/career_os_e2e" api alembic upgrade head
-
-$e2ePassword = $env:E2E_TEST_PASSWORD
-if (-not $e2ePassword) {
-    $e2ePassword = "E2eTest" + "Pass123!"
-}
-
-$upArgs = @("--env-file", $envFile, "-f", "docker-compose.yml", "-f", "docker-compose.e2e.yml", "up", "-d", "api-e2e", "web-e2e")
-docker compose @upArgs
-Start-Sleep -Seconds 8
-
-docker compose --env-file $envFile run --rm `
-    -e "DATABASE_URL=postgresql+psycopg://career_os:$env:POSTGRES_PASSWORD@postgres:5432/career_os_e2e" `
-    -e "APP_SECRET=$env:APP_SECRET" `
-    -e "TOKEN_ENCRYPTION_KEY=$env:TOKEN_ENCRYPTION_KEY" `
-    -e "E2E_TEST_PASSWORD=$e2ePassword" `
-    api python scripts/ensure_e2e_user.py
-
-Write-Host "E2E stack ready:"
-Write-Host "  API: http://127.0.0.1:8001"
-Write-Host "  Web: http://127.0.0.1:3001"
-Write-Host "  DB:  career_os_e2e (isolated from owner career_os)"
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+  Start isolated E2E/test stack (postgres-e2e on 5433, api-e2e 8001, web-e2e 3001).
+#>
+param([switch]$Detached)
+
+$ErrorActionPreference = "Stop"
+$Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+Set-Location $Root
+
+. (Join-Path $PSScriptRoot "Invoke-AarohanTestCompose.ps1")
+Import-AarohanTestEnv -Root $Root
+
+Write-Host "Starting isolated test stack (project=aarohan-careeros-test)..."
+Invoke-AarohanTestCompose @("up", "-d", "--build", "postgres-e2e")
+Start-Sleep -Seconds 5
+
+& pwsh -NoProfile -File (Join-Path $PSScriptRoot "Invoke-ProvisionE2EDatabase.ps1") -RunMigrations
+
+$migrateUrl = "postgresql+psycopg://career_os_e2e_migrate:$($env:E2E_MIGRATE_PASSWORD)@postgres-e2e:5432/career_os_e2e"
+$runtimeUrl = "postgresql+psycopg://career_os_e2e_runtime:$($env:E2E_RUNTIME_PASSWORD)@postgres-e2e:5432/career_os_e2e"
+
+Invoke-AarohanTestCompose @("up", "-d", "--build", "api-e2e", "web-e2e")
+Start-Sleep -Seconds 10
+
+$e2ePassword = $env:E2E_TEST_PASSWORD
+if (-not $e2ePassword) {
+    $e2ePassword = "E2eTest" + "Pass123!"
+}
+
+Invoke-AarohanTestCompose @(
+    "run", "--rm",
+    "-e", "DATABASE_URL=$runtimeUrl",
+    "-e", "APP_SECRET=$($env:APP_SECRET)",
+    "-e", "TOKEN_ENCRYPTION_KEY=$($env:TOKEN_ENCRYPTION_KEY)",
+    "-e", "AAROHAN_RUNTIME_PROFILE=test",
+    "-e", "AAROHAN_DB_IDENTITY_PURPOSE=E2E",
+    "-e", "AAROHAN_DB_IDENTITY_UUID=$($env:AAROHAN_E2E_DB_IDENTITY_UUID)",
+    "-e", "E2E_TEST_PASSWORD=$e2ePassword",
+    "api-e2e", "python", "scripts/ensure_e2e_user.py"
+)
+
+Write-Host ""
+Write-Host "=== Aarohan Test / E2E Stack ==="
+Write-Host "Compose project: aarohan-careeros-test"
+Write-Host "Postgres: 127.0.0.1:5433 / career_os_e2e / runtime user career_os_e2e_runtime"
+Write-Host "API:  http://127.0.0.1:8001"
+Write-Host "Web:  http://127.0.0.1:3001"
