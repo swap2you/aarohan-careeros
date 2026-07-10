@@ -25,6 +25,7 @@ Allowed values:
 
 - Branch: main
 - Start SHA: 75f64285a7110d8f7811fa85db1eea1e7f9a511b
+- Phase 2 identity guard SHA: 81b1034b6bbce9d852996db7992cfee52d2dda25
 - Phase 2 rework evidence: `artifacts/recovery/incident-20260709/phase2-rework-20260709_225953/`
 
 ## Database identities

@@ -24,6 +24,15 @@ from app.services.owner_database_identity_preflight import (
 from app.services.verified_backup_gate import VerifiedBackupManifest, write_manifest
 
 
+def _integration_database_name() -> str:
+    url = os.environ.get("DATABASE_URL", "")
+    return url.rsplit("/", 1)[-1].split("?", 1)[0]
+
+
+def _integration_identity_purpose() -> str:
+    return (os.environ.get("AAROHAN_DB_IDENTITY_PURPOSE") or "E2E").strip().upper()
+
+
 def _owner_identity_result() -> OwnerIdentityPreflightResult:
     uuid = os.environ.get("AAROHAN_DB_IDENTITY_UUID", "11111111-1111-4111-8111-111111111111")
     return OwnerIdentityPreflightResult(
@@ -52,16 +61,17 @@ def _owner_identity_result() -> OwnerIdentityPreflightResult:
     "postgresql" not in os.environ.get("DATABASE_URL", ""),
     reason="PostgreSQL integration URL required",
 )
-def test_marker_validation_on_isolated_postgres(monkeypatch):
-    monkeypatch.setenv("AAROHAN_DB_IDENTITY_PURPOSE", "E2E")
+def test_marker_validation_on_isolated_postgres():
     expected_uuid = os.environ["AAROHAN_DB_IDENTITY_UUID"]
+    purpose = _integration_identity_purpose()
+    database = _integration_database_name()
     engine = create_engine(os.environ["DATABASE_URL"])
     try:
         validate_owner_database_marker(
             engine,
-            expected_purpose="E2E",
+            expected_purpose=purpose,
             expected_uuid=expected_uuid,
-            expected_database="career_os_e2e",
+            expected_database=database,
         )
     finally:
         engine.dispose()
@@ -79,17 +89,17 @@ def test_wrong_purpose_fails(monkeypatch):
     "postgresql" not in os.environ.get("DATABASE_URL", ""),
     reason="PostgreSQL integration URL required",
 )
-def test_wrong_uuid_fails(monkeypatch):
-    monkeypatch.setenv("AAROHAN_DB_IDENTITY_PURPOSE", "E2E")
-    monkeypatch.setenv("AAROHAN_DB_IDENTITY_UUID", os.environ["AAROHAN_DB_IDENTITY_UUID"])
+def test_wrong_uuid_fails():
+    purpose = _integration_identity_purpose()
+    database = _integration_database_name()
     engine = create_engine(os.environ["DATABASE_URL"])
     try:
         with pytest.raises(OwnerIdentityPreflightError, match="UUID mismatch"):
             validate_owner_database_marker(
                 engine,
-                expected_purpose="E2E",
+                expected_purpose=purpose,
                 expected_uuid="22222222-2222-4222-8222-222222222222",
-                expected_database="career_os_e2e",
+                expected_database=database,
             )
     finally:
         engine.dispose()
