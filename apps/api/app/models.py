@@ -370,6 +370,16 @@ class ProcessedGmailMessage(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     message_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     processed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    message_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    parser_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    processing_status: Mapped[str] = mapped_column(String(32), default="LEGACY")
+    produced_entity_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    produced_entity_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    produced_entity_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_processing_result: Mapped[str | None] = mapped_column(Text, nullable=True)
+    replay_required: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    replay_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_attempted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class GmailIngestReview(Base):

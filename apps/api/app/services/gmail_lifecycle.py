@@ -18,6 +18,11 @@ from app.services.gmail_alert_parsers import (
     parsed_job_to_ingest_payload,
 )
 from app.services.ingestion import ingest_job
+from app.services.gmail_replay import (
+    GMAIL_PARSER_VERSION,
+    record_processing_outcome,
+    should_replay_row,
+)
 
 JOB_ALERT = "JOB_ALERT"
 RECRUITER_OUTREACH = "RECRUITER_OUTREACH"
@@ -97,7 +102,16 @@ def _quarantine_message(
     )
     db.add(row)
     db.commit()
-    _mark_processed(db, message.get("id"))
+    mid = message.get("id")
+    if mid:
+        record_processing_outcome(
+            db,
+            mid,
+            message_type="QUARANTINE",
+            failed=True,
+            replay_reason=reason,
+            result_summary={"confidence": confidence, "reason": reason},
+        )
 
 
 def classify_message(message: dict, *, label: str | None = None) -> tuple[str, float]:
@@ -169,30 +183,49 @@ def _find_linked_job(db: Session, message: dict) -> int | None:
     return None
 
 
-def _already_processed(db: Session, message_id: str | None) -> bool:
+def _get_processed_row(db: Session, message_id: str | None) -> ProcessedGmailMessage | None:
     if not message_id:
+        return None
+    return db.query(ProcessedGmailMessage).filter(ProcessedGmailMessage.message_id == message_id).first()
+
+
+def _already_processed(db: Session, message_id: str | None) -> bool:
+    row = _get_processed_row(db, message_id)
+    if not row:
         return False
-    return db.query(ProcessedGmailMessage).filter(ProcessedGmailMessage.message_id == message_id).first() is not None
+    replay, _ = should_replay_row(row, db)
+    return not replay
 
 
 def _mark_processed(db: Session, message_id: str | None) -> None:
-    if not message_id or _already_processed(db, message_id):
+    if not message_id:
         return
-    db.add(ProcessedGmailMessage(message_id=message_id))
-    db.commit()
+    row = _get_processed_row(db, message_id)
+    if row and not should_replay_row(row, db)[0]:
+        return
+    if not row:
+        db.add(ProcessedGmailMessage(message_id=message_id))
+        db.commit()
 
 
 def _claim_message(db: Session, message_id: str | None) -> bool:
     if not message_id:
         return True
-    if _already_processed(db, message_id):
-        return False
+    row = _get_processed_row(db, message_id)
+    if row:
+        replay, _ = should_replay_row(row, db)
+        if not replay:
+            return False
+        return True
     try:
         with db.begin_nested():
             db.add(ProcessedGmailMessage(message_id=message_id))
             db.flush()
         return True
     except IntegrityError:
+        row = _get_processed_row(db, message_id)
+        if row:
+            return should_replay_row(row, db)[0]
         return False
 
 
@@ -243,6 +276,7 @@ def process_gmail_message(
     body = message.get("body_text") or ""
     job_id = _find_linked_job(db, message)
     company_id = _resolve_company_id(db, message.get("sender"))
+    created_job_ids: list[int] = []
 
     if signal_type == JOB_ALERT:
         alerts = parse_job_alerts(message, label=label)
@@ -280,6 +314,7 @@ def process_gmail_message(
             )
             payload["data_provenance"] = "gmail"
             last_job = ingest_job(db, payload, actor=actor)
+            created_job_ids.append(last_job.id)
             confidence = max(confidence, alert.confidence)
         job_id = last_job.id if last_job else job_id
         if last_job and not company_id:
@@ -342,7 +377,24 @@ def process_gmail_message(
 
     db.commit()
     db.refresh(signal)
-    _mark_processed(db, message_id)
+    if signal_type == JOB_ALERT:
+        record_processing_outcome(
+            db,
+            message_id,
+            message_type=signal_type,
+            jobs_created=len(created_job_ids),
+            job_ids=created_job_ids or None,
+            signal_id=signal.id,
+            result_summary={"signal_type": signal_type, "label": label},
+        )
+    else:
+        record_processing_outcome(
+            db,
+            message_id,
+            message_type=signal_type,
+            signal_id=signal.id,
+            result_summary={"signal_type": signal_type, "label": label},
+        )
     write_audit(
         db,
         event_type="gmail.message_processed",

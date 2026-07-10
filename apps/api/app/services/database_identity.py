@@ -159,6 +159,20 @@ def assert_connection_matches_identity(database_url: str) -> None:
     ):
         return
 
+    if (
+        purpose == PURPOSE_OWNER_CANDIDATE
+        and db_name == CANDIDATE_DATABASE
+        and username in {CANDIDATE_MIGRATE_USER, "career_os"}
+    ):
+        return
+
+    if (
+        purpose == PURPOSE_RECOVERY
+        and db_name == RECOVERY_DATABASE
+        and username in {RECOVERY_MIGRATE_USER, "career_os"}
+    ):
+        return
+
     if username in MIGRATE_USERS:
         if purpose == PURPOSE_OWNER and db_name == "career_os" and username == OWNER_MIGRATE_USER:
             return

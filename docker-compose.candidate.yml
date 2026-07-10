@@ -1,0 +1,94 @@
+# Isolated owner-candidate runtime — separate project, ports, and identity.
+# Connects ONLY to career_os_owner_candidate on owner postgres (host.docker.internal:5432).
+#
+# Usage:
+#   pwsh scripts/local/Start-Aarohan-Candidate.ps1
+#
+# Do NOT point at career_os or career_os_validation.
+
+name: aarohan-careeros-candidate
+
+services:
+  api-candidate:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.owner
+    container_name: aarohan-candidate-api
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      AAROHAN_RUNTIME_PROFILE: candidate
+      AAROHAN_DB_IDENTITY_PURPOSE: OWNER_CANDIDATE
+      AAROHAN_DB_IDENTITY_UUID: ${AAROHAN_OWNER_CANDIDATE_DB_IDENTITY_UUID:?AAROHAN_OWNER_CANDIDATE_DB_IDENTITY_UUID required}
+      APP_ENV: local
+      LOCAL_DEV_AUTH_BYPASS: "false"
+      ALLOW_E2E_LOGIN_ON_OWNER: "false"
+      APP_SECRET: ${APP_SECRET:?APP_SECRET required}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?TOKEN_ENCRYPTION_KEY required}
+      CANDIDATE_MIGRATE_PASSWORD: ${CANDIDATE_MIGRATE_PASSWORD:?CANDIDATE_MIGRATE_PASSWORD required}
+      CANDIDATE_RUNTIME_PASSWORD: ${CANDIDATE_RUNTIME_PASSWORD:?CANDIDATE_RUNTIME_PASSWORD required}
+      MIGRATION_DATABASE_URL: postgresql+psycopg://career_os_candidate_migrate:${CANDIDATE_MIGRATE_PASSWORD}@host.docker.internal:5432/career_os_owner_candidate
+      DATABASE_URL: postgresql+psycopg://career_os_candidate_runtime:${CANDIDATE_RUNTIME_PASSWORD}@host.docker.internal:5432/career_os_owner_candidate
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      CORS_ORIGINS: "http://127.0.0.1:3002,http://localhost:3002"
+      OAUTH_FIXTURE_MODE: "false"
+      CONNECTOR_FIXTURE_MODE: "false"
+      SCHEDULING_ENABLED: "false"
+      ENABLE_EXTERNAL_EMAIL_SEND: "false"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_CLIENT_JSON_PATH: /run/secrets/google-oauth-client.json
+      GOOGLE_DRIVE_FOLDER_ID: ${GOOGLE_DRIVE_ROOT_FOLDER_ID:-${GOOGLE_DRIVE_FOLDER_ID:-}}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI_CANDIDATE:-http://127.0.0.1:8002/api/integrations/google/callback}
+      CAREER_GMAIL_ADDRESS: ${CAREER_GMAIL_ADDRESS:-swapnilpatil.tech@gmail.com}
+      TEST_EMAIL_ALLOWLIST: ""
+      AI_API_KEY: ${AI_API_KEY:-${OPENAI_API_KEY:-}}
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      JOOBLE_API_KEY: ${JOOBLE_API_KEY:-}
+      USAJOBS_API_KEY: ${USAJOBS_API_KEY:-}
+      USAJOBS_USER_EMAIL: ${USAJOBS_USER_EMAIL:-${USAJOBS_USER_AGENT:-}}
+      RSS_FEED_URLS: ${RSS_FEED_URLS:-}
+      CONFIG_ROOT: /app/config
+      CAREER_VAULT_ROOT: /app/career_vault
+      GENERATED_ROOT: /app/generated
+    volumes:
+      - ./config:/app/config:ro
+      - ./career_vault:/app/career_vault:ro
+      - candidate_generated_docs:/app/generated
+      - ${GOOGLE_OAUTH_SECRETS_DIR:-C:/AarohanSecrets}:/run/secrets:ro
+    ports:
+      - "127.0.0.1:8002:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 25s
+    networks: [career_os_candidate]
+
+  web-candidate:
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_API_BASE: http://127.0.0.1:8002
+    container_name: aarohan-candidate-web
+    restart: unless-stopped
+    depends_on:
+      api-candidate:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_BASE: http://127.0.0.1:8002
+      NEXT_PUBLIC_DEPLOYMENT_BADGE: OWNER CANDIDATE
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "127.0.0.1:3002:3000"
+    networks: [career_os_candidate]
+
+networks:
+  career_os_candidate:
+
+volumes:
+  candidate_generated_docs:

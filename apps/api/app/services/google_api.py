@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import OAuthToken, ProcessedGmailMessage
 from app.services.crypto import decrypt_payload, encrypt_payload
+from app.services.gmail_replay import should_skip_gmail_fetch
 
 DEFAULT_GOOGLE_SCOPES = [
     "openid",
@@ -406,7 +407,10 @@ def fetch_gmail_messages(
             if fetched >= max_results:
                 break
             message_id = item["id"]
-            if db.query(ProcessedGmailMessage).filter(ProcessedGmailMessage.message_id == message_id).first():
+            existing = db.query(ProcessedGmailMessage).filter(
+                ProcessedGmailMessage.message_id == message_id
+            ).first()
+            if should_skip_gmail_fetch(existing, db):
                 continue
             with httpx.Client(timeout=30.0) as client:
                 detail = client.get(

@@ -134,6 +134,9 @@ $isolationKeys = @(
     "POSTGRES_RUNTIME_PASSWORD",
     "AAROHAN_OWNER_DB_IDENTITY_UUID",
     "AAROHAN_E2E_DB_IDENTITY_UUID",
+    "AAROHAN_OWNER_CANDIDATE_DB_IDENTITY_UUID",
+    "CANDIDATE_MIGRATE_PASSWORD",
+    "CANDIDATE_RUNTIME_PASSWORD",
     "AAROHAN_DESTRUCTIVE_TOKEN"
 )
 $defaults = @{
@@ -206,6 +209,14 @@ if ($GenerateMissing) {
     if ([string]::IsNullOrWhiteSpace($targetMap.AAROHAN_E2E_DB_IDENTITY_UUID)) {
         $targetMap.AAROHAN_E2E_DB_IDENTITY_UUID = New-UuidV4
         Write-Host "Generated AAROHAN_E2E_DB_IDENTITY_UUID"
+    }
+    if ([string]::IsNullOrWhiteSpace($targetMap.CANDIDATE_MIGRATE_PASSWORD)) {
+        $targetMap.CANDIDATE_MIGRATE_PASSWORD = New-RandomSecret -Length 32
+        Write-Host "Generated CANDIDATE_MIGRATE_PASSWORD"
+    }
+    if ([string]::IsNullOrWhiteSpace($targetMap.CANDIDATE_RUNTIME_PASSWORD)) {
+        $targetMap.CANDIDATE_RUNTIME_PASSWORD = New-RandomSecret -Length 32
+        Write-Host "Generated CANDIDATE_RUNTIME_PASSWORD"
     }
     if ([string]::IsNullOrWhiteSpace($targetMap.AAROHAN_DESTRUCTIVE_TOKEN)) {
         $targetMap.AAROHAN_DESTRUCTIVE_TOKEN = New-RandomSecret -Length 24

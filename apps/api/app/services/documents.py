@@ -206,13 +206,18 @@ def generate_application_packet(
     from app.config import settings
     from app.services.drive_settings import resolve_active_drive_root
 
+    drive_accessible = False
+    drive_skip_reason: str | None = None
     if settings.oauth_fixture_mode:
         drive_accessible = True
     else:
-        _, _, drive_accessible = resolve_active_drive_root(db)
+        try:
+            _, _, drive_accessible = resolve_active_drive_root(db)
+        except ValueError as exc:
+            drive_skip_reason = str(exc)[:240]
     metadata = application.packet_metadata or {}
     if not drive_accessible:
-        metadata["drive_upload_skipped"] = (
+        metadata["drive_upload_skipped"] = drive_skip_reason or (
             "No accessible Drive root with drive.file scope. Create an app-owned root in Settings."
         )
         application.packet_metadata = metadata
