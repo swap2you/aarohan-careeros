@@ -74,6 +74,9 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://career_os_runtime:${{ env.CI_RUNTIME_PASSWORD }}@localhost:5432/career_os
           MIGRATION_DATABASE_URL: postgresql+psycopg://career_os_migrate:${{ env.CI_MIGRATE_PASSWORD }}@localhost:5432/career_os
+          BOOTSTRAP_DATABASE_URL: postgresql+psycopg://career_os:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/career_os
+          POSTGRES_MIGRATE_PASSWORD: ${{ env.CI_MIGRATE_PASSWORD }}
+          POSTGRES_RUNTIME_PASSWORD: ${{ env.CI_RUNTIME_PASSWORD }}
           AAROHAN_DB_IDENTITY_PURPOSE: CI
           AAROHAN_DB_IDENTITY_UUID: ${{ steps.db_identity.outputs.uuid }}
           AAROHAN_RUNTIME_PROFILE: test
