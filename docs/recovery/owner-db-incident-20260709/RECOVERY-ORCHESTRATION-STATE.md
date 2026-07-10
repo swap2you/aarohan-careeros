@@ -28,7 +28,7 @@ Allowed values:
 - Start SHA: 75f64285a7110d8f7811fa85db1eea1e7f9a511b
 - Phase 2 identity guard SHA: 81b1034b6bbce9d852996db7992cfee52d2dda25
 - Phase 3 owner candidate SHA: cd344be
-- Phase 3 rework SHA: (pending commit)
+- Phase 3 rework SHA: 3672fdc
 
 ## Database identities
 
