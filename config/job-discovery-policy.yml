@@ -208,6 +208,13 @@ role_reject_patterns:
   - people partner
   - human resources
   - recruiter
+  - air quality
+  - supplier quality
+  - environmental quality
+  - manufacturing quality
+  - hardware quality
+  - product inspection
+  - design quality engineering
 
 salary:
   target_max_usd: 200000
