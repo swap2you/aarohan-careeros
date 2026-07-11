@@ -94,10 +94,11 @@ Immutable marker table: `aarohan_meta.database_identity` (migration `0013`).
 
 ### Phase 3 final remediation
 
-- Status: **COMPLETE — awaiting Codex final rereview**
+- Status: **COMPLETE — Codex CONDITIONAL GO; M1 disposition closed**
 - Evidence root: `artifacts/recovery/incident-20260709/phase3-final-20260710_221530/`
 - Prior rework evidence: `artifacts/recovery/incident-20260709/phase3-rework-20260710_171518/`
-- Codex review: `docs/recovery/owner-db-incident-20260709/reviews/CODEX-PHASE-3-REREVIEW.md` — prior **NO GO**
+- Codex review: `docs/recovery/owner-db-incident-20260709/reviews/CODEX-PHASE-3-FINAL-REREVIEW.md` — **CONDITIONAL GO**
+- Owner disposition: `docs/recovery/owner-db-incident-20260709/OWNER-PHASE-3-CONDITIONAL-GO-DISPOSITION.md`
 - Phase 3 final SHA: 87b9944
 - Validation passed: **true** (0 defects)
 - Cutover rehearsal: **passed** (OWNER marker promotion on disposable DB)
@@ -108,18 +109,25 @@ Immutable marker table: `aarohan_meta.database_identity` (migration `0013`).
 | Area | Result |
 |---|---|
 | OAuth on candidate | Passed — swapnilpatil.tech@gmail.com, refresh/Gmail/Drive healthy, restart persistence verified |
-| OAuth note | Owner reconnect initially landed on `career_os`; remediated via read-only sync to candidate |
+| OAuth note | Side-effect triple on damaged `career_os` accepted — see owner disposition doc |
 | Drive root | Bound `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`, subfolders complete |
 | Gmail replay | 156 scanned, 72 replayed, 0 suppressors |
 | Manual job review | 9 accepted, 1 supplier/nuclear false positive rejected, 1 Blockstream duplicate removed |
 | Cutover rehearsal | Full OWNER identity promotion rehearsed on disposable clones |
 | Backup/restore | Passed with schema + row-count verification |
 
+#### Codex Phase 3 final finding disposition
+
+| ID | Severity | Disposition |
+|---|---|---|
+| CODEX-P3-FINAL-M1 | Medium | **Closed** — owner accepts canonical OAuth side-effect rows; see `OWNER-PHASE-3-CONDITIONAL-GO-DISPOSITION.md` |
+| CODEX-P3-FINAL-L1 | Low | Open — dispose older disposable restore DBs before/at cutover |
+
 #### Remaining owner-action blockers (pre-cutover)
 
 | ID | Severity | Action |
 |---|---|---|
-| *(none — technical blockers cleared)* | | Codex Phase 3 final rereview + owner Gate 2 approval phrase |
+| *(none — technical blockers cleared)* | | Codex closure review + owner Gate 2 approval phrase |
 
 ## Owner business row counts (unchanged schema; oauth side effect from reconnect)
 
@@ -131,7 +139,9 @@ Immutable marker table: `aarohan_meta.database_identity` (migration `0013`).
 | processed_gmail_messages | 0 |
 | users | 2 |
 
-Note: `career_os` gained 3 OAuth rows when owner reconnect initially hit canonical runtime (2026-07-10); remediation scripts did not write business data to `career_os`. `career_os_validation` unchanged.
+Note: `career_os` gained OAuth rows when owner reconnect initially hit canonical runtime (2026-07-10T22:06:38Z side-effect triple). Owner disposition accepts these as non-authoritative post-cutover evidence. Remediation scripts did not write business data to `career_os`. `career_os_validation` unchanged.
+
+Cutover/rollback plans: `OWNER-CANDIDATE-CUTOVER-PLAN.md`, `OWNER-CANDIDATE-ROLLBACK-PLAN.md`
 
 ## Validation database (unchanged — not modified)
 
@@ -145,4 +155,4 @@ Note: `career_os` gained 3 OAuth rows when owner reconnect initially hit canonic
 
 ## Next action
 
-**Codex Phase 3 final rereview** — candidate validation passed with zero High/Critical defects. Do not cut over until Codex GO and owner Gate 2 phrase `APPROVE OWNER CANDIDATE CUTOVER`.
+**Codex closure review** — M1 owner disposition recorded. Do not cut over until Codex accepts closure and owner Gate 2 phrase `APPROVE OWNER CANDIDATE CUTOVER`.
