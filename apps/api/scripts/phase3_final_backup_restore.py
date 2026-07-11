@@ -72,6 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest-json", required=True)
     parser.add_argument("--verification-json", required=True)
     parser.add_argument("--identity-uuid", required=True)
+    parser.add_argument("--identity-purpose", default="OWNER_CANDIDATE")
     args = parser.parse_args(argv)
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -153,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     accepted_rest_n = _count_val(accepted_rest_n)
     fixture_src_n = _count_val(fixture_raw)
 
-    identity_ok = marker_out.strip() == f"OWNER_CANDIDATE|{args.identity_uuid}"
+    identity_ok = marker_out.strip() == f"{args.identity_purpose}|{args.identity_uuid}"
     passed = (
         dump_proc.returncode == 0
         and restore_proc.returncode == 0

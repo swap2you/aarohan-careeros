@@ -2,7 +2,7 @@
 
 ## Current state
 
-`GATE_2_OWNER_CUTOVER_APPROVAL_REQUIRED`
+`FINAL_AWAITING_CODEX_REVIEW`
 
 Allowed values:
 
@@ -30,6 +30,7 @@ Allowed values:
 - Phase 3 owner candidate SHA: cd344be
 - Phase 3 rework SHA: 3672fdc
 - Phase 3 final SHA: 87b9944
+- Phase 3 disposition SHA: a57d589
 
 ## Database identities
 
@@ -127,21 +128,40 @@ Immutable marker table: `aarohan_meta.database_identity` (migration `0013`).
 
 | ID | Severity | Action |
 |---|---|---|
-| *(none — technical blockers cleared)* | | Codex closure review + owner Gate 2 approval phrase |
+| *(none — Gate 2 approved)* | | |
 
-## Owner business row counts (unchanged schema; oauth side effect from reconnect)
+### Phase 4 — canonical cutover
+
+- Status: **COMPLETE — awaiting Codex final review**
+- Owner approval phrase: verified (`APPROVE OWNER CANDIDATE CUTOVER`)
+- Evidence roots:
+  - `artifacts/recovery/incident-20260709/phase4-cutover-20260711_042500/`
+  - `artifacts/recovery/incident-20260709/phase4-resume-20260711_043000/`
+- Cutover: **PERFORMED** (not rolled back — resume promotion completed)
+- New canonical OWNER UUID: `8651fd13-3f74-479e-b20f-e433b5d6b87c`
+- Pre-cutover damaged owner UUID: `2bfda5fc-3a2b-4dd4-a7a9-65e8432f7c03`
+- Candidate UUID (source): `78010e56-041c-4fec-b8f7-0f9ca313d267`
+- Archived rollback DB: `career_os_rollback_resume_20260711_043000`
+- Backup/restore post-cutover: **passed**
+
+#### Phase 4 open defects
+
+| ID | Severity | Action |
+|---|---|---|
+| P4-HIGH-001 | High | Owner reconnect Google on canonical runtime (OAuth refresh rejected post-cutover) |
+
+## Owner business row counts (post-cutover canonical)
 
 | Table | Count |
 |---|---:|
-| jobs | 75 |
-| applications | 2 |
+| jobs | 135 |
+| applications | 0 |
 | oauth_tokens | 3 |
-| processed_gmail_messages | 0 |
-| users | 2 |
+| processed_gmail_messages | 206 |
+| users | 1 |
+| accepted (eligible) | 9 |
 
-Note: `career_os` gained OAuth rows when owner reconnect initially hit canonical runtime (2026-07-10T22:06:38Z side-effect triple). Owner disposition accepts these as non-authoritative post-cutover evidence. Remediation scripts did not write business data to `career_os`. `career_os_validation` unchanged.
-
-Cutover/rollback plans: `OWNER-CANDIDATE-CUTOVER-PLAN.md`, `OWNER-CANDIDATE-ROLLBACK-PLAN.md`
+Archived damaged owner (`career_os_rollback_resume_20260711_043000`): OAuth side-effect rows preserved; non-authoritative.
 
 ## Validation database (unchanged — not modified)
 
@@ -155,4 +175,4 @@ Cutover/rollback plans: `OWNER-CANDIDATE-CUTOVER-PLAN.md`, `OWNER-CANDIDATE-ROLL
 
 ## Next action
 
-**Codex closure review** — M1 owner disposition recorded. Do not cut over until Codex accepts closure and owner Gate 2 phrase `APPROVE OWNER CANDIDATE CUTOVER`.
+**Codex final review** — cutover performed; canonical `career_os` promoted with new OWNER UUID `8651fd13-3f74-479e-b20f-e433b5d6b87c`. Owner must reconnect Google on http://127.0.0.1:3000 before declaring COMPLETE.
