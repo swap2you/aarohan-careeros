@@ -31,6 +31,7 @@ Allowed values:
 - Phase 3 rework SHA: 3672fdc
 - Phase 3 final SHA: 87b9944
 - Phase 3 disposition SHA: a57d589
+- Phase 4 cutover SHA: 8e66d3e
 
 ## Database identities
 
