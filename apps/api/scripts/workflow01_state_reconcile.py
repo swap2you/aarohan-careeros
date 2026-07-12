@@ -139,6 +139,11 @@ def run(db: Session, *, execute: bool = False, confirmation_text: str = "") -> d
         j.state = TARGET_STATE
         changed += 1
 
+    # SessionLocal is configured with autoflush=False, so the pending state changes must be
+    # flushed to the open transaction before the validation re-query reads them; otherwise the
+    # re-query returns the pre-change (committed) rows and the run rolls back spuriously.
+    db.flush()
+
     # Validate before commit; roll back on any unexpected count or decision drift.
     still_stale = _targets(db)
     eligible_after = (

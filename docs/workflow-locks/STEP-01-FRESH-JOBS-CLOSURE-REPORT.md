@@ -86,39 +86,49 @@ becomes eligible` — eligibility is unchanged; only the read path and lifecycle
 behavior changed. Regression tests: `test_fresh_jobs_visibility.py` (eligible + stale
 `REJECTED` is visible; ineligible stays hidden).
 
-**Residual data:** 10 eligible rows still store `state=REJECTED` (legacy value). They are
-now correctly **visible**, but the stored lifecycle value is reconciled by the gated
-Step-4 operation below so the stored field matches eligibility.
+**Residual data:** the 10 eligible rows that stored the legacy `state=REJECTED` value were
+reconciled to `NORMALIZED` by the owner-approved Step-4 operation below (they were already
+correctly **visible** in code before the reconciliation).
 
 ---
 
-## 4. Bounded eligibility-state reconciliation (GATED — awaiting owner phrase)
+## 4. Bounded eligibility-state reconciliation (EXECUTED — owner-approved 2026-07-12)
 
-A deterministic, bounded repair is **prepared but not executed**. It aligns the stored
-lifecycle `state` with canonical eligibility for the affected rows. It does **not** change
-eligibility and does **not** delete or archive any job.
+The deterministic, bounded repair was **approved and executed** on 2026-07-12
+(phrase `APPROVE WORKFLOW 01 ELIGIBILITY STATE RECONCILIATION`). It aligned the stored
+lifecycle `state` with canonical eligibility for the affected rows. Eligibility was **not**
+changed and **no** job was deleted or archived.
 
 - **Targets:** 10 rows — ids `19, 21, 23, 24, 26, 28, 30, 32, 136, 138`
   (`eligible_for_owner=true` AND `ingest_decision=ACCEPT` AND `state=REJECTED`,
-  not protected). Job 34 (`SHORTLISTED`) and duplicate job 31 are excluded.
-- **Change:** `state: REJECTED → NORMALIZED` (one transaction, count/decision validated,
-  rollback on any unexpected result).
-- **Dry-run manifest:** `WORKFLOW-01-STATE-RECONCILIATION.json`.
-- **Same-run verified canonical backup:** `backup/BACKUP-MANIFEST.json`
-  (SHA256 `0a139119172d810a6b3a771846127553547e74ab217f4b919a23e4917168f273`,
-  restore-verified, OWNER identity confirmed, disposable verify DB dropped).
-- **Runner:** `apps/api/scripts/workflow01_state_reconcile.py`.
-- **Confirmation phrase required:** `APPROVE WORKFLOW 01 ELIGIBILITY STATE RECONCILIATION`.
+  not protected). Job 34 (`SHORTLISTED`) and duplicate job 31 were excluded.
+- **Change applied:** `state: REJECTED → NORMALIZED` in **one transaction**;
+  `records_updated=10`; `canonical_eligible_before=11` == `canonical_eligible_after=11`;
+  validation passed (0 remaining stale targets) so no rollback.
+- **Same-run verified canonical backup (pre-execution):**
+  `../step-01-reconcile-20260712/backup/BACKUP-MANIFEST.json`
+  (SHA256 `3671c796008bc283dae9bb5dc208172c1e0c113f4b53437ecf211793bf321340`,
+  restore-verified, 177 jobs, OWNER identity confirmed, disposable verify DB dropped).
+- **Repair manifest:** `../step-01-reconcile-20260712/WORKFLOW-01-STATE-RECONCILIATION-REPAIR.json`.
+- **Runner:** `apps/api/scripts/workflow01_state_reconcile.py` (gated, single transaction,
+  count/decision validation, rollback on any unexpected result).
 
-To apply (owner-approved only):
+**Post-execution verification:**
 
-```powershell
-docker exec aarohan-careeros-api-1 python scripts/workflow01_state_reconcile.py \
-  --execute --confirmation-text "APPROVE WORKFLOW 01 ELIGIBILITY STATE RECONCILIATION"
-```
+| Metric | Value |
+|---|---:|
+| Rows updated (REJECTED → NORMALIZED) | 10 |
+| Canonical eligible before / after | 11 / 11 (unchanged) |
+| Eligible rows still `REJECTED`/`CLOSED` | 0 |
+| Eligible `state` distribution | `NORMALIZED=10, SHORTLISTED=1` |
+| Production-visible (read-path probe) | 11 |
+| Eligible-but-hidden | 0 |
+| Audit `parity_ok` / `parity_delta` | `true` / `0` |
 
-The functional defect (hidden eligible jobs) is already resolved in code; this reconciliation
-is data hygiene so the stored lifecycle field matches the canonical eligibility decision.
+Note: the first execute attempt rolled back safely because the app session runs with
+`autoflush=False`, so the in-transaction validation re-query read pre-flush state. The
+runner was corrected to `flush()` before validating; the safety rollback demonstrably
+prevented an unvalidated commit.
 
 ---
 
@@ -171,8 +181,9 @@ remains ranking/review.
 - Critical: 0
 - High: 0
 - Medium: 0
-- Low: 1 open — stored lifecycle `state` cleanup for 10 eligible rows is a prepared, gated
-  reconciliation awaiting the owner phrase (functional visibility already fixed in code).
+- Low: 0 open — the audit/production parity (P4-LOW-003) and stale-state (P4-LOW-004)
+  advisories are resolved in code; the stored-`state` data hygiene for 10 eligible rows was
+  owner-approved and executed (Section 4). No open defects remain.
 
 ---
 
@@ -180,4 +191,4 @@ remains ranking/review.
 
 Workflow Lock 01 remains **`READY_FOR_OWNER_VALIDATION`** (not LOCKED). Owner/Cowork UAT
 starts at Fresh Jobs (`http://127.0.0.1:3000/jobs`), where all 11 owner-eligible roles are
-now visible. Optionally apply the gated state reconciliation with the confirmation phrase.
+now visible and their stored lifecycle `state` matches canonical eligibility.
