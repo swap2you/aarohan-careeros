@@ -46,8 +46,12 @@ def test_hard_filter_rejects_low_salary(client: TestClient, auth_headers):
     }
     job = client.post("/api/jobs/ingest", headers=auth_headers, json=payload).json()
     assert job.get("score") is not None
+    # A failed trust hard-filter is an advisory ranking signal, not a lifecycle
+    # transition: salary stays ranking/review and must not hard-reject the job's
+    # lifecycle state (Workflow Lock 01 fit/lifecycle decoupling).
     assert job["score"]["hard_filter_passed"] is False
-    assert job["state"] == "REJECTED"
+    assert job["score"]["recommendation"] == "REJECT"
+    assert job["state"] != "REJECTED"
 
 
 def test_hard_filter_rejects_relocation(client: TestClient, auth_headers):

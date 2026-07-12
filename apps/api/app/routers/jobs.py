@@ -38,10 +38,14 @@ def _apply_fresh_jobs_defaults(
 ):
     """Owner Fresh Jobs defaults: eligible, TODAY/FRESH/RECENT (<=7d), not archived/quarantined."""
     if not relax_fresh_defaults:
+        # Owner visibility is governed solely by the canonical eligibility fields
+        # (eligible_for_owner + ingest_decision == ACCEPT), not by the lifecycle `state`.
+        # The prior `state NOT IN (REJECTED, CLOSED)` filter hid owner-eligible jobs whose
+        # `state` had been clobbered by fit/trust scoring (Workflow Lock 01 stale-state
+        # defect). Genuine eligibility rejections already set eligible_for_owner = False.
         query = query.filter(Job.eligible_for_owner.is_(True))
         query = query.filter(Job.is_archived.is_(False))
         query = query.filter(Job.is_expired.is_(False))
-        query = query.filter(~Job.state.in_([WorkflowState.REJECTED.value, WorkflowState.CLOSED.value]))
         age_hours = max_age_hours if max_age_hours is not None else freshness_max_age_hours()
         cutoff = datetime.utcnow() - timedelta(hours=age_hours)
         # Protected workflow states never age out solely due to freshness.

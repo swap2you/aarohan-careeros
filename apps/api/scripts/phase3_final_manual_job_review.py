@@ -234,6 +234,10 @@ def main(argv: list[str] | None = None) -> int:
                 if final_decision == DECISION_ACCEPT:
                     job.eligible_for_owner = True
                     job.ingest_decision = DECISION_ACCEPT
+                    # Advance the lifecycle out of any stale terminal state so the
+                    # re-accepted job is not hidden by a lingering REJECTED/CLOSED value.
+                    if job.state in {WorkflowState.REJECTED.value, WorkflowState.CLOSED.value}:
+                        job.state = WorkflowState.NORMALIZED.value
                     accepted.append(entry)
                 elif final_decision == DECISION_OWNER_REVIEW:
                     job.eligible_for_owner = False

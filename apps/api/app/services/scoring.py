@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.models import EvidenceItem, Job, JobScore, WorkflowState
+from app.models import EvidenceItem, Job, JobScore
 from app.services.config_loader import candidate_profile, scoring_rubric
 from app.services.normalization import detect_workplace_type
 
@@ -109,18 +109,20 @@ def score_job(db: Session, job: Job) -> JobScore:
         + evidence_score * weights.get("evidence_strength", 5) / 100
     )
 
+    # Fit scoring produces a RANKING recommendation only. It must never mutate the
+    # lifecycle `state` field: eligibility (eligible_for_owner + ingest_decision) is the
+    # sole owner-visibility source of truth, and `state` is the application workflow
+    # lifecycle. Overloading `state` with a fit-derived REJECT hid eligible jobs from
+    # Fresh Jobs (Workflow Lock 01 stale-state defect). Recommendation is persisted on
+    # JobScore.recommendation below.
     if total < thresholds.get("reject_below", 65):
         recommendation = "REJECT"
-        job.state = WorkflowState.REJECTED.value
     elif total < thresholds.get("shortlist_min", 75):
         recommendation = "SECONDARY_REVIEW"
-        job.state = WorkflowState.SECONDARY_REVIEW.value
     elif total < thresholds.get("high_priority_min", 85):
         recommendation = "SHORTLIST"
-        job.state = WorkflowState.SHORTLISTED.value
     else:
         recommendation = "HIGH_PRIORITY"
-        job.state = WorkflowState.SHORTLISTED.value
 
     if job.freshness_hours and job.freshness_hours > candidate_profile().get("candidate", {}).get(
         "freshness_fallback_hours", 72

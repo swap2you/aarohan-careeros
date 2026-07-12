@@ -412,3 +412,52 @@ def test_domain_reject_requires_contiguous_phrase():
         )
     )
     assert result.decision == DECISION_ACCEPT, result.reasons
+
+
+# --- Canonical owner decision model: persisted dedupe/override reconciliation ---
+# Regression for the Workflow Lock 01 audit-vs-canonical 12-vs-11 discrepancy: a
+# syndicated near-duplicate that the stateless single-row engine re-accepts must be
+# folded back to DUPLICATE by the canonical decision model, matching persisted eligibility.
+
+
+def test_evaluate_owner_decision_accepts_clean_software_qe_role():
+    from app.services.job_eligibility import evaluate_owner_decision
+
+    result = evaluate_owner_decision(
+        _base(
+            title="Senior Manager, Quality Engineering",
+            company="Blockstream",
+            description_text="Lead software quality engineering and test automation for our platform.",
+        )
+    )
+    assert result.decision == DECISION_ACCEPT, result.reasons
+    assert result.owner_visible is True
+
+
+def test_evaluate_owner_decision_honors_persisted_syndicated_duplicate():
+    from app.services.job_eligibility import DUPLICATE_SYNDICATED, evaluate_owner_decision
+
+    # Engine alone would ACCEPT this fresh software QA-manager role, but production
+    # persisted it as a syndicated duplicate (different provider id/URL, same role/company).
+    payload = _base(
+        external_id="syndicated-2",
+        title="Remote QA Engineering Manager for Blockchain & FinTech",
+        company="Blockstream",
+        description_text="Lead software quality engineering and test automation across teams.",
+        persisted_ingest_decision=DECISION_REJECT,
+        persisted_reason_codes=[DUPLICATE_SYNDICATED],
+    )
+    engine_only = evaluate_eligibility(payload)
+    assert engine_only.decision == DECISION_ACCEPT  # stateless engine re-accepts
+
+    canonical = evaluate_owner_decision(payload)
+    assert canonical.decision == "DUPLICATE"
+    assert canonical.owner_visible is False
+    assert DUPLICATE_SYNDICATED in canonical.reason_codes
+
+
+def test_evaluate_owner_decision_no_persisted_disposition_is_engine_result():
+    from app.services.job_eligibility import evaluate_owner_decision
+
+    payload = _base(title="Senior Manager, Quality Engineering", company="Acme")
+    assert evaluate_owner_decision(payload).decision == evaluate_eligibility(payload).decision

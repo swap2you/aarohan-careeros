@@ -127,3 +127,53 @@ def test_redact_secrets_helper():
 
 def test_confirmation_phrase_constant():
     assert CONFIRMATION_PHRASE == "ARCHIVE STALE AND INELIGIBLE JOBS"
+
+
+def test_audit_recompute_matches_canonical_eligible_with_syndicated_duplicate():
+    """Regression for the 12-vs-11 audit/canonical parity gap.
+
+    A canonically-accepted software QA-manager role plus a syndicated near-duplicate
+    (persisted REJECT + DUPLICATE_SYNDICATED, eligible_for_owner=False) must yield an
+    audit recompute ACCEPT count that equals the persisted canonical eligible count (1),
+    not 2. Without duplicate-aware reconciliation the stateless engine re-accepts the
+    duplicate and the audit reported one extra accept.
+    """
+    from app.services.job_eligibility import DUPLICATE_SYNDICATED
+
+    db = _session()
+    try:
+        _add_job(
+            db,
+            external_id="canonical-accept",
+            dedupe_key="canonical-accept",
+            url="https://example.com/jobs/canonical-accept",
+            title="Senior Manager, Quality Engineering",
+            company="Blockstream",
+            description_text="Lead software quality engineering and test automation.",
+            ingest_decision="ACCEPT",
+            eligible_for_owner=True,
+        )
+        _add_job(
+            db,
+            external_id="syndicated-dup",
+            dedupe_key="syndicated-dup",
+            url="https://example.com/jobs/syndicated-dup",
+            title="Remote QA Engineering Manager for Blockchain & FinTech",
+            company="Blockstream",
+            description_text="Lead software quality engineering and test automation.",
+            ingest_decision="REJECT",
+            ingest_reason_codes=[DUPLICATE_SYNDICATED],
+            eligible_for_owner=False,
+            state=WorkflowState.REJECTED.value,
+        )
+
+        report = run_audit(db, execute=False)
+        assert report["canonical_eligible_count"] == 1
+        assert report["audit_accept_count"] == 1
+        assert report["parity_ok"] is True
+        assert report["parity_delta"] == 0
+        assert report["by_corrected_decision"].get("ACCEPT") == 1
+        assert report["by_corrected_decision"].get("DUPLICATE") == 1
+        assert report["proposed_fresh_jobs_count"] == 1
+    finally:
+        db.close()

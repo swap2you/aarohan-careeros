@@ -316,6 +316,10 @@ def apply_analysis_to_models(job: Job, score: JobScore, analysis: MatchAnalysis)
     score.hard_filter_reasons = analysis.hard_filter_reasons
     score.match_card = analysis.match_card
 
-    if not analysis.hard_filter_passed and job.state not in {"REJECTED", "SUBMITTED"}:
-        job.state = "REJECTED"
+    # A failed trust hard-filter is an advisory RANKING signal (recorded on the score),
+    # never a lifecycle transition. It must not mutate `state`: doing so overloaded the
+    # workflow lifecycle with a fit/trust rejection and hid owner-eligible jobs from
+    # Fresh Jobs. Eligibility (eligible_for_owner + ingest_decision) remains the sole
+    # owner-visibility gate; salary/fit stay ranking/review, not hard rejection.
+    if not analysis.hard_filter_passed:
         score.recommendation = "REJECT"

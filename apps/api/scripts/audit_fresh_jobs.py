@@ -50,6 +50,10 @@ def _job_payload(job) -> dict[str, Any]:
         "discovered_at": job.discovered_at.isoformat() if job.discovered_at else None,
         "owner_confirmed": (job.source or "") in {"user_forwarded_links", "manual_opportunity", "ad_hoc"}
         or (job.data_provenance or "") == "manual",
+        # Persisted dedupe/override disposition so the canonical decision model can honor
+        # cross-row duplicates the stateless single-row engine cannot re-derive.
+        "persisted_ingest_decision": job.ingest_decision,
+        "persisted_reason_codes": list(job.ingest_reason_codes or []),
     }
 
 
@@ -126,7 +130,7 @@ def run_audit(
         DECISION_QUARANTINE,
         DECISION_REJECT,
         DECISION_SECONDARY,
-        evaluate_eligibility,
+        evaluate_owner_decision,
     )
     from app.services.provenance import OWNER_EXCLUDED
 
@@ -187,7 +191,9 @@ def run_audit(
             seen_keys[key] = job.id
 
         payload = _job_payload(job)
-        result = evaluate_eligibility(payload, now=now)
+        # Canonical decision model (engine + persisted dedupe/override) so the audit
+        # recompute matches persisted owner eligibility for the same snapshot/time.
+        result = evaluate_owner_decision(payload, now=now)
         by_decision[result.decision] += 1
         tier = result.freshness_tier or result.freshness_bucket or "unknown"
         by_tier[tier] += 1
@@ -274,6 +280,19 @@ def run_audit(
         "records_updated": 0,
     }
 
+    # Canonical parity: the audit recompute accepted count must equal the persisted
+    # canonical owner-eligible count for the same snapshot and evaluation timestamp.
+    canonical_eligible_count = (
+        db.query(Job)
+        .filter(~Job.data_provenance.in_(OWNER_EXCLUDED), Job.eligible_for_owner.is_(True))
+        .count()
+    )
+    audit_accept_count = by_decision.get(DECISION_ACCEPT, 0)
+    report["canonical_eligible_count"] = canonical_eligible_count
+    report["audit_accept_count"] = audit_accept_count
+    report["parity_ok"] = audit_accept_count == canonical_eligible_count
+    report["parity_delta"] = audit_accept_count - canonical_eligible_count
+
     if execute:
         if confirmation_text != CONFIRMATION_PHRASE:
             report["execute_error"] = "ConfirmationText mismatch; no changes applied"
@@ -322,6 +341,11 @@ def run_audit(
             job.eligible_for_owner = True
             job.is_archived = False
             job.ingest_decision = DECISION_ACCEPT
+            # Re-accepting must also advance the lifecycle out of any stale terminal
+            # (REJECTED/CLOSED) state so the job is not hidden by a lingering lifecycle
+            # value. Protected/advanced workflow states are preserved.
+            if job.state in {WorkflowState.REJECTED.value, WorkflowState.CLOSED.value}:
+                job.state = WorkflowState.NORMALIZED.value
             changed += 1
         db.commit()
         report["records_updated"] = changed
@@ -339,6 +363,10 @@ def summary_from_report(report: dict[str, Any]) -> dict[str, Any]:
         "proposed_quarantine_count": report.get("proposed_quarantine_count", 0),
         "proposed_reject_count": report.get("proposed_reject_count", 0),
         "tier_counts": report.get("tier_counts"),
+        "canonical_eligible_count": report.get("canonical_eligible_count"),
+        "audit_accept_count": report.get("audit_accept_count"),
+        "parity_ok": report.get("parity_ok"),
+        "parity_delta": report.get("parity_delta"),
         "mode": report.get("mode"),
     }
     if report.get("mode") == "execute":

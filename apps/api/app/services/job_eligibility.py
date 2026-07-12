@@ -27,8 +27,21 @@ COMPANY_UNKNOWN = "COMPANY_UNKNOWN"
 DUPLICATE_PROVIDER_ID = "DUPLICATE_PROVIDER_ID"
 DUPLICATE_CANONICAL_URL = "DUPLICATE_CANONICAL_URL"
 DUPLICATE_FINGERPRINT = "DUPLICATE_FINGERPRINT"
+DUPLICATE_SYNDICATED = "DUPLICATE_SYNDICATED"
 CLOSED_POSTING = "CLOSED_POSTING"
 OWNER_REVIEW = "OWNER_REVIEW"
+
+# Terminal duplicate dispositions that a stateless single-row eligibility pass cannot
+# re-derive (they come from cross-row dedupe or manual owner review). The canonical
+# decision model honors these so the audit recompute matches persisted eligibility.
+DUPLICATE_REASON_CODES = frozenset(
+    {
+        DUPLICATE_PROVIDER_ID,
+        DUPLICATE_CANONICAL_URL,
+        DUPLICATE_FINGERPRINT,
+        DUPLICATE_SYNDICATED,
+    }
+)
 
 # Legacy alias kept for older tests/messages
 STALE_OVER_48_HOURS = STALE_HISTORICAL
@@ -747,3 +760,44 @@ def evaluate_eligibility(
         result.owner_visible = False
 
     return result
+
+
+def reconcile_persisted_disposition(payload: dict, result: EligibilityResult) -> EligibilityResult:
+    """Fold a persisted duplicate / manual-override disposition into an engine result.
+
+    ``evaluate_eligibility`` scores a single row in isolation and cannot reproduce
+    cross-row deduplication (e.g. a syndicated near-duplicate reposted under a different
+    provider id / URL) or a manual owner override. Those dispositions are recorded on the
+    persisted row (``ingest_decision``/``ingest_reason_codes``). Honoring them here is what
+    makes the audit recompute agree with persisted canonical eligibility for the same
+    database snapshot — it accounts for the dedupe result, not a time-bound difference.
+
+    Reads two optional payload keys populated from the persisted row:
+      - ``persisted_ingest_decision``
+      - ``persisted_reason_codes``
+    """
+    persisted_codes = {str(c).upper() for c in (payload.get("persisted_reason_codes") or [])}
+    persisted_decision = str(payload.get("persisted_ingest_decision") or "").upper()
+    dup_codes = persisted_codes & DUPLICATE_REASON_CODES
+    if persisted_decision == DECISION_DUPLICATE or dup_codes:
+        result.decision = DECISION_DUPLICATE
+        for code in sorted(dup_codes) or [DUPLICATE_PROVIDER_ID]:
+            if code not in result.reason_codes:
+                result.reason_codes.append(code)
+        result.owner_visible = False
+    return result
+
+
+def evaluate_owner_decision(
+    payload: dict,
+    *,
+    now: datetime | None = None,
+    allow_discovered_at: bool = False,
+) -> EligibilityResult:
+    """Canonical owner decision model: eligibility engine + persisted dedupe/override.
+
+    This is the single decision function that the Fresh Jobs audit recompute uses so it
+    returns the same accepted set as production for the same snapshot and evaluation time.
+    """
+    result = evaluate_eligibility(payload, now=now, allow_discovered_at=allow_discovered_at)
+    return reconcile_persisted_disposition(payload, result)
