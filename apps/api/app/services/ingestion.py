@@ -246,6 +246,14 @@ def ingest_job_with_decision(
         role_family=eligibility.recommended_profile,
         match_summary="; ".join(eligibility.reasons[:3]) if eligibility.reasons else None,
     )
+    # Canonical discovery-origin classification (Workflow 01.5 §8).
+    from app.services.discovery_origin import classify_origin
+
+    job.origin = classify_origin(
+        source=source,
+        data_provenance=provenance,
+        message_type=(payload.get("raw_payload") or {}).get("message_type") if isinstance(payload.get("raw_payload"), dict) else None,
+    )
     db.add(job)
     db.flush()
     link_job_to_company(db, job)

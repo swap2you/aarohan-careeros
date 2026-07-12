@@ -87,6 +87,12 @@ class JobOut(BaseModel):
     effective_freshness_at: datetime | None = None
     freshness_source: str | None = None
     freshness_bucket: str | None = None
+    origin: str | None = None
+    added_by: str | None = None
+    added_at: datetime | None = None
+    owner_confirmed: bool = False
+    manual_protected: bool = False
+    manual_status: str | None = None
     score: JobScoreOut | None = None
 
     model_config = {"from_attributes": True}

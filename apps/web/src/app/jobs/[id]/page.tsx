@@ -53,6 +53,45 @@ type JobDetailPayload = {
   } | null;
 };
 
+type JobExplanation = {
+  origin: string | null;
+  source_provider: string | null;
+  source_message: string | null;
+  policy_version: string;
+  decision: string | null;
+  eligible_for_owner: boolean;
+  reason_codes: string[];
+  freshness: {
+    tier: string | null;
+    source: string | null;
+    effective_at: string | null;
+    timestamp_confidence: string;
+  };
+  location_decision: { eligibility: string | null; reason: string | null };
+  role_profile_match: {
+    recommended_profile: string | null;
+    role_eligibility: string | null;
+    matched_title_patterns: string[];
+  };
+  duplicate_disposition: { is_duplicate: boolean; duplicate_reason_codes: string[] };
+  manual: {
+    is_manual: boolean;
+    added_by: string | null;
+    added_at: string | null;
+    manual_status: string | null;
+    manual_protected: boolean;
+  };
+  lifecycle_state: string;
+};
+
+const ORIGIN_LABELS: Record<string, string> = {
+  OWNER_ADDED: "Added manually",
+  GMAIL_ALERT: "Gmail alert",
+  PUBLIC_CONNECTOR: "Public connector",
+  ATS_BOARD: "ATS board",
+  RECRUITER_MESSAGE: "Recruiter message",
+};
+
 function riskClass(level: string) {
   if (level === "RED") return "risk-red";
   if (level === "AMBER") return "risk-amber";
@@ -71,6 +110,7 @@ export default function JobDetailPage() {
   const router = useRouter();
   const jobId = params?.id as string;
   const [detail, setDetail] = useState<JobDetailPayload | null>(null);
+  const [explain, setExplain] = useState<JobExplanation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -105,6 +145,14 @@ export default function JobDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!jobId) return;
+    authFetch(`/api/discovery/jobs/${jobId}/explain`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setExplain(data))
+      .catch(() => setExplain(null));
+  }, [jobId]);
 
   async function generatePacket() {
     const res = await authFetch(`/api/applications/jobs/${jobId}/generate`, { method: "POST" });
@@ -156,6 +204,22 @@ export default function JobDetailPage() {
       <h1>{job.title}</h1>
       <p>
         {job.company} · {job.location || "Location TBD"} · {job.workplace_type || "Workplace TBD"} · {job.state}
+        {explain?.manual?.is_manual && (
+          <>
+            {" "}
+            <span className="status" title="Owner-added opportunity, protected from age-out">
+              Added manually
+            </span>
+          </>
+        )}
+        {explain?.freshness?.tier && (
+          <>
+            {" "}
+            <span className="status" title={`Freshness source: ${explain.freshness.source || "unknown"} (confidence ${explain.freshness.timestamp_confidence})`}>
+              {explain.freshness.tier}
+            </span>
+          </>
+        )}
       </p>
       <p>
         Salary: {formatSalary(job.salary_min, job.salary_max)} · Posted:{" "}
@@ -268,6 +332,53 @@ export default function JobDetailPage() {
         </p>
         {message && <p className="status">{message}</p>}
       </div>
+
+      {explain && (
+        <div className="card">
+          <h3>Why am I seeing this?</h3>
+          <p>
+            <strong>Origin:</strong> {ORIGIN_LABELS[explain.origin || ""] || explain.origin || "—"}
+            {" · "}
+            <strong>Source:</strong> {explain.source_provider || "—"}
+            {explain.source_message ? ` · ${explain.source_message}` : ""}
+          </p>
+          <p>
+            <strong>Decision:</strong> {explain.decision || "—"} ·{" "}
+            <strong>Owner-eligible:</strong> {explain.eligible_for_owner ? "Yes" : "No"} ·{" "}
+            <strong>Policy:</strong> {explain.policy_version}
+          </p>
+          <p>
+            <strong>Freshness:</strong> {explain.freshness.tier || "—"} (source{" "}
+            {explain.freshness.source || "—"}, confidence {explain.freshness.timestamp_confidence})
+          </p>
+          <p>
+            <strong>Location:</strong> {explain.location_decision.eligibility || "—"}
+            {explain.location_decision.reason ? ` — ${explain.location_decision.reason}` : ""}
+          </p>
+          <p>
+            <strong>Role match:</strong> {explain.role_profile_match.recommended_profile || "—"}
+            {explain.role_profile_match.matched_title_patterns.length > 0
+              ? ` (${explain.role_profile_match.matched_title_patterns.slice(0, 3).join(", ")})`
+              : ""}
+          </p>
+          {explain.duplicate_disposition.is_duplicate && (
+            <p className="risk-amber">
+              Duplicate: {explain.duplicate_disposition.duplicate_reason_codes.join(", ")}
+            </p>
+          )}
+          {explain.reason_codes.length > 0 && (
+            <p className="muted">Reason codes: {explain.reason_codes.join(", ")}</p>
+          )}
+          {explain.manual.is_manual && (
+            <p className="muted">
+              Added by {explain.manual.added_by || "owner"}
+              {explain.manual.added_at ? ` on ${new Date(explain.manual.added_at).toLocaleDateString()}` : ""}
+              {explain.manual.manual_status ? ` · status ${explain.manual.manual_status}` : ""}
+              {explain.manual.manual_protected ? " · protected from age-out" : ""}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="card">
         <h3>Description</h3>

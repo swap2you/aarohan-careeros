@@ -253,8 +253,20 @@ def confirm_opportunity(
     if not payload.get("description_text"):
         raise ValueError("Description text is required after owner review.")
     job = ingest_job(db, payload, actor=actor, allow_discovered_at=True)
+    # Classify as an owner-added, freshness-protected manual opportunity (Workflow 01.5 §8).
+    from app.services.discovery_origin import mark_owner_added
+
+    mark_owner_added(job, added_by=actor)
+    db.commit()
     score_job(db, job)
-    result: dict = {"job_id": job.id, "title": job.title, "company": job.company, "state": job.state}
+    result: dict = {
+        "job_id": job.id,
+        "title": job.title,
+        "company": job.company,
+        "state": job.state,
+        "origin": job.origin,
+        "manual_status": job.manual_status,
+    }
     if generate_packet and resume_profile:
         from app.services.documents import generate_application_packet
 

@@ -47,6 +47,7 @@ const sections: NavSection[] = [
       { label: "Consulting", href: "/consulting", icon: "◇" },
       { label: "Audit Log", href: "/audit", icon: "▧" },
       { label: "Validation", href: "/validation", icon: "✓" },
+      { label: "Job Discovery", href: "/settings/job-discovery", icon: "⌖" },
       { label: "Settings", href: "/settings", icon: "⚙" },
     ],
   },

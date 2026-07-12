@@ -65,6 +65,9 @@ def _apply_fresh_jobs_defaults(
         query = query.filter(
             or_(
                 Job.state.in_(protected),
+                # Owner-added / actively-tracked manual opportunities never age out
+                # (Workflow 01.5 §8: protected from automated age-out once owner-confirmed).
+                Job.manual_protected.is_(True),
                 and_(
                     Job.effective_freshness_at.isnot(None),
                     Job.effective_freshness_at >= cutoff,

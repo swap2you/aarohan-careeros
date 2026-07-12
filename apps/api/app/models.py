@@ -38,6 +38,59 @@ class WorkflowState(str, Enum):
     CLOSED = "CLOSED"
 
 
+class JobOrigin(str, Enum):
+    """Canonical discovery origin category for a job row.
+
+    Distinct from ``data_provenance`` (owner-visibility exclusion of fixture/test) and from
+    the lifecycle ``state``. Used to distinguish owner-added opportunities from connector
+    records and to power source explainability.
+    """
+
+    OWNER_ADDED = "OWNER_ADDED"
+    GMAIL_ALERT = "GMAIL_ALERT"
+    PUBLIC_CONNECTOR = "PUBLIC_CONNECTOR"
+    ATS_BOARD = "ATS_BOARD"
+    RECRUITER_MESSAGE = "RECRUITER_MESSAGE"
+
+
+class ManualOpportunityStatus(str, Enum):
+    """Owner-facing tracking status for manual / actively-tracked opportunities."""
+
+    SAVED = "SAVED"
+    SHORTLISTED = "SHORTLISTED"
+    APPLIED = "APPLIED"
+    INTERVIEWING = "INTERVIEWING"
+    REJECTED = "REJECTED"
+    OFFER = "OFFER"
+    CLOSED = "CLOSED"
+
+
+class DiscoveryPolicyVersion(Base):
+    """Versioned owner discovery-policy override stored in PostgreSQL.
+
+    The effective discovery policy = immutable application defaults
+    (``config/job-discovery-policy.yml``) deep-merged with the ``overrides`` of the single
+    ``active`` version here. Drafts and archived versions are retained for history, audit,
+    and rollback. ``overrides`` is validated data only — never executable expressions.
+    """
+
+    __tablename__ = "discovery_policy_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    version: Mapped[int] = mapped_column(Integer, index=True)
+    # draft | active | archived
+    status: Mapped[str] = mapped_column(String(16), default="draft", index=True)
+    preset: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    overrides: Mapped[dict] = mapped_column(JSON, default=dict)
+    defaults_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    activated_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -142,6 +195,20 @@ class Job(Base):
     source_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     match_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     data_provenance: Mapped[str] = mapped_column(String(32), default="live", index=True)
+    # Workflow 01.5 — canonical origin classification (see JobOrigin). This is a
+    # discovery-provenance category, distinct from data_provenance (which governs owner
+    # visibility exclusion of fixture/test rows) and from the lifecycle `state`.
+    origin: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    origin_detail: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Manual owner-added opportunity tracking (independent of connector lifecycle `state`).
+    added_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    added_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    owner_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # When true the row is exempt from automated freshness age-out (owner-added / applied-to).
+    manual_protected: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # Owner-facing manual tracking status (SAVED/SHORTLISTED/APPLIED/INTERVIEWING/REJECTED/
+    # OFFER/CLOSED); see ManualOpportunityStatus. Null for pure connector rows.
+    manual_status: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
 
     score: Mapped["JobScore | None"] = relationship(back_populates="job", uselist=False)
     application: Mapped["Application | None"] = relationship(back_populates="job", uselist=False)

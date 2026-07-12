@@ -19,6 +19,7 @@ from app.routers import (
     companies,
     connectors,
     consulting,
+    discovery,
     documents,
     gmail_reviews,
     integrations,
@@ -60,6 +61,10 @@ async def lifespan(_: FastAPI):
         try:
             bootstrap_admin_from_env(db)
             sync_evidence_registry(db)
+            # Load the active owner discovery-policy override into the hot path (best-effort).
+            from app.services.discovery_policy import refresh_active_override
+
+            refresh_active_override(db)
         finally:
             db.close()
     yield
@@ -93,6 +98,7 @@ app.include_router(workflows.router, prefix="/api")
 app.include_router(representations.router, prefix="/api")
 app.include_router(validation.router, prefix="/api")
 app.include_router(opportunities.router, prefix="/api")
+app.include_router(discovery.router, prefix="/api")
 
 
 @app.get("/health")
