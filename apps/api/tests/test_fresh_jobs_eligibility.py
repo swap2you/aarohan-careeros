@@ -305,3 +305,110 @@ def test_foreign_remote_ok_style_rejected():
         }
     )
     assert loc == INELIGIBLE_FOREIGN
+
+
+# --- Domain exclusion: non-software (manufacturing / pharma / hardware) QE roles ---
+def test_pharma_gmp_quality_engineering_rejected_by_domain():
+    """A QE title at a pharma manufacturer (GMP) must reject despite the title match."""
+    result = evaluate_eligibility(
+        _base(
+            title="Director, Quality Engineering",
+            company="Catalent Inc",
+            location="Saint Petersburg, FL",
+            description_text=(
+                "range of pharmaceutical products. Director, Quality Engineering to lead "
+                "strategic GMP initiatives in a regulated manufacturing facility."
+            ),
+        )
+    )
+    assert result.decision == DECISION_REJECT, result.reasons
+    assert result.owner_visible is False
+    assert any("domain" in r.lower() for r in result.reasons), result.reasons
+
+
+def test_industrial_product_quality_rejected_by_domain():
+    """Industrial 'high-quality products and services' quality role must reject."""
+    result = evaluate_eligibility(
+        _base(
+            title="Director Quality Engineering",
+            company="Honeywell",
+            location="Atlanta, GA",
+            description_text=(
+                "As a Director of Quality Engineering you will drive the consistent "
+                "delivery of high-quality products and services and quality excellence."
+            ),
+        )
+    )
+    assert result.decision == DECISION_REJECT, result.reasons
+    assert result.owner_visible is False
+
+
+def test_software_quality_engineering_still_accepted():
+    """A genuine software QE role with the same title must remain accepted."""
+    result = evaluate_eligibility(
+        _base(
+            title="Director, Quality Engineering",
+            company="Reveal Technology",
+            location="New York, NY",
+            description_text=(
+                "Own the overarching test automation infrastructure and scale a lean team "
+                "of QA engineers to deliver software quality across our platform."
+            ),
+        )
+    )
+    assert result.decision == DECISION_ACCEPT, result.reasons
+    assert result.owner_visible is True
+
+
+def test_air_quality_title_rejected_despite_qe_profile():
+    """'Air Quality Engineer' must reject even though it resembles a QE title."""
+    result = evaluate_eligibility(
+        _base(title="Principal Air Quality Engineer", company="Poutrix", location="United States")
+    )
+    assert result.decision == DECISION_REJECT, result.reasons
+    assert result.owner_visible is False
+
+
+def test_design_quality_engineering_title_rejected():
+    result = evaluate_eligibility(
+        _base(
+            title="Quality Manager - Design Quality Engineering",
+            company="Wapa",
+            location="United States",
+            description_text="Lead a team of Design Quality Engineers providing guidance.",
+        )
+    )
+    assert result.decision == DECISION_REJECT, result.reasons
+    assert result.owner_visible is False
+
+
+def test_supplier_quality_in_html_description_rejected():
+    """HTML tags in the description must not defeat the domain phrase match."""
+    result = evaluate_eligibility(
+        _base(
+            title="Principal Quality Engineer",
+            company="Westinghouse Electric",
+            location="United States",
+            description_text=(
+                "As a Principal Supplier <b>Quality Engineer</b> you will lead quality "
+                "assurance tasks for Large Structures in the AP1000 nuclear product line."
+            ),
+        )
+    )
+    assert result.decision == DECISION_REJECT, result.reasons
+    assert result.owner_visible is False
+
+
+def test_domain_reject_requires_contiguous_phrase():
+    """'manufacturing' and 'quality' far apart must NOT trigger the domain reject."""
+    result = evaluate_eligibility(
+        _base(
+            title="Senior Manager, Quality Engineering",
+            company="Acme Software",
+            description_text=(
+                "We build manufacturing analytics software. You will own quality "
+                "engineering and test automation for our cloud platform."
+            ),
+        )
+    )
+    assert result.decision == DECISION_ACCEPT, result.reasons

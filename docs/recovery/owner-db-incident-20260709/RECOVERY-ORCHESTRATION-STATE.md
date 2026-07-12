@@ -149,20 +149,46 @@ Immutable marker table: `aarohan_meta.database_identity` (migration `0013`).
 
 | ID | Severity | Action |
 |---|---|---|
-| P4-HIGH-001 | High | Owner reconnect Google on canonical runtime (OAuth refresh rejected post-cutover) |
+| P4-HIGH-001 | High | **Resolved** — owner reconnected Google on canonical runtime; OAuth refresh/Gmail/Drive healthy, restart persistence verified |
 
-## Owner business row counts (post-cutover canonical)
+### Phase 4 — final post-cutover validation
+
+- Status: **COMPLETE — awaiting Codex final review**
+- Evidence root: `artifacts/recovery/incident-20260709/phase4-final-20260711_194500/`
+- Canonical database: `career_os` — OWNER `8651fd13-3f74-479e-b20f-e433b5d6b87c` (unambiguous)
+- Owner reconnected Google via canonical app (web :3000 / API :8000)
+- Canonical state: runtime user non-privileged, DDL denied, migrate user separate — **PASS**
+- OAuth: `swapnilpatil.tech@gmail.com`, 3 active tokens decrypt/refresh, Gmail+Drive read, no archived-DB token copy, restart persistence — **PASS**
+- Drive: root `1EaueVpEFOkZE-_9EKrY-_xdcJgY1Jkqr`, six subfolders, no duplicate root, restart-preserved — **PASS**
+- Gmail: 120 scanned, second sync idempotent, 0 duplicate jobs, 0 suppressors — **PASS**
+- Fresh Jobs: **11 accepted, 0 OWNER_REVIEW** (corrected 13→11; jobs 139/175 domain-rejected); audit dry-run only (no `-Execute`) — **PASS**
+- Owner workflow: all areas OK, validation-only records removed (0 remain) — **PASS**
+- Backup: `pg_dump` exit 0, SHA256 `b67c156f...`, restore-verified into disposable DB (dropped), no fixture rows — **PASS**
+- Automated: secret/prohibited/owner-stack/privileged scans PASS; SQLite 258 passed/23 skipped; Postgres integration 57 passed; Playwright 6 teardown-flake failures → targeted `--workers=1` rerun 6 passed; web build PASS; `git diff --check` PASS
+- Defects: Critical 0 / High 0 / Medium 0 / Low-open 1 (P4-LOW-003 audit recompute delta, non-blocking)
+
+#### Phase 4 final finding disposition
+
+| ID | Severity | Disposition |
+|---|---|---|
+| P4-HIGH-001 | High | **Resolved** — owner reconnected Google; `oauth/PHASE-4-OAUTH-FINAL-VALIDATION.json` |
+| P4-MED-001 | Medium | **Resolved** — eligibility engine title/domain/HTML fix + regression tests |
+| P4-LOW-001 | Low | **Resolved** — privileged-helper PowerShell invocation fix |
+| P4-LOW-002 | Low | **Resolved** — Playwright teardown flake (targeted rerun passed) |
+| P4-LOW-003 | Low | **Open** — audit-tool recompute delta (12 vs 11); dry-run advisory only, non-blocking |
+
+## Owner business row counts (post-final-validation canonical)
 
 | Table | Count |
 |---|---:|
-| jobs | 135 |
+| jobs | 175 |
 | applications | 0 |
-| oauth_tokens | 3 |
-| processed_gmail_messages | 206 |
+| oauth_tokens | 6 (active 3) |
+| processed_gmail_messages | 241 |
 | users | 1 |
-| accepted (eligible) | 9 |
+| accepted (eligible) | 11 |
 
-Archived damaged owner (`career_os_rollback_resume_20260711_043000`): OAuth side-effect rows preserved; non-authoritative.
+Archived damaged owner (`career_os_rollback_resume_20260711_043000`): marker `OWNER|2bfda5fc-3a2b-4dd4-a7a9-65e8432f7c03`, OAuth side-effect rows preserved; unchanged; non-authoritative.
 
 ## Validation database (unchanged — not modified)
 
@@ -176,4 +202,4 @@ Archived damaged owner (`career_os_rollback_resume_20260711_043000`): OAuth side
 
 ## Next action
 
-**Codex final review** — cutover performed; canonical `career_os` promoted with new OWNER UUID `8651fd13-3f74-479e-b20f-e433b5d6b87c`. Owner must reconnect Google on http://127.0.0.1:3000 before declaring COMPLETE.
+**Codex Phase 4 final review** — cutover performed and canonical `career_os` promoted (OWNER `8651fd13-3f74-479e-b20f-e433b5d6b87c`); owner reconnected Google and final post-cutover validation passed (see `artifacts/recovery/incident-20260709/phase4-final-20260711_194500/PHASE-4-FINAL-VALIDATION-REPORT.md`). Do not declare `COMPLETE` until Codex GO.

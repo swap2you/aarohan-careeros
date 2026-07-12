@@ -14,8 +14,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $Root
 
-. (Join-Path $PSScriptRoot "Assert-AarohanOwnerDatabaseIdentity.ps1")
-$identity = Assert-AarohanOwnerDatabaseIdentity `
+$identity = & (Join-Path $PSScriptRoot "Assert-AarohanOwnerDatabaseIdentity.ps1") `
     -Database $Database `
     -ContainerName $ContainerName `
     -PrivilegedUser $BootstrapUser

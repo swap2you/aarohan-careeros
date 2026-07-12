@@ -14,7 +14,6 @@ $RepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 Set-Location $RepoRoot
 
 . (Join-Path $PSScriptRoot "Invoke-AarohanCompose.ps1")
-. (Join-Path $PSScriptRoot "Assert-AarohanOwnerDatabaseIdentity.ps1")
 
 $ConfirmationPhrase = "ARCHIVE STALE AND INELIGIBLE JOBS"
 
@@ -63,7 +62,7 @@ if (-not $ReportDir) {
 Write-Host "Aarohan Fresh Jobs audit" -ForegroundColor Cyan
 Write-Host ("Mode: " + $(if ($Execute) { "EXECUTE" } else { "dry-run (default)" }))
 
-$identity = Assert-AarohanOwnerDatabaseIdentity
+$identity = & (Join-Path $PSScriptRoot "Assert-AarohanOwnerDatabaseIdentity.ps1")
 Write-Host "Owner identity preflight verified (purpose=$($identity.Purpose), database=$($identity.Database))."
 
 Import-AarohanRepoEnvLocal -Root $RepoRoot

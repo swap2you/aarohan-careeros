@@ -216,6 +216,26 @@ role_reject_patterns:
   - product inspection
   - design quality engineering
 
+# Full-text (title + company + description) domain exclusions applied even when a
+# primary software-QE TITLE matched. Catches manufacturing / pharma / hardware
+# "quality engineering" roles whose non-software nature only appears in the body
+# (e.g. GMP pharmaceutical manufacturing, industrial product quality).
+# Matched as contiguous normalized phrases only (no loose subsequence matching).
+domain_reject_patterns:
+  - gmp
+  - cgmp
+  - good manufacturing practice
+  - pharmaceutical manufacturing
+  - medical device manufacturing
+  - supplier quality
+  - manufacturing quality
+  - environmental quality
+  - hardware quality
+  - product inspection
+  - shop floor
+  - production line
+  - high quality products and services
+
 salary:
   target_max_usd: 200000
   strong_max_usd: 170000

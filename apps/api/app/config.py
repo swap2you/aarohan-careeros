@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     career_vault_root: str = "/app/career_vault"
     generated_root: str = "/app/generated"
 
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     oauth_fixture_mode: bool = False
 
     adzuna_app_id: str = ""

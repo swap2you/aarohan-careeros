@@ -9,7 +9,8 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from app.services.discovery_policy import job_discovery_policy
-from app.services.title_normalization import normalize_title, pattern_in_title
+from app.services.sanitize import html_to_text
+from app.services.title_normalization import normalize_title, pattern_in_title, title_tokens
 
 # Reason codes
 STALE_HISTORICAL = "STALE_HISTORICAL"
@@ -420,6 +421,23 @@ def evaluate_freshness(
     return tier, source, effective, hours, provider_posted_at, source_received_at, codes, reasons
 
 
+def _phrase_contiguous_in_tokens(pattern: str, haystack_tokens: list[str]) -> bool:
+    """True when the normalized pattern appears as a contiguous token run.
+
+    Contiguous-only (no loose subsequence) to avoid false positives across long
+    descriptions — e.g. "manufacturing quality" must appear adjacent, not merely
+    with both tokens somewhere in the text.
+    """
+    needle = title_tokens(pattern)
+    if not needle or not haystack_tokens:
+        return False
+    n = len(needle)
+    for i in range(len(haystack_tokens) - n + 1):
+        if haystack_tokens[i : i + n] == needle:
+            return True
+    return False
+
+
 def score_role_profiles(payload: dict) -> tuple[str | None, str | None, str | None, dict[str, float], list[str], str]:
     """Match role profiles against normalized TITLE only (not description)."""
     title = payload.get("title") or ""
@@ -434,6 +452,40 @@ def score_role_profiles(payload: dict) -> tuple[str | None, str | None, str | No
     )
     profiles = job_discovery_policy().get("role_profiles", [])
     reject_patterns = list(job_discovery_policy().get("role_reject_patterns", []))
+    domain_reject_patterns = list(job_discovery_policy().get("domain_reject_patterns", []))
+
+    # Out-of-scope TITLE patterns (e.g. "air quality", "design quality engineering",
+    # "supplier quality") must reject BEFORE any primary QE profile match — otherwise a
+    # title that also resembles a target profile (…"Quality Engineer") is auto-accepted.
+    for rp in reject_patterns:
+        if rp and pattern_in_title(rp, title):
+            return "reject", f"Title matches out-of-scope pattern: {rp}", None, {}, [], norm_title
+
+    # Full-text (title + company + HTML-stripped description) domain exclusion runs
+    # BEFORE any primary title acceptance so manufacturing / pharma / hardware quality
+    # roles whose non-software nature only appears in the body cannot be auto-accepted.
+    # HTML is stripped first so tags (e.g. "Supplier <b>Quality</b>") do not split
+    # phrase matches into non-adjacent tokens.
+    if domain_reject_patterns:
+        blob_tokens = title_tokens(
+            " ".join(
+                [
+                    title,
+                    payload.get("company") or "",
+                    html_to_text(payload.get("description_text") or ""),
+                ]
+            )
+        )
+        for dp in domain_reject_patterns:
+            if _phrase_contiguous_in_tokens(dp, blob_tokens):
+                return (
+                    "reject",
+                    f"Description matches out-of-scope domain: {dp}",
+                    None,
+                    {},
+                    [],
+                    norm_title,
+                )
 
     scores: dict[str, float] = {}
     best_primary: tuple[float, str | None, list[str]] = (0.0, None, [])
@@ -474,11 +526,6 @@ def score_role_profiles(payload: dict) -> tuple[str | None, str | None, str | No
             best_primary[2],
             norm_title,
         )
-
-    # Hard reject out-of-scope titles when no primary match (title only)
-    for rp in reject_patterns:
-        if rp and pattern_in_title(rp, title):
-            return "reject", f"Title matches out-of-scope pattern: {rp}", None, scores, [], norm_title
 
     if best_secondary[1]:
         return (

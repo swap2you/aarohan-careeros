@@ -1,4 +1,30 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+function resolveApiBase(): string {
+  const configured = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+  // On the server (SSR/build) window is undefined — use the configured base.
+  if (typeof window === "undefined") {
+    return configured;
+  }
+  // In the browser, when the API is on loopback we must call it on the SAME
+  // hostname the page was opened with (localhost vs 127.0.0.1). Otherwise the
+  // session cookie is treated as cross-site (not sent) and CORS rejects it,
+  // which produces an infinite login/redirect loop.
+  try {
+    const configuredUrl = new URL(configured);
+    const configuredIsLoopback =
+      configuredUrl.hostname === "localhost" || configuredUrl.hostname === "127.0.0.1";
+    const pageIsLoopback =
+      window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    if (configuredIsLoopback && pageIsLoopback) {
+      const port = configuredUrl.port || "8000";
+      return `${window.location.protocol}//${window.location.hostname}:${port}`;
+    }
+  } catch {
+    // Fall through to the configured base on any parse error.
+  }
+  return configured;
+}
+
+export const API_BASE = resolveApiBase();
 
 let sessionExpiredHandler: (() => void) | null = null;
 

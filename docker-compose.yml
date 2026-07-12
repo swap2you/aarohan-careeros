@@ -40,7 +40,7 @@ services:
       DATABASE_URL: postgresql+psycopg://career_os_runtime:${POSTGRES_RUNTIME_PASSWORD}@postgres:5432/career_os
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       OAUTH_FIXTURE_MODE: ${OAUTH_FIXTURE_MODE:-false}
       SCHEDULING_ENABLED: "false"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -78,6 +78,8 @@ services:
   web:
     build:
       context: ./apps/web
+      args:
+        NEXT_PUBLIC_API_BASE: http://localhost:8000
     restart: unless-stopped
     depends_on:
       api:
