@@ -2,7 +2,21 @@
 
 ## Current state
 
-`FINAL_AWAITING_CODEX_REVIEW`
+`COMPLETE`
+
+Recovery is complete. Codex Phase 4 final verdict = **GO**
+(`docs/recovery/owner-db-incident-20260709/reviews/CODEX-PHASE-4-FINAL-REVIEW.md`,
+HEAD reviewed `f724c01478d3324f3871051fe178aa988e54601e`).
+
+- Canonical owner database: `career_os` — purpose `OWNER`, UUID `8651fd13-3f74-479e-b20f-e433b5d6b87c`.
+- Archived rollback database `career_os_rollback_resume_20260711_043000` preserved unchanged (marker `OWNER|2bfda5fc-3a2b-4dd4-a7a9-65e8432f7c03`); non-authoritative.
+- OAuth / Gmail / Drive operational for `swapnilpatil.tech@gmail.com` (3 active tokens, refresh/read verified, restart-persistent).
+- Final canonical backup created and restore-verified (SHA256 `b67c156fac30c10b79ed89673f7276fe63dc83505c53a9d20486259f34726833`; disposable verify DB removed).
+- `career_os_validation` unchanged (jobs 124, applications 3, oauth 9, gmail 59, users 2).
+
+Recovery `COMPLETE` does **not** imply Workflow Lock 01 is LOCKED. Workflow Lock 01
+remains **`READY_FOR_OWNER_VALIDATION`** — awaiting owner/Cowork UAT
+(`docs/workflow-locks/STEP-01-FRESH-JOBS-CLOSURE-REPORT.md`).
 
 Allowed values:
 
@@ -154,7 +168,8 @@ Immutable marker table: `aarohan_meta.database_identity` (migration `0013`).
 
 ### Phase 4 — final post-cutover validation
 
-- Status: **COMPLETE — awaiting Codex final review**
+- Status: **COMPLETE — Codex GO**
+- Codex review: `docs/recovery/owner-db-incident-20260709/reviews/CODEX-PHASE-4-FINAL-REVIEW.md` — **GO**
 - Evidence root: `artifacts/recovery/incident-20260709/phase4-final-20260711_194500/`
 - Canonical database: `career_os` — OWNER `8651fd13-3f74-479e-b20f-e433b5d6b87c` (unambiguous)
 - Owner reconnected Google via canonical app (web :3000 / API :8000)
@@ -203,4 +218,9 @@ Archived damaged owner (`career_os_rollback_resume_20260711_043000`): marker `OW
 
 ## Next action
 
-**Codex Phase 4 final review** — cutover performed and canonical `career_os` promoted (OWNER `8651fd13-3f74-479e-b20f-e433b5d6b87c`); owner reconnected Google and final post-cutover validation passed (see `artifacts/recovery/incident-20260709/phase4-final-20260711_194500/PHASE-4-FINAL-VALIDATION-REPORT.md`). Do not declare `COMPLETE` until Codex GO.
+**Recovery COMPLETE (Codex GO).** Next: owner/Cowork Workflow Lock 01 UAT starting from
+Fresh Jobs (`http://127.0.0.1:3000`). Workflow Lock 01 backend parity + stale-state fixes
+are recorded in `docs/workflow-locks/STEP-01-FRESH-JOBS-CLOSURE-REPORT.md`; status
+`READY_FOR_OWNER_VALIDATION` (not LOCKED). A bounded owner-eligibility state reconciliation
+is prepared and gated on the owner confirmation phrase
+`APPROVE WORKFLOW 01 ELIGIBILITY STATE RECONCILIATION`.
